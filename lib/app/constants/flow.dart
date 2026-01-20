@@ -1,0 +1,1 @@
+enum FlowType{postPregnancy,pregnancy,prePregnancy}

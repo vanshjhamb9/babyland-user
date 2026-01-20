@@ -1,0 +1,284 @@
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:babyland/app/common_model/common_model.dart';
+import 'package:babyland/app/data/response/api_response.dart';
+import 'package:babyland/app/data/storage/secure_storage.dart';
+import 'package:babyland/app/theme/app_colors.dart';
+import 'package:babyland/app/widgets/app_popup.dart';
+import 'package:babyland/app/widgets/print.dart';
+import 'package:flutter/cupertino.dart';
+import '../../../main.dart';
+import 'model/ai_chat_model.dart';
+import 'model/chat_room_create_model.dart' hide Chat;
+import 'model/create_ai_chat_model.dart';
+
+class AiAssistantProvider extends ChangeNotifier{
+
+  TextEditingController messageController = TextEditingController();
+  final ScrollController scrollController = ScrollController();
+  bool showHistory = false;
+  bool userStartedChatting = false;
+  // bool _isMicOn = false;
+  // bool get isMicOn => _isMicOn;
+  //
+  // setMicOn(bool isMicOn){
+  //   _isMicOn = isMicOn;
+  //   pt("_isMicOn $_isMicOn");
+  //   notifyListeners();
+  // }
+
+  bool _isVoiceChat = false;
+  bool get isVoiceChat => _isVoiceChat;
+  setVoiceChat(bool isVoiceChat){
+    _isVoiceChat = isVoiceChat;
+    pt("_isVoiceChat $_isVoiceChat");
+    startListening();
+    notifyListeners();
+  }
+
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool get isListening => _isListening;
+
+  Future<void> startListening() async {
+    if (_isListening) {
+      pt("Already listening, skipping...");
+      return;
+    }
+    if (_speech.isListening) {
+      await _speech.stop();
+    }
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        pt("SpeechToText Status: $status");
+        // Automatically stop when not listening
+        if (status == "done" || status == "notListening") {
+          setVoiceChat(false);
+          // setMicOn(false);
+          stopListening();
+        }
+      },
+      onError: (error) {
+        pt("SpeechToText Error: $error");
+        stopListening();
+      },
+    );
+
+    if (available) {
+      _isListening = true;
+      notifyListeners();
+      _speech.listen(
+        onResult: (result) {
+          // Print what user is speaking
+          pt("User said: ${result.recognizedWords}");
+
+          // update message text in real-time
+          messageController.text = result.recognizedWords;
+          notifyListeners();
+
+          // Automatically stop listening if speech is complete
+          if (result.finalResult) {
+            pt("Final result: ${result.recognizedWords}");
+            stopListening();
+            messageController.text = result.recognizedWords;
+            createChatMessages();
+          }
+        },
+        // listenFor: const Duration(seconds: 60), // max listening time
+        pauseFor: const Duration(seconds: 4), // auto-stop if user pauses
+        localeId: "en_US",
+        partialResults: true,
+        cancelOnError: true,
+      );
+    } else {
+      _isListening = false;
+      stopListening();
+      setVoiceChat(false);
+      notifyListeners();
+      AppPopUp.showToast(message: "Speech recognition not available");
+    }
+  }
+
+  /// Stop listening
+  void stopListening() {
+    if (_isListening) {
+      _speech.stop();
+      _isListening = false;
+      notifyListeners();
+      pt("Stopped listening");
+    }
+  }
+
+  ///----------------------------------------------------------------------------------------
+  ApiResponse<CreateAiChatRoomModel>? _createCharRoom = ApiResponse.completed(null);
+  ApiResponse<CreateAiChatRoomModel>? get createCharRoom => _createCharRoom;
+
+  void setCrateRoomData(ApiResponse<CreateAiChatRoomModel> response) {
+    _createCharRoom = response;
+    notifyListeners();
+  }
+
+  Future<void> createChatRoomApi() async {
+    setCrateRoomData(ApiResponse.loading());
+    notifyListeners();
+
+    await repository.createChatRoom().then((value)async {
+      if (value.success == true) {
+        setCrateRoomData(ApiResponse.completed(value));
+        pt(name: "response id conversaction", "${value.chat?.sId}");
+        await SecureStorage.saveConversationId(value.chat?.sId ?? "");
+        pt(name: "response", "${value.message}");
+
+      }
+      if(value.success == false) {
+        AppPopUp.showToast(message: value.message ?? "");
+        setCrateRoomData(ApiResponse.error(value.message ?? "Something went wrong!"));
+      }
+      notifyListeners();
+    },).onError((error, stackTrace) {
+      pt("Error in pregnancyInfo: $error\n$stackTrace");
+      setCrateRoomData(ApiResponse.error(error.toString()));
+      notifyListeners();
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+      notifyListeners();
+    },);
+  }
+
+
+  ////---------------------------------Get all ai chat
+
+  ApiResponse<GetAiChatModel>? _allAiChatData = ApiResponse.completed(null);
+  ApiResponse<GetAiChatModel>? get allAiChatData => _allAiChatData;
+
+  void setAllAIChat(ApiResponse<GetAiChatModel> response) {
+    _allAiChatData = response;
+    notifyListeners();
+  }
+
+  Future<void> getAllAiChatModel() async {
+    showHistory = true;
+    notifyListeners();
+    setAllAIChat(ApiResponse.loading());
+    notifyListeners();
+
+    await repository.getAllAiChat().then((value)async {
+      if (value.success == true) {
+        setAllAIChat(ApiResponse.completed(value));
+        chatList = value.chats?.map((chat) {
+          if (chat.role == "assistant") {
+            return Chat(aiMessage: chat.content);
+          } else {
+            return Chat(userMessage: chat.content);
+          }
+        }).toList() ?? [];
+        scrollToBottom();
+      }
+      if(value.success == false) {
+        AppPopUp.showToast(message: value.message ?? "");
+      }
+      notifyListeners();
+    },).onError((error, stackTrace) {
+      pt("Error in pregnancyInfo: $error\n$stackTrace");
+      setAllAIChat(ApiResponse.error(error.toString()));
+      notifyListeners();
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+      notifyListeners();
+    },);
+  }
+
+  void startNewChat() {
+    showHistory = false;
+    chatList.clear();
+    notifyListeners();
+  }
+
+  ///----------------------------
+  ///
+
+  ApiResponse<CreateAiChatModel>? _createAiChatData = ApiResponse.completed(null);
+  ApiResponse<CreateAiChatModel>? get createAiChatData => _createAiChatData;
+
+  void setCreateAIChat(ApiResponse<CreateAiChatModel> response) {
+    _createAiChatData = response;
+    notifyListeners();
+  }
+
+  List<Chat> chatList = [];
+
+  void addUserMessage(String message) {
+    chatList.add(Chat(userMessage: message));
+    notifyListeners();
+  }
+
+  // Add AI message to the list
+  void addAIMessage(Chat chat) {
+    chatList.add(Chat(aiMessage: chat.aiMessage));
+    notifyListeners();
+  }
+
+
+  Future<void> createChatMessages() async {
+    if (messageController.text.isEmpty) return AppPopUp.showToast(message: "Please enter you message",lineColor: AppColors.red);
+
+    final userMessage = messageController.text;
+
+    setCreateAIChat(ApiResponse.loading());
+    notifyListeners();
+    addUserMessage(userMessage);
+
+
+    Map<String,dynamic> data = {
+      "conversationId":createCharRoom?.data?.chat?.sId ?? await SecureStorage.getConversationId(),
+      "message":messageController.text
+    };
+    messageController.clear();
+
+    await repository.createAiChat(data).then((value)async {
+
+      if (value.success == true) {
+
+
+        setCreateAIChat(ApiResponse.completed(value));
+        if (value.chat != null) {
+          addAIMessage(value.chat!);
+        }
+        // addAIMessage(value.chat);
+        messageController.clear();
+        scrollToBottom();
+      }
+      if(value.success == false) {
+        setCreateAIChat(ApiResponse.error(value.message));
+        AppPopUp.showToast(message: value.message ?? "");
+      }
+
+      notifyListeners();
+    },).onError((error, stackTrace) {
+      pt("Error in pregnancyInfo: $error\n$stackTrace");
+      setCreateAIChat(ApiResponse.error(error.toString()));
+      notifyListeners();
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+      notifyListeners();
+    },);
+  }
+
+
+  void scrollToBottom() {
+    if (scrollController.hasClients) {
+      scrollController.animateTo(
+        scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+
+    },);
+    super.dispose();
+  }
+
+
+}

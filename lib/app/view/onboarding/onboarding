@@ -1,0 +1,207 @@
+import 'package:babyland/app/constants/images.dart';
+import 'package:babyland/app/theme/app_colors.dart';
+import 'package:babyland/app/theme/font_family.dart';
+import 'package:babyland/app/theme/font_style.dart';
+import 'package:babyland/app/widgets/custom_appbar.dart';
+import 'package:babyland/app/widgets/custom_image.dart';
+import 'package:babyland/app/widgets/print.dart';
+import 'package:babyland/app/widgets/sizedbox.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../controller/onboarding/onboarding_provider.dart';
+
+class OnboardingView extends StatefulWidget {
+  const OnboardingView({super.key});
+
+  @override
+  State<OnboardingView> createState() => _OnboardingViewState();
+}
+
+class _OnboardingViewState extends State<OnboardingView> {
+  final PageController _pageController = PageController();
+  final ValueNotifier<int> currentPage = ValueNotifier<int>(0);
+
+  double percent = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => OnboardingProvider(),
+      child: Scaffold(
+        appBar: appBar(),
+        backgroundColor: AppColors.backgroundClr,
+        body: Consumer<OnboardingProvider>(
+          builder: (context, controller, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              contentWidget(controller, context),
+              indicator(controller),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget contentWidget(OnboardingProvider controller, BuildContext context) {
+    return ClipPath(
+      clipper: BottomCurveClipper(),
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          SizedBox(
+            height: mediaQueryH(context) * 0.45,
+            child: PageView.builder(
+              // physics: NeverScrollableScrollPhysics(),
+              controller: _pageController,
+              itemCount: 3,
+              onPageChanged: (index) {
+                currentPage.value = index;
+                pt("Page no>> ${currentPage.value}");
+              },
+              itemBuilder: (_, index) {
+                final data = controller.onboardingData[index];
+                return Container(
+                  clipBehavior: Clip.hardEdge,
+                  height: mediaQueryH(context) * 0.45,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      transform: const GradientRotation(5),
+                      colors: [
+                        AppColors.backgroundClr1.withValues(alpha: 0.5),
+                        AppColors.backgroundClr2.withValues(alpha: 0.5),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+              bottom: -260,
+              right: mediaQueryW(context) * 0.07,
+              child: Center(child: CustomImage(path: ImageConstants.onboarding_1,h: 650,))),
+
+        ],
+      ),
+    );
+  }
+
+  Widget indicator(OnboardingProvider controller) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24.0),
+      child: Row(
+        children: [
+          ValueListenableBuilder<int>(
+            valueListenable: currentPage,
+            builder: (context, page, _) {
+              return Row(
+                children: List.generate(
+                  controller.onboardingData.length,
+                  (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: EdgeInsets.only(left: 6),
+                    height: 8,
+                    width: page == index ? 30 : 8,
+                    decoration: BoxDecoration(
+                      color: page == index
+                          ? AppColors.primary
+                          : AppColors.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  appBar() {
+    return PreferredSize(
+      preferredSize: Size.fromHeight(kToolbarHeight),
+      child: ValueListenableBuilder<int>(
+        valueListenable: currentPage,
+        builder: (context, page, _) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                transform: const GradientRotation(5),
+                colors: [
+                  AppColors.backgroundClr1.withValues(alpha: 0.5),
+                  AppColors.backgroundClr2.withValues(alpha: 0.5),
+                ],
+              ),
+            ),
+            child: CustomAppBar(
+              backgroundClr: AppColors.transparent,
+              isLeading: page != 0,
+              leadingOnTap: () {
+                if (_pageController.page != null && _pageController.page! > 0) {
+                  _pageController.previousPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.ease,
+                  );
+                }
+              },
+              isPop: false,
+              actions: [
+                InkWell(
+                  splashColor: AppColors.transparent,
+                  onTap: () async {
+                    //  UserPreference pref = UserPreference();
+                    // await pref.saveIsFirstTime(true).then((value) {
+                    //   Navigator.pushNamedAndRemoveUntil(
+                    //     context,
+                    //     AppRoutes.loginScreen,
+                    //         (route) => false,
+                    //   );
+                    // },);
+                  },
+                  child: Text(
+                    "Skip",
+                    style: AppFontStyle.text_16_400(
+                      AppColors.textClr,
+                      fontFamily: AppFontFamily.gilroyMedium,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+class BottomCurveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    Path path = Path();
+    path.lineTo(0, size.height - 75);
+
+    path.quadraticBezierTo(
+      size.width / 2, size.height,
+      size.width, size.height - 75,
+    );
+
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
