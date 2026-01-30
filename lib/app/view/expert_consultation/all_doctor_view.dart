@@ -1,7 +1,7 @@
 import 'package:babyland/app/constants/images.dart';
 import 'package:babyland/app/controller/experts_consultation/experts_consultation_controller.dart';
 import 'package:babyland/app/data/response/status.dart';
-import 'package:babyland/app/data/storage/user_preference.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
@@ -334,7 +334,7 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                         Button(
                                           padding: EdgeInsets.zero,
                                           onTap: () async {
-                                            await UserPreference.saveDoctorId(doctor.sId ?? "");
+                                            await UserLocalData.saveDoctorId(doctor.sId ?? "");
                                             Navigator.pushNamed(
                                               context,
                                               AppRoutes.doctorProfileView,

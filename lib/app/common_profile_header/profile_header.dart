@@ -2,7 +2,7 @@ import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/constants/images.dart';
 import 'package:babyland/app/controller/ai_assistant/ai_assistant_controller.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
-import 'package:babyland/app/data/storage/user_preference.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

@@ -34,22 +34,28 @@ class BasicInfoView extends StatelessWidget {
       create: (context) => BasicInformationProvider(),
       child: Consumer<BasicInformationProvider>(
         builder: (context, provider, _) {
-          return  Scaffold(
-            body: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.backGroundColor,
-              ),
-              child: Column(
-                children: [
-                  CustomAppBar(
-                    centerTitle: true,
-                    title: Text(
-                      provider.currentIndex == 0 ?
-                      "Last Period Details" : provider.currentIndex == 1 ? "Cycle Details" : provider.currentIndex == 2 ?"Average period length" : "Any Existing Conditions?",
-                      style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroySemiBold),
-                    ),
-                    backgroundClr: AppColors.transparent,
+          return WillPopScope(  // Add this wrapper
+              onWillPop: () async {
+                // Return false to disable back button
+                return false;
+              },
+              child: Scaffold(
+                body: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.backGroundColor,
                   ),
+                  child: Column(
+                    children: [
+                      CustomAppBar(
+                        centerTitle: true,
+                        leading: SizedBox.shrink(),  // Add this line - removes back button
+                        title: Text(
+                          provider.currentIndex == 0 ?
+                          "Last Period Details" : provider.currentIndex == 1 ? "Cycle Details" : provider.currentIndex == 2 ?"Average period length" : "Any Existing Conditions?",
+                          style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroySemiBold),
+                        ),
+                        backgroundClr: AppColors.transparent,
+                      ),
                   SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -96,7 +102,7 @@ class BasicInfoView extends StatelessWidget {
               ),
             ),
             bottomNavigationBar: bottomNavBarBtn(provider, context),
-          );
+          ));
         },),
     );
   }

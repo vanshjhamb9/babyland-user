@@ -11,6 +11,8 @@ import 'package:babyland/app/widgets/print.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/storage/user_local_data.dart';
+
 class StagesView extends StatefulWidget {
   final bool? fromProfile;
    const StagesView({super.key,this.fromProfile});
@@ -103,65 +105,68 @@ class _StagesViewState extends State<StagesView> {
                          context.read<GetUserProvider>().getUser();
                        }
                      },*/
-                       onTap: () {
-                         if (fromLoginScreen) {
-                           switch (index) {
-                             case 0: // Pre-Pregnancy
-                               Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
-                               break;
+                     onTap: () async {
+                       // Save timestamp when user makes a selection
+                       await UserLocalData.saveLastStageScreenShown();
+                       await UserLocalData.saveStep(index.toString());
 
-                             case 1: // Pregnancy
-                               Navigator.pushNamed(context, AppRoutes.pregnancyView);
-                               break;
+                       if (fromLoginScreen) {
+                         switch (index) {
+                           case 0: // Pre-Pregnancy
+                             Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
+                             break;
 
+                           case 1: // Pregnancy
+                             Navigator.pushNamed(context, AppRoutes.pregnancyView);
+                             break;
 
-                             case 2: // Post-Pregnancy
-                               Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
-                               break;
-                           }
-
-                           context.read<GetUserProvider>().getUser();
+                           case 2: // Post-Pregnancy
+                             Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
+                             break;
                          }
 
-                         else if (widget.fromProfile == true) {
-                           switch (index) {
-                             case 0: // Pre-Pregnancy
-                               Navigator.pushNamedAndRemoveUntil(
-                                 context,
-                                 AppRoutes.navbarPrePregancyView,
-                                     (route) => false,
-                               );
-                               break;
+                         context.read<GetUserProvider>().getUser();
+                       }
 
-                             case 1: // Pregnancy
-                               Navigator.pushNamedAndRemoveUntil(
-                                 context,
-                                 AppRoutes.pregnancyView,
-                                     (route) => false,
-                               );
-                               break;
+                       else if (widget.fromProfile == true) {
+                         switch (index) {
+                           case 0: // Pre-Pregnancy
+                             Navigator.pushNamedAndRemoveUntil(
+                               context,
+                               AppRoutes.navbarPrePregancyView,
+                                   (route) => false,
+                             );
+                             break;
 
-                             case 2: // Post-Pregnancy
-                               Navigator.pushNamedAndRemoveUntil(
-                                 context,
-                                 AppRoutes.combinedBabyDetailScreen,
-                                     (route) => false,
-                               );
-                               break;
-                           }
+                           case 1: // Pregnancy
+                             Navigator.pushNamedAndRemoveUntil(
+                               context,
+                               AppRoutes.pregnancyView,
+                                   (route) => false,
+                             );
+                             break;
+
+                           case 2: // Post-Pregnancy
+                             Navigator.pushNamedAndRemoveUntil(
+                               context,
+                               AppRoutes.combinedBabyDetailScreen,
+                                   (route) => false,
+                             );
+                             break;
                          }
+                       }
 
-                         else {
-                           // Default flow → Send index to next screen
-                           Navigator.pushNamed(
-                             context,
-                             AppRoutes.processingDetailsView,
-                             arguments: {"index": index},
-                           );
+                       else {
+                         // Default flow → Send index to next screen
+                         Navigator.pushNamed(
+                           context,
+                           AppRoutes.processingDetailsView,
+                           arguments: {"index": index},
+                         );
 
-                           context.read<GetUserProvider>().getUser();
-                         }
-                       },
+                         context.read<GetUserProvider>().getUser();
+                       }
+                     },
                        child: AppContainer(
                        height: 105,
                        color: AppColors.white,

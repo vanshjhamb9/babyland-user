@@ -1,7 +1,7 @@
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
-import 'package:babyland/app/data/storage/user_preference.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
@@ -293,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Button(
                         text: "Yes",
                         onTap: ()async {
-                          await UserPreference.clearAllLocalData();
+                          await UserLocalData.clearAllLocalData();
                           await SecureStorage.clearAll();
                           Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.signInView, (route) => false);
                         },

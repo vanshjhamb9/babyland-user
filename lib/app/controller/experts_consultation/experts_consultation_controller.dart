@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/constants/images.dart';
-import 'package:babyland/app/data/storage/user_preference.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
@@ -299,7 +299,7 @@ class ExpertConsultationProvider extends ChangeNotifier {
   Future<void> addBookingApi({required String date, required String time}) async {
     setLoadingDoc(true);
     addBookingData(ApiResponse.loading());
-    final docId = await UserPreference.getDoctorId();
+    final docId = await UserLocalData.getDoctorId();
     Map<String, dynamic> data = {
       "doctorId": selectedDoctorId == "" ? docId : selectedDoctorId,
       "date": extractOnlyDate(date),
@@ -476,7 +476,7 @@ class ExpertConsultationProvider extends ChangeNotifier {
 
 // import 'package:babyland/app/common_model/common_model.dart';
 // import 'package:babyland/app/constants/images.dart';
-// import 'package:babyland/app/data/storage/user_preference.dart';
+// import 'package:babyland/app/data/storage/user_local_data.dart';
 // import 'package:babyland/app/theme/app_colors.dart';
 // import 'package:babyland/app/theme/font_family.dart';
 // import 'package:babyland/app/theme/font_style.dart';

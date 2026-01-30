@@ -7,6 +7,7 @@ import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 
+import '../../data/storage/user_local_data.dart';
 import '../../widgets/print.dart';
 
 class ProcessingDetailsView extends StatefulWidget {
@@ -23,30 +24,41 @@ class _ProcessingDetailsViewState extends State<ProcessingDetailsView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       final index = args?["index"];
       print("Received index: $index");
 
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
+      // Check if we should show the stage screen
+      final shouldShow = await UserLocalData.shouldShowStageScreen();
+
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return;
+
+      if (shouldShow) {
+        // Show stage selection screen and save the timestamp
+        await UserLocalData.saveLastStageScreenShown();
+        Navigator.pushNamed(context, AppRoutes.stagesView, arguments: {
+          'fromLoginScreen': true,
+          'back': false,
+        });
+      } else {
+        // Skip stage screen, go directly to home based on saved preference
         switch (index) {
           case 0:
-          // Pregnancy
             Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
             break;
           case 1:
-          // Pre-pregnancy
             Navigator.pushNamed(context, AppRoutes.pregnancyView);
             break;
           case 2:
-          // Post-pregnancy
             Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
             break;
           default:
             Navigator.pushNamed(context, AppRoutes.signInView);
         }
-      });
+      }
     });
   }
 

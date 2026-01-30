@@ -7,6 +7,7 @@ import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
+import '../../data/storage/user_local_data.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -26,12 +27,13 @@ class _SplashViewState extends State<SplashView> {
 
   routing() async {
     bool isFirstTime = UserPreference.getIsFirstTime() ?? true;
-     // await SecureStorage.clearToken();
-     // await SecureStorage.saveToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNjkxMzhlZWJjOGUyNTJkMzJiNGRkZDg0In0sImlhdCI6MTc2MzEzNzY5OX0.Mr0iafS-ffiEFvB60JrRg0SmrUGTd2fhANOxZFDNELQ");
-     final id = await SecureStorage.getUserId();
+    final id = await SecureStorage.getUserId();
     final token = await SecureStorage.getToken();
+    final step = await UserLocalData.getStep(); // Use UserPreference
+
     pt("token... $token");
-    pt("token... $id");
+    pt("id... $id");
+    pt("step... $step");
 
     await Future.delayed(const Duration(seconds: 3));
 
@@ -45,12 +47,64 @@ class _SplashViewState extends State<SplashView> {
     }
 
     if (token != null && token.isNotEmpty) {
-      Navigator.pushNamedAndRemoveUntil(
-        navigatorKey.currentContext!,
-        AppRoutes.stagesView,
-            (route) => false,
-        arguments: {"fromLoginScreen": true,"back":false},
-      );
+      // Check if we should show the stage screen (once a month)
+      final shouldShowStageScreen = await UserLocalData.shouldShowStageScreen(); // Use UserPreference
+
+      if (shouldShowStageScreen) {
+        // Show stage selection screen and save timestamp
+        await UserLocalData.saveLastStageScreenShown(); // Use UserPreference
+        Navigator.pushNamedAndRemoveUntil(
+          navigatorKey.currentContext!,
+          AppRoutes.stagesView,
+              (route) => false,
+          arguments: {"fromLoginScreen": true, "back": false},
+        );
+      } else {
+        // Skip stage screen, go directly to appropriate home screen based on step
+        if (step != null && step.isNotEmpty) {
+          switch (step) {
+            case "0":
+              Navigator.pushNamedAndRemoveUntil(
+                navigatorKey.currentContext!,
+                AppRoutes.navbarPrePregancyView,
+                    (route) => false,
+              );
+              break;
+            case "1":
+              Navigator.pushNamedAndRemoveUntil(
+                navigatorKey.currentContext!,
+                AppRoutes.pregnancyView,
+                    (route) => false,
+              );
+              break;
+            case "2":
+              Navigator.pushNamedAndRemoveUntil(
+                navigatorKey.currentContext!,
+                AppRoutes.combinedBabyDetailScreen,
+                    (route) => false,
+              );
+              break;
+            default:
+            // If step is unknown, show stage screen
+              await UserLocalData.saveLastStageScreenShown();
+              Navigator.pushNamedAndRemoveUntil(
+                navigatorKey.currentContext!,
+                AppRoutes.stagesView,
+                    (route) => false,
+                arguments: {"fromLoginScreen": true, "back": false},
+              );
+          }
+        } else {
+          // No step saved, show stage screen
+          await UserLocalData.saveLastStageScreenShown();
+          Navigator.pushNamedAndRemoveUntil(
+            navigatorKey.currentContext!,
+            AppRoutes.stagesView,
+                (route) => false,
+            arguments: {"fromLoginScreen": true, "back": false},
+          );
+        }
+      }
     } else {
       Navigator.pushNamedAndRemoveUntil(
         navigatorKey.currentContext!,
