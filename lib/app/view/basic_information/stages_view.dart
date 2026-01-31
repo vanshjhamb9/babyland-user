@@ -15,7 +15,13 @@ import '../../data/storage/user_local_data.dart';
 
 class StagesView extends StatefulWidget {
   final bool? fromProfile;
-   const StagesView({super.key,this.fromProfile});
+  final bool? isUpdateFlow;
+
+  const StagesView({
+    super.key,
+    this.fromProfile,
+    this.isUpdateFlow,
+  });
 
   @override
   State<StagesView> createState() => _StagesViewState();
@@ -28,24 +34,34 @@ class _StagesViewState extends State<StagesView> {
     {"title":"Post-Pregnancy","image":ImageConstants.postPregnancy},
   ];
 
-
   bool fromLoginScreen = false;
   bool back = false;
+  int? selectedStageIndex;
 
   @override
   void initState() {
     super.initState();
+    _loadSelectedStage();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null && args.containsKey('fromLoginScreen')) {
         fromLoginScreen = args['fromLoginScreen'] ?? false;
         back = args['back'] ?? false;
-
       }
       pt("fromLoginScreen--------------->>>> $fromLoginScreen");
       pt("back--------------->>>> $back");
       pt("fromprofile--------------->>>> ${widget.fromProfile}");
     },);
+  }
+
+  Future<void> _loadSelectedStage() async {
+    final step = await UserLocalData.getStep();
+    if (step != null && step.isNotEmpty) {
+      setState(() {
+        selectedStageIndex = int.tryParse(step);
+      });
+      pt("Selected stage index: $selectedStageIndex");
+    }
   }
 
   @override
@@ -66,131 +82,150 @@ class _StagesViewState extends State<StagesView> {
               ),
               backgroundClr: AppColors.transparent,
             ),
-           ListView.separated(
-             physics: NeverScrollableScrollPhysics(),
-             shrinkWrap: true,
-               itemBuilder: (context, index) {
-                 return  Padding(
-                   padding: const EdgeInsets.symmetric(horizontal: 14),
-                   child: GestureDetector(
-                     /*onTap: () {
-                       if(fromLoginScreen){
-                         switch(index){
-                           case 0 :
-                             //pregnancy
-                             Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
-                           case 1 :
-                             //pre pregnancy
-                             Navigator.pushNamed(context, AppRoutes.pregnancyView);
-                           case 2 :
-                             // post pregnancy
-                             Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
-                         }
-                         context.read<GetUserProvider>().getUser();
-                       }else if(fromProfile){
-                         switch(index){
-                           case 0 :
-                           //pregnancy
-                             Navigator.pushNamedAndRemoveUntil(context, AppRoutes.navbarPrePregancyView,(route) => false,);
-                           case 1 :
-                           //pre pregnancy
-                             Navigator.pushNamedAndRemoveUntil(context, AppRoutes.pregnancyView,(route) => false,);
-                           case 2 :
-                           // post pregnancy
-                             Navigator.pushNamedAndRemoveUntil(context, AppRoutes.combinedBabyDetailScreen,(route) => false,);
-                         }
-                       }
-                       else {
-                         Navigator.pushNamed(context, AppRoutes.processingDetailsView, arguments: {"index": index});
-                         context.read<GetUserProvider>().getUser();
-                       }
-                     },*/
-                     onTap: () async {
-                       // Save timestamp when user makes a selection
-                       await UserLocalData.saveLastStageScreenShown();
-                       await UserLocalData.saveStep(index.toString());
+            ListView.separated(
+              physics: NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              itemBuilder: (context, index) {
+                final isSelected = selectedStageIndex == index;
 
-                       if (fromLoginScreen) {
-                         switch (index) {
-                           case 0: // Pre-Pregnancy
-                             Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
-                             break;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: GestureDetector(
+                    onTap: () async {
+                      // Save timestamp when user makes a selection
+                      await UserLocalData.saveLastStageScreenShown();
+                      await UserLocalData.saveStep(index.toString());
 
-                           case 1: // Pregnancy
-                             Navigator.pushNamed(context, AppRoutes.pregnancyView);
-                             break;
+                      // Update the selected stage visually
+                      setState(() {
+                        selectedStageIndex = index;
+                      });
 
-                           case 2: // Post-Pregnancy
-                             Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
-                             break;
-                         }
+                      if (fromLoginScreen) {
+                        switch (index) {
+                          case 0: // Pre-Pregnancy
+                            Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
+                            break;
 
-                         context.read<GetUserProvider>().getUser();
-                       }
+                          case 1: // Pregnancy
+                            Navigator.pushNamed(context, AppRoutes.pregnancyView);
+                            break;
 
-                       else if (widget.fromProfile == true) {
-                         switch (index) {
-                           case 0: // Pre-Pregnancy
-                             Navigator.pushNamedAndRemoveUntil(
-                               context,
-                               AppRoutes.navbarPrePregancyView,
-                                   (route) => false,
-                             );
-                             break;
+                          case 2: // Post-Pregnancy
+                            Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
+                            break;
+                        }
 
-                           case 1: // Pregnancy
-                             Navigator.pushNamedAndRemoveUntil(
-                               context,
-                               AppRoutes.pregnancyView,
-                                   (route) => false,
-                             );
-                             break;
+                        context.read<GetUserProvider>().getUser();
+                      }
 
-                           case 2: // Post-Pregnancy
-                             Navigator.pushNamedAndRemoveUntil(
-                               context,
-                               AppRoutes.combinedBabyDetailScreen,
-                                   (route) => false,
-                             );
-                             break;
-                         }
-                       }
+                      else if (widget.fromProfile == true) {
+                        // Check if this is an update flow
+                        if (widget.isUpdateFlow == true) {
+                          // Just update local data and go back
+                          await UserLocalData.saveStep(index.toString());
+                          Navigator.pop(context);
 
-                       else {
-                         // Default flow → Send index to next screen
-                         Navigator.pushNamed(
-                           context,
-                           AppRoutes.processingDetailsView,
-                           arguments: {"index": index},
-                         );
+                          // Show a snackbar to confirm update
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Stage updated successfully!'),
+                              backgroundColor: AppColors.buttonClr1,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        } else {
+                          // Original flow - navigate and remove all routes
+                          switch (index) {
+                            case 0: // Pre-Pregnancy
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                AppRoutes.navbarPrePregancyView,
+                                    (route) => false,
+                              );
+                              break;
 
-                         context.read<GetUserProvider>().getUser();
-                       }
-                     },
-                       child: AppContainer(
-                       height: 105,
-                       color: AppColors.white,
-                       radius: 8,
-                       isBordered: true,
-                       child: Row(
-                         children: [
-                           Padding(
-                             padding:index ==0 ? EdgeInsets.symmetric(vertical: 16,horizontal: 8) : EdgeInsets.symmetric(vertical: 8.0),
-                             child: CustomImage(path: stagesList[index]['image'] ?? "",),
-                           ),
-                           Text(stagesList[index]['title'] ?? "",style: AppFontStyle.text_15_400(color: AppColors.textClr,fontFamily: AppFontFamily.gilroySemiBold),),
-                           Spacer(),
-                           Icon(Icons.arrow_forward_ios,size: 16,),
-                           SizedBox(width: 16),
-                         ],
-                       )
-                     ),
-                   ),
-                 );
-               },
-               separatorBuilder: (context, index) => SizedBox(height: 15),
-               itemCount: stagesList.length,
-           ),
+                            case 1: // Pregnancy
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                AppRoutes.pregnancyView,
+                                    (route) => false,
+                              );
+                              break;
+
+                            case 2: // Post-Pregnancy
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                AppRoutes.combinedBabyDetailScreen,
+                                    (route) => false,
+                              );
+                              break;
+                          }
+                        }
+                      }
+
+                      else {
+                        // Default flow → Send index to next screen
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.processingDetailsView,
+                          arguments: {"index": index},
+                        );
+
+                        context.read<GetUserProvider>().getUser();
+                      }
+                    },
+                    child: Container(
+                        height: 105,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.buttonClr1.withOpacity(0.1)
+                              : AppColors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.buttonClr1
+                                : AppColors.borderColor,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Padding(
+                              padding: index == 0
+                                  ? EdgeInsets.symmetric(vertical: 16, horizontal: 8)
+                                  : EdgeInsets.symmetric(vertical: 8.0),
+                              child: CustomImage(path: stagesList[index]['image'] ?? ""),
+                            ),
+                            Text(
+                              stagesList[index]['title'] ?? "",
+                              style: AppFontStyle.text_15_400(
+                                  color: isSelected
+                                      ? AppColors.buttonClr1
+                                      : AppColors.textClr,
+                                  fontFamily: AppFontFamily.gilroySemiBold
+                              ),
+                            ),
+                            Spacer(),
+                            Icon(
+                              isSelected
+                                  ? Icons.check_circle
+                                  : Icons.arrow_forward_ios,
+                              size: isSelected ? 24 : 16,
+                              color: isSelected
+                                  ? AppColors.buttonClr1
+                                  : AppColors.textClr,
+                            ),
+                            SizedBox(width: 16),
+                          ],
+                        )
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (context, index) => SizedBox(height: 15),
+              itemCount: stagesList.length,
+            ),
           ],
         ),
       ),

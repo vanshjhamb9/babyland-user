@@ -541,10 +541,11 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
                     color: AppColors.black, fontFamily: AppFontFamily.gilroySemiBold),
               ),
               const SizedBox(height: 20),
-                "Log Symptoms",
+              _actionButton(
+                context,
+                'Log Symptoms',
                 Icons.edit_note,
                     () {
-                  provider.clearDailyLogs(); // Clear previous selections
                   Navigator.pop(context);
                   Navigator.pushNamed(
                       context,
@@ -622,8 +623,8 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
       ),
     );
   }
-}
 
+}
 //
 // class CycleCalendarView extends StatefulWidget {
 //   const CycleCalendarView({super.key});

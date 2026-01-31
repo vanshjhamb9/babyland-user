@@ -23,6 +23,39 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  String? currentStageName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentStage();
+  }
+
+  Future<void> _loadCurrentStage() async {
+    final step = await UserLocalData.getStep();
+    if (step != null && step.isNotEmpty) {
+      final stageIndex = int.tryParse(step);
+      setState(() {
+        switch (stageIndex) {
+          case 0:
+            currentStageName = "Pre-Pregnancy";
+            break;
+          case 1:
+            currentStageName = "Pregnancy";
+            break;
+          case 2:
+            currentStageName = "Post-Pregnancy";
+            break;
+          default:
+            currentStageName = "Not Selected";
+        }
+      });
+    } else {
+      setState(() {
+        currentStageName = "Not Selected";
+      });
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,16 +161,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ---------------- MENU TILES ----------------
   Widget buildTiles() {
-    List<String> titles = ["Stage", "Subscription","Doctors","My Booking","Terms of Service", "Privacy Policy","Refund Policy","Shipping Policy" ,"Log Out"];
+    List<String> titles = [
+      "Stage",
+      "Update Stage",
+      "Subscription",
+      "Doctors",
+      "My Booking",
+      "Terms of Service",
+      "Privacy Policy",
+      "Refund Policy",
+      "Shipping Policy",
+      "Log Out"
+    ];
 
     List<IconData> icons = [
-      Icons.flag_rounded, // FIXED: Icons.stage DOES NOT EXIST
+      Icons.flag_rounded,
+      Icons.refresh_rounded,
       Icons.card_membership,
-      Icons.local_hospital,// Better icon for subscription
-      Icons.save,// Better icon for subscription
-      Icons.description_rounded,       // TERMS OF SERVICE
-      Icons.privacy_tip_rounded,       // PRIVACY POLICY
-      Icons.receipt_long_rounded,      // REFUND POLICY
+      Icons.local_hospital,
+      Icons.save,
+      Icons.description_rounded,
+      Icons.privacy_tip_rounded,
+      Icons.receipt_long_rounded,
       Icons.local_shipping_rounded,
       Icons.logout_rounded,
     ];
@@ -179,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Icon(
                 icons[index],
                 size: 26,
-                color: Colors.white, // Must be white for gradient effect
+                color: Colors.white,
               ),
             ),
 
@@ -195,6 +240,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if(index == 0){
                 Navigator.push(context, MaterialPageRoute(builder: (context) => StagesView(fromProfile: true,),));
               }else if(index == 1){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => StagesView(
+                      fromProfile: true,
+                      isUpdateFlow: true,
+                    ),
+                  ),
+                );
+              }else if(index == 2){
                 switch(widget.stage!) {
                   case Stages.PREPREGRANCY:
                     Navigator.pushNamed(context, AppRoutes.prePreSubscriptionView);
@@ -206,19 +261,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.pushNamed(context, AppRoutes.postPreSubscriptionView);
                     break;
                 }
-              }else if (index == 2) {
-                Navigator.pushNamed(context, AppRoutes.allDoctorView);
               }else if (index == 3) {
-                Navigator.pushNamed(context, AppRoutes.myBookingsView);
+                Navigator.pushNamed(context, AppRoutes.allDoctorView);
               }else if (index == 4) {
-                Navigator.pushNamed(context, AppRoutes.termOfServicesScreen);
+                Navigator.pushNamed(context, AppRoutes.myBookingsView);
               }else if (index == 5) {
-                Navigator.pushNamed(context, AppRoutes.privacyPolicy);
+                Navigator.pushNamed(context, AppRoutes.termOfServicesScreen);
               }else if (index == 6) {
-                Navigator.pushNamed(context, AppRoutes.refundPolicyScreen);
+                Navigator.pushNamed(context, AppRoutes.privacyPolicy);
               }else if (index == 7) {
-                Navigator.pushNamed(context, AppRoutes.shippingPolicyScreen);
+                Navigator.pushNamed(context, AppRoutes.refundPolicyScreen);
               }else if (index == 8) {
+                Navigator.pushNamed(context, AppRoutes.shippingPolicyScreen);
+              }else if (index == 9) {
                 showLogoutDialog();
               }
             },
@@ -283,21 +338,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: Button(
-                        text: "No",
-                        onTap: () => Navigator.pop(context),
-                      )
+                        child: Button(
+                          text: "No",
+                          onTap: () => Navigator.pop(context),
+                        )
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Button(
-                        text: "Yes",
-                        onTap: ()async {
-                          await UserLocalData.clearAllLocalData();
-                          await SecureStorage.clearAll();
-                          Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.signInView, (route) => false);
-                        },
-                      )
+                        child: Button(
+                          text: "Yes",
+                          onTap: ()async {
+                            await UserLocalData.clearAllLocalData();
+                            await SecureStorage.clearAll();
+                            Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.signInView, (route) => false);
+                          },
+                        )
                     ),
                   ],
                 ),
