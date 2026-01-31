@@ -160,28 +160,49 @@ class _MentrualCycleState extends State<MentrualCycle> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    AppContainer(
-                      radius: 8,
-                      gradient: AppColors.backGroundColor,
-                      padding: EdgeInsets.symmetric(horizontal: 17, vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Next period",
-                            style: AppFontStyle.text_13_400(
-                              fontFamily: AppFontFamily.gilroyMedium,
-                            ),
+                    Builder(
+                      builder: (context) {
+                        final nextPeriodStr = provider.dashboardApiData?.data?.data?.nextPeriodDate;
+                        bool isMissed = false;
+                        if (nextPeriodStr != null && nextPeriodStr.isNotEmpty && nextPeriodStr != "-") {
+                          try {
+                            final nextDate = DateTime.parse(nextPeriodStr);
+                            final today = DateTime.now();
+                            final todayDate = DateTime(today.year, today.month, today.day);
+                            if (nextDate.isBefore(todayDate)) {
+                              isMissed = true;
+                            }
+                          } catch (_) {}
+                        }
+
+                        return AppContainer(
+                          radius: 8,
+                          gradient: isMissed ? null : AppColors.backGroundColor,
+                          color: isMissed ? Colors.red.shade50 : null,
+                          borderColor: isMissed ? Colors.red : null,
+                          isBordered: isMissed,
+                          padding: EdgeInsets.symmetric(horizontal: 17, vertical: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                isMissed ? "Period Late" : "Next period",
+                                style: AppFontStyle.text_13_400(
+                                  fontFamily: AppFontFamily.gilroyMedium,
+                                  color: isMissed ? Colors.red : AppColors.black,
+                                ),
+                              ),
+                              Text(
+                                formatDateToDayMonth(nextPeriodStr ?? "-"),
+                                style: AppFontStyle.text_13_400(
+                                  fontFamily: AppFontFamily.gilroySemiBold,
+                                  color: isMissed ? Colors.red : AppColors.darkBrown,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            formatDateToDayMonth(provider.dashboardApiData?.data?.data?.nextPeriodDate ?? "-"),
-                            style: AppFontStyle.text_13_400(
-                              fontFamily: AppFontFamily.gilroySemiBold,
-                              color: AppColors.darkBrown,
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      }
                     ),
                   ],
                 ),

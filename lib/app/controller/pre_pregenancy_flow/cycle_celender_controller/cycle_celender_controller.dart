@@ -278,11 +278,11 @@ class CycleCalenderProvider extends ChangeNotifier {
 
   }
 
-  Future<void> addDailyLogsMentural() async {
+  Future<void> addDailyLogsMentural({DateTime? date}) async {
     setDailyLogs(ApiResponse.loading());
     notifyListeners();
     Map<String, dynamic> data = {
-      "date": formatDateForApi(DateFormat('dd-MM-yyyy').format(DateTime.now())),
+      "date": formatDateForApi(DateFormat('dd-MM-yyyy').format(date ?? DateTime.now())),
       "mood": selectedMood,
       "symptoms": selectedSymptoms.map((e) => e.toLowerCase()).toList(),
       "stressLevel": stressLevel,
@@ -412,7 +412,32 @@ class CycleCalenderProvider extends ChangeNotifier {
   // -------------------------------------------------------
   void updateFocusedDay(DateTime day) {
     _focusedDay = day;
+    cycleCalender(
+      year: _focusedDay.year,
+      month: _focusedDay.month,
+    );
     notifyListeners();
+  }
+
+  // -------------------------------------------------------
+  // ⛳ SELECTED DAY
+  // -------------------------------------------------------
+  DateTime? _selectedDay;
+  DateTime? get selectedDay => _selectedDay;
+
+  void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    if (!isSameDay(_selectedDay, selectedDay)) {
+      _selectedDay = selectedDay;
+      _focusedDay = focusedDay;
+      notifyListeners();
+    }
+  }
+
+  bool isSameDay(DateTime? a, DateTime? b) {
+    if (a == null || b == null) {
+      return false;
+    }
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   // -------------------------------------------------------
