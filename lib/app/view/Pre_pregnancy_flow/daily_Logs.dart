@@ -33,6 +33,7 @@ class _DailyLogsState extends State<DailyLogs> {
   bool? prePregnancyFlow;
   bool? pregnancyFlow;
   String? flowType;
+  DateTime? selectedDate;
 
   @override
   void didChangeDependencies() {
@@ -41,7 +42,9 @@ class _DailyLogsState extends State<DailyLogs> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     prePregnancyFlow = args?['prePregnancyFlow'];
     pregnancyFlow = args?['pregnancyFlow'];
+    pregnancyFlow = args?['pregnancyFlow'];
     flowType = args?['flowType'] ?? "";
+    selectedDate = args?['date'];
     pt("prePregnancyFlow $prePregnancyFlow");
     pt("pregnancyFlow $pregnancyFlow");
   }
@@ -83,7 +86,7 @@ class _DailyLogsState extends State<DailyLogs> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(DateFormat('EEEE').format(DateTime.now()).toString(),style: AppFontStyle.text_15_400(fontFamily: AppFontFamily.gilroySemiBold),),
+                              Text(DateFormat('EEEE').format(selectedDate ?? DateTime.now()).toString(),style: AppFontStyle.text_15_400(fontFamily: AppFontFamily.gilroySemiBold),),
                               VerticalDivider(
                                 color: AppColors.greyStroke,
                                 thickness: 1,
@@ -91,7 +94,7 @@ class _DailyLogsState extends State<DailyLogs> {
                                 indent: 2,
                                 endIndent: 2,
                               ),
-                              Text(formatDateForDisplay(DateTime.now()),style: AppFontStyle.text_13_400(fontFamily: AppFontFamily.gilroyMedium,
+                              Text(formatDateForDisplay(selectedDate ?? DateTime.now()),style: AppFontStyle.text_13_400(fontFamily: AppFontFamily.gilroyMedium,
                                   color: AppColors.lightGrey)),
                             ],
                           ),
@@ -311,7 +314,7 @@ class _DailyLogsState extends State<DailyLogs> {
                   }else {
                   if (prePregnancyFlow == true) {
 
-                    provider.addDailyLogsMentural();
+                    provider.addDailyLogsMentural(date: selectedDate);
 
                   }else if(pregnancyFlow == true){
                     pregnancyController.addDailyLogsApiPregnancy(

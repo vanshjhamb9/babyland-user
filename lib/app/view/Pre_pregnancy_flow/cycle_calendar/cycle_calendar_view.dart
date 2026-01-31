@@ -11,37 +11,51 @@ import 'package:googleapis/cloudsearch/v1.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:babyland/app/routes/app_routes.dart';
+import 'package:babyland/app/widgets/app_popup.dart';
 
-class CycleCalendarView extends StatelessWidget {
+class CycleCalendarView extends StatefulWidget {
   const CycleCalendarView({super.key});
 
   @override
+  State<CycleCalendarView> createState() => _CycleCalendarViewState();
+}
+
+class _CycleCalendarViewState extends State<CycleCalendarView> {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final now = DateTime.now();
+      context.read<CycleCalenderProvider>().cycleCalender(
+        year: now.year,
+        month: now.month,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => CycleCalenderProvider()
-        ..cycleCalender(
-          year: DateTime.now().year,
-          month: DateTime.now().month,
+    return Scaffold(
+      appBar: CustomAppBar(
+        centerTitle: true,
+        title: Text(
+          "Cycle Calendar",
+          style: AppFontStyle.text_20_400(
+              fontFamily: AppFontFamily.gilroySemiBold),
         ),
-      child: Scaffold(
-        appBar: CustomAppBar(
-          centerTitle: true,
-          title: Text(
-            "Cycle Calendar",
-            style: AppFontStyle.text_20_400(
-                fontFamily: AppFontFamily.gilroySemiBold),
-          ),
-        ),
-        body: Consumer<CycleCalenderProvider>(
-          builder: (context, provider, _) {
+      ),
+      body: Consumer<CycleCalenderProvider>(
+        builder: (context, provider, _) {
 
-            if(provider.calendarApi?.status == ApiStatus.LOADING){
-              return AppContainer(
-                  gradient: AppColors.backGroundColor,
-                  child: buildCalendarShimmer(showDetails: true));
-            }
+          if(provider.calendarApi?.status == ApiStatus.LOADING){
+            return AppContainer(
+                gradient: AppColors.backGroundColor,
+                child: buildCalendarShimmer(showDetails: true));
+          }
 
-            return RefreshIndicator(
+          return RefreshIndicator(
             onRefresh: () {
               final now = DateTime.now();
               return provider.cycleCalender(
@@ -51,7 +65,7 @@ class CycleCalendarView extends StatelessWidget {
               physics: AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
-                  calendar(provider),
+                  calendar(context, provider),
                   SizedBox(height: 20),
 
                   _legend(),
@@ -73,9 +87,9 @@ class CycleCalendarView extends StatelessWidget {
                             date: "${DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextPeriod?.start.toString() ?? ""))} - ${DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextPeriod?.end.toString() ?? ""))}",
                           ),
                         if(provider.calendarApi?.data?.data?.nextFertileWindow?.first.isNotEmpty ?? false)
-                        buildRow(title: "Fertile window:",date:  DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextFertileWindow?.first ?? "")) ),
+                          buildRow(title: "Fertile window:",date:  DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextFertileWindow?.first ?? "")) ),
                         if(provider.calendarApi?.data?.data?.nextOvulation?.isNotEmpty ?? false)
-                        buildRow(title: "Ovulation day:",date: DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextOvulation ?? ""))),
+                          buildRow(title: "Ovulation day:",date: DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextOvulation ?? ""))),
                         SizedBox(height: 8),
                       ],
                     ),
@@ -84,8 +98,7 @@ class CycleCalendarView extends StatelessWidget {
               ),
             ),
           );
-          },
-        ),
+        },
       ),
     );
   }
@@ -93,7 +106,7 @@ class CycleCalendarView extends StatelessWidget {
   // ---------------------------------------------------------
   // CALENDAR
   // ---------------------------------------------------------
-  Widget calendar(CycleCalenderProvider provider) {
+  Widget calendar(BuildContext context, CycleCalenderProvider provider) {
     return AppContainer(
       color: AppColors.white,
       margin: const EdgeInsets.symmetric(horizontal: 14),
@@ -145,8 +158,11 @@ class CycleCalendarView extends StatelessWidget {
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: provider.focusedDay,
             onPageChanged: provider.updateFocusedDay,
-            onDaySelected: null, // disabled
-            selectedDayPredicate: (day) => false,
+            onDaySelected: (selectedDay, focusedDay) {
+              provider.onDaySelected(selectedDay, focusedDay);
+              _showOptionsBottomSheet(context, provider);
+            },
+            selectedDayPredicate: (day) => provider.isSameDay(provider.selectedDay, day),
             headerVisible: false,
             daysOfWeekVisible: true,
 
@@ -199,6 +215,7 @@ class CycleCalendarView extends StatelessWidget {
       ),
     );
   }
+
 
   Widget _buildDayCell(DateTime day, Color? dotColor, {bool isToday = false}) {
     return Column(
@@ -501,6 +518,108 @@ class CycleCalendarView extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  void _showOptionsBottomSheet(BuildContext context, CycleCalenderProvider provider) {
+    if (provider.selectedDay == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Selected Date: ${DateFormat('dd MMM yyyy').format(provider.selectedDay!)}",
+                style: AppFontStyle.text_16_600(
+                    color: AppColors.black, fontFamily: AppFontFamily.gilroySemiBold),
+              ),
+              const SizedBox(height: 20),
+                "Log Symptoms",
+                Icons.edit_note,
+                    () {
+                  provider.clearDailyLogs(); // Clear previous selections
+                  Navigator.pop(context);
+                  Navigator.pushNamed(
+                      context,
+                      AppRoutes.dailyLogs,
+                      arguments: {
+                        'prePregnancyFlow': true,
+                        'date': provider.selectedDay,
+                      }
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _actionButton(
+                context,
+                "Period Start",
+                Icons.water_drop,
+                    () {
+                  Navigator.pop(context);
+                  AppPopUp.showToast(message: "Period Start logging - Coming Soon (Backend pending)");
+                },
+                color: Colors.redAccent,
+              ),
+              const SizedBox(height: 10),
+              _actionButton(
+                context,
+                "Period End",
+                Icons.water_drop_outlined,
+                    () {
+                  Navigator.pop(context);
+                  AppPopUp.showToast(message: "Period End logging - Coming Soon (Backend pending)");
+                },
+                color: Colors.redAccent.shade100,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _actionButton(BuildContext context, String text, IconData icon, VoidCallback onTap,
+      {Color color = AppColors.buttonClr1}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 16),
+            Text(
+              text,
+              style: AppFontStyle.text_14_600(
+                color: AppColors.black,
+                fontFamily: AppFontFamily.gilroyMedium,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
     );
   }
 }
