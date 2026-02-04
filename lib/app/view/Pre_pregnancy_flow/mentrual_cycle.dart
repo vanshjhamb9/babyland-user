@@ -213,7 +213,12 @@ class _MentrualCycleState extends State<MentrualCycle> {
               // Mood Section
               GestureDetector(
                 onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.prePreSubscriptionView);
+                  // ✅ FIXED: Navigate to Daily Logs instead of Paywall
+                  Navigator.pushNamed(
+                    context, 
+                    AppRoutes.dailyLogs,
+                    arguments: {"prePregnancyFlow": true},
+                  );
                 },
                 child: AppContainer(
                   margin: const EdgeInsets.symmetric(horizontal: 16),

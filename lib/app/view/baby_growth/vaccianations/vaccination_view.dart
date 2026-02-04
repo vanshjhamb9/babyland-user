@@ -75,7 +75,11 @@ class VaccinationView extends StatelessWidget {
                         Column(
                           children: [
                             Text(
-                              "1",
+                              index == 0
+                                  ? "${provider.completedCount}"
+                                  : index == 1
+                                      ? "${provider.dueSoonCount}"
+                                      : "${provider.overdueCount}",
                               style: AppFontStyle.text_32_400(
                                 fontFamily: AppFontFamily.gilroySemiBold,
                                 color: index == 0

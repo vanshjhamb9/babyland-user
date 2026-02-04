@@ -90,10 +90,10 @@ class SignInController extends ChangeNotifier{
 
 
   final List<String> icons = [
-    ImageConstants.facebook,
+    // ImageConstants.facebook,
     ImageConstants.google,
     ImageConstants.apple,
-    ImageConstants.whatsApp,
+    // ImageConstants.whatsApp,
   ];
 
 

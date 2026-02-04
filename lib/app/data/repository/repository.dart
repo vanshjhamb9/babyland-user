@@ -305,6 +305,11 @@ class Repository extends ChangeNotifier {
     return CommonResponseModel.fromJson(response);
   }
 
+  Future<CommonResponseModel> addFeeding(Map<String, dynamic> data) async {
+    final response = await apiService.post(EndPoints.feedingAdd, data: data);
+    return CommonResponseModel.fromJson(response);
+  }
+
   Future<CommonResponseModel> updateVaccinations(Map<String,dynamic> data,String vacId) async {
     final response = await apiService.put(EndPoints.updateVaccinations+vacId,data: data);
     return CommonResponseModel.fromJson(response);

@@ -29,7 +29,8 @@ class NavBarProvider extends ChangeNotifier{
 
   final screens = [
     const PregnancyHomeView(),
-    PregnancySubScreen(backButton: false,),
+    const FetalDevelopmentView(), // ✅ FIXED: Replaced subscription screen with tracker
+    // PregnancySubScreen(backButton: false,), ⛔ REMOVED
     // Center(child: const Text("Tracker Screen")),
     // const FetalDevelopmentView(),
     const AiInsights(),

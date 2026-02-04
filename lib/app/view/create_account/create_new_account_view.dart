@@ -13,10 +13,10 @@ class CreateNewAccountView extends StatelessWidget {
 CreateNewAccountView({super.key});
 
  final List<String> icons = [
-    ImageConstants.facebook,
+    // ImageConstants.facebook,
     ImageConstants.google,
     ImageConstants.apple,
-    ImageConstants.whatsApp,
+    // ImageConstants.whatsApp,
   ];
 
  SocialLoginService socialLoginService = SocialLoginService();

@@ -12,6 +12,44 @@ class VaccianationController extends ChangeNotifier{
     notifyListeners();
   }
 
+  int get completedCount {
+    return vaccinationData?.data?.vaccinations?.where((v) => v.status == "completed" || v.completed == true).length ?? 0;
+  }
+
+  int get overdueCount {
+    if (vaccinationData?.data?.vaccinations == null) return 0;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    return vaccinationData!.data!.vaccinations!.where((v) {
+      if ((v.status == "completed" || v.completed == true) || v.dueDate == null) return false;
+      try {
+        final due = DateTime.parse(v.dueDate!);
+        final dueDay = DateTime(due.year, due.month, due.day);
+        return dueDay.isBefore(today);
+      } catch (e) {
+        return false;
+      }
+    }).length;
+  }
+
+  int get dueSoonCount {
+    if (vaccinationData?.data?.vaccinations == null) return 0;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    return vaccinationData!.data!.vaccinations!.where((v) {
+      if ((v.status == "completed" || v.completed == true) || v.dueDate == null) return false;
+       try {
+        final due = DateTime.parse(v.dueDate!);
+        final dueDay = DateTime(due.year, due.month, due.day);
+        return dueDay.isAtSameMomentAs(today) || dueDay.isAfter(today);
+      } catch (e) {
+        return false;
+      }
+    }).length;
+  }
+
   ApiResponse<VaccinationModel>? _vaccinationData = ApiResponse<VaccinationModel>.completed(null);
   ApiResponse<VaccinationModel>? get vaccinationData => _vaccinationData;
 
