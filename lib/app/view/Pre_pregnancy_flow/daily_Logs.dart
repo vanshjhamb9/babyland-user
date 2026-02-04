@@ -12,12 +12,14 @@ import 'package:babyland/app/widgets/validation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../../main.dart';
 import '../../constants/images.dart';
 import '../../controller/pregnancy_flow/pregnancy_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
 import '../../widgets/button.dart';
+import '../../widgets/common_select_date_textfield.dart';
 
 class DailyLogs extends StatefulWidget {
   final String? flowType;
@@ -34,6 +36,7 @@ class _DailyLogsState extends State<DailyLogs> {
   bool? pregnancyFlow;
   String? flowType;
   DateTime? selectedDate;
+  TextEditingController controller = TextEditingController();
 
   @override
   void didChangeDependencies() {
@@ -68,40 +71,116 @@ class _DailyLogsState extends State<DailyLogs> {
               child: Column(
                 children: [
                   SizedBox(height: 18),
-                  AppContainer(
-                    height: 60,
-                    radius: 8,
-                    margin: EdgeInsets.symmetric(horizontal: 16),
-                    color: AppColors.white,
-                    padding: EdgeInsets.all(10),
-                    child: Row(
-                      children: [
-                        Icon(Icons.calendar_today_outlined,size: 28,color: AppColors.black.withValues(
-                          alpha: 170
-                        ),),
-                        SizedBox(width: 16,),
-                        AppContainer(
-                          height: 25,
-                          width: 271,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(DateFormat('EEEE').format(selectedDate ?? DateTime.now()).toString(),style: AppFontStyle.text_15_400(fontFamily: AppFontFamily.gilroySemiBold),),
-                              VerticalDivider(
-                                color: AppColors.greyStroke,
-                                thickness: 1,
-                                width: 19,
-                                indent: 2,
-                                endIndent: 2,
-                              ),
-                              Text(formatDateForDisplay(selectedDate ?? DateTime.now()),style: AppFontStyle.text_13_400(fontFamily: AppFontFamily.gilroyMedium,
-                                  color: AppColors.lightGrey)),
-                            ],
-                          ),
-                        )
-                      ],
+                   AppContainer(
+                      height: 60,
+                      radius: 8,
+                      margin: EdgeInsets.symmetric(horizontal: 16),
+                      color: AppColors.white,
+                      padding: EdgeInsets.all(10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(Icons.calendar_today_outlined,size: 28,color: AppColors.black.withValues(
+                            alpha: 170
+                          ),),
+                          SizedBox(width: 10,),
+                          AppContainer(
+                            // height: 25,
+                            // width: 271,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Text(DateFormat('EEEE').format(selectedDate ?? DateTime.now()).toString(),style: AppFontStyle.text_15_400(fontFamily: AppFontFamily.gilroySemiBold),),
+                                // VerticalDivider(
+                                //   color: AppColors.greyStroke,
+                                //   thickness: 1,
+                                //   width: 15,
+                                //   indent: 2,
+                                //   endIndent: 2,
+                                // ),
+                                SizedBox(
+                                    width: 200,
+                                    child: CustomTextFormField(
+                                      readOnly: true,
+                                      controller: controller,
+                                      hintText: "DD-MM-YYYY",
+                                      borderColor: AppColors.transparent,
+                                      onTap: () async {
+                                        FocusScope.of(navigatorKey.currentContext!).requestFocus(FocusNode());
+
+                                        final DateTime? pickedDate = await showDatePicker(
+                                          context: navigatorKey.currentContext!,
+                                          initialDate: DateTime.now(),
+                                          firstDate: DateTime(1900),
+                                          lastDate: DateTime(2100),
+                                          builder: (context, child) {
+                                            return Theme(
+                                              data: Theme.of(context).copyWith(
+                                                colorScheme: ColorScheme.light(
+                                                  primary: AppColors.backgroundClr2, // header & selected day
+                                                  onPrimary: AppColors.white,        // text on selected day
+                                                  onSurface: AppColors.textClr,      // normal day text
+                                                  surface: AppColors.white,          // dialog background
+                                                ),
+
+                                                // Buttons (CANCEL / OK)
+                                                textButtonTheme: TextButtonThemeData(
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor: AppColors.textClr,
+                                                    textStyle: AppFontStyle.text_14_400(
+                                                      fontFamily: AppFontFamily.gilroySemiBold,
+                                                      color: AppColors.textClr,
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                // Header (Month + Year)
+                                                textTheme: TextTheme(
+                                                  titleLarge: AppFontStyle.text_18_600(
+                                                    fontFamily: AppFontFamily.gilroySemiBold,
+                                                    color: AppColors.textClr,
+                                                  ),
+                                                ),
+
+                                                // Picker theme
+                                                datePickerTheme: DatePickerThemeData(
+                                                  headerBackgroundColor: AppColors.backgroundClr2,
+                                                  headerForegroundColor: AppColors.textClr,
+                                                  dayForegroundColor: WidgetStateProperty.all(AppColors.textClr),
+                                                  weekdayStyle: AppFontStyle.text_14_400(
+                                                    fontFamily: AppFontFamily.gilroySemiBold,
+                                                    color: AppColors.textClr,
+                                                  ),
+                                                  todayBackgroundColor:
+                                                  WidgetStateProperty.all(AppColors.buttonClr1.withOpacity(0.3)),
+                                                  todayForegroundColor: WidgetStateProperty.all(AppColors.buttonClr1),
+                                                  dayOverlayColor: WidgetStateProperty.all(
+                                                    AppColors.buttonClr2.withValues(alpha: 0.2),
+                                                  ),
+                                                ),
+                                              ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+
+                                        if (pickedDate != null) {
+                                          controller.text =
+                                          "${pickedDate.day.toString().padLeft(2, '0')}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.year}";
+                                          selectedDate = pickedDate;
+                                          setState(() {});
+                                        }
+                                      },
+                                    )),
+                                // Text(formatDateForDisplay(selectedDate ?? DateTime.now()),style: AppFontStyle.text_13_400(fontFamily: AppFontFamily.gilroyMedium,
+                                //     color: AppColors.lightGrey)),
+                              ],
+                            ),
+                          )
+                        ],
+                      ),
                     ),
-                  ),
+
                   SizedBox(height: 18,),
                   AppContainer(
                     margin: EdgeInsets.symmetric(horizontal: 16),
@@ -307,7 +386,10 @@ class _DailyLogsState extends State<DailyLogs> {
 
               return Button(
                 onTap: () {
-                  if(provider.selectedMood?.isEmpty ?? false){
+                  if(controller.text.isEmpty){
+                    AppPopUp.showToast(message: "Please select your date",lineColor: AppColors.red);
+                  }
+                  else if(provider.selectedMood?.isEmpty ?? false){
                     AppPopUp.showToast(message: "Please select your mood today",lineColor: AppColors.red);
                   }else if(provider.selectedSymptoms.isEmpty){
                     AppPopUp.showToast(message: "Please select symptoms..",lineColor: AppColors.red);
@@ -319,7 +401,7 @@ class _DailyLogsState extends State<DailyLogs> {
                   }else if(pregnancyFlow == true){
                     pregnancyController.addDailyLogsApiPregnancy(
                         mood: provider.selectedMood ?? "",
-                        date: DateFormat('dd-MM-yyyy').format(DateTime.now()),
+                        date: controller.text.toString(),
                         symptoms: provider.selectedSymptoms
                             .map((e) => e.toLowerCase()).toList(),
                         stressLevel: provider.stressLevel.toStringAsFixed(0),
@@ -329,7 +411,7 @@ class _DailyLogsState extends State<DailyLogs> {
                   } else {
                     postProvider.postpartumsLogsAddApi(
                       mood: provider.selectedMood ?? "",
-                      date: DateFormat('dd-MM-yyyy').format(DateTime.now()),
+                      date: controller.text.toString(),
                       symptoms: provider.selectedSymptoms
                           .map((e) => e.toLowerCase()).toList(),
                       stressLevel: provider.stressLevel.toStringAsFixed(0),

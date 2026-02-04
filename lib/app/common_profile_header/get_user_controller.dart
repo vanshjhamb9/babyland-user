@@ -63,6 +63,7 @@ class GetUserProvider extends ChangeNotifier{
 
   Future<void> updateUserProfile({
     required String name,
+    required String email,
     required Map<String, bool> conditions,
     File? profileImage,
   }) async {
@@ -72,7 +73,7 @@ class GetUserProvider extends ChangeNotifier{
     // Send conditions as-is: selected = true, unselected = false
     Map<String, dynamic> data = {
       "name": name,
-      "email": userData?.data?.user?.user?.email ?? "",
+      "email": email,
       "conditions": {
         "PCOS": conditions["PCOS"] ?? false,
         "PMS": conditions["PMS"] ?? false,

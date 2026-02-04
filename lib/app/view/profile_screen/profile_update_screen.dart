@@ -87,6 +87,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     try {
       await provider.updateUserProfile(
         name: name,
+        email: emailController.text.toString().trim(),
         conditions: condData,
         profileImage: profileImage,
       );
@@ -189,7 +190,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                     controller: emailController,
                     hintText: "Email",
                     // enabled: false,
-                    readOnly: true,
+                    // readOnly: true,
                     borderColor: AppColors.borderColor,
                   ),
                   const SizedBox(height: 16),
