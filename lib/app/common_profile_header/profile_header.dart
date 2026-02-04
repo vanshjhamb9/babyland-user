@@ -19,19 +19,21 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
   final String? subtitle;
   final String? percentage;
   final VoidCallback? onAskPressed;
+  final bool showBackButton;
 
   const ProfileHeader({
     super.key,
     this.subtitle,
     this.percentage,
     this.onAskPressed,
+    this.showBackButton = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return CustomAppBar(
       toolbarHeight: 100,
-      isLeading: false,
+      isLeading: showBackButton,
       title: Consumer<GetUserProvider>(
         builder: (context,provider,_) {
           return Padding(

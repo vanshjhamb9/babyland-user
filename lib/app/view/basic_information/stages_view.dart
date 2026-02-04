@@ -35,18 +35,21 @@ class _StagesViewState extends State<StagesView> {
   ];
 
   bool fromLoginScreen = false;
-  bool back = false;
+  late bool back;
   int? selectedStageIndex;
 
   @override
   void initState() {
     super.initState();
+    back = widget.fromProfile ?? false;
     _loadSelectedStage();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null && args.containsKey('fromLoginScreen')) {
-        fromLoginScreen = args['fromLoginScreen'] ?? false;
-        back = args['back'] ?? false;
+        setState(() {
+          fromLoginScreen = args['fromLoginScreen'] ?? false;
+          back = args['back'] ?? false;
+        });
       }
       pt("fromLoginScreen--------------->>>> $fromLoginScreen");
       pt("back--------------->>>> $back");
@@ -138,26 +141,23 @@ class _StagesViewState extends State<StagesView> {
                           // Original flow - navigate and remove all routes
                           switch (index) {
                             case 0: // Pre-Pregnancy
-                              Navigator.pushNamedAndRemoveUntil(
+                              Navigator.pushNamed(
                                 context,
                                 AppRoutes.navbarPrePregancyView,
-                                    (route) => false,
                               );
                               break;
 
                             case 1: // Pregnancy
-                              Navigator.pushNamedAndRemoveUntil(
+                              Navigator.pushNamed(
                                 context,
                                 AppRoutes.pregnancyView,
-                                    (route) => false,
                               );
                               break;
 
                             case 2: // Post-Pregnancy
-                              Navigator.pushNamedAndRemoveUntil(
+                              Navigator.pushNamed(
                                 context,
                                 AppRoutes.combinedBabyDetailScreen,
-                                    (route) => false,
                               );
                               break;
                           }
