@@ -338,6 +338,18 @@ class CycleCalenderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
+  // Provider class mein ye method add karo:
+  Color? getDayBackgroundColor(DateTime day) {
+    Color? cycleColor = getDotColor(day); // Existing method
+
+    if (cycleColor != null) {
+      return cycleColor.withOpacity(0.2); // Light background
+    }
+    return null;
+  }
+
+
   // -------------------------------------------------------
   // ⛳ MAIN API CALL
   // -------------------------------------------------------

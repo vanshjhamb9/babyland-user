@@ -166,48 +166,24 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
             headerVisible: false,
             daysOfWeekVisible: true,
 
-            // WEEKDAY TEXT STYLE
-            daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: AppFontStyle.text_12_400(
-                color: AppColors.textLightClr,
-                fontFamily: AppFontFamily.gilroyMedium,
-              ),
-              weekendStyle: AppFontStyle.text_12_400(
-                color: AppColors.textLightClr,
-                fontFamily: AppFontFamily.gilroyMedium,
-              ),
-            ),
-
-            // DAY CELL STYLE
             calendarStyle: CalendarStyle(
               cellMargin: EdgeInsets.zero,
               outsideDaysVisible: false,
-
-              todayDecoration: const BoxDecoration(
+              todayDecoration: BoxDecoration(
                 color: Colors.transparent,
                 shape: BoxShape.circle,
               ),
-
-              defaultTextStyle: AppFontStyle.text_14_400(
-                color: AppColors.black,
-                fontFamily: AppFontFamily.gilroyRegular,
-              ),
-
-              weekendTextStyle: AppFontStyle.text_14_400(
-                color: AppColors.black,
-                fontFamily: AppFontFamily.gilroyRegular,
-              ),
             ),
 
-            // DOT COLOR BUILDER
+            // ✅ BACKGROUND CIRCLE YAHAN BANEGA
             calendarBuilders: CalendarBuilders(
               defaultBuilder: (context, day, focusedDay) {
                 final dotColor = provider.getDotColor(day);
-                return _buildDayCell(day, dotColor);
+                return _buildDayCellWithBackground(day, dotColor, isToday: false);
               },
               todayBuilder: (context, day, focusedDay) {
                 final dotColor = provider.getDotColor(day);
-                return _buildDayCell(day, dotColor, isToday: true);
+                return _buildDayCellWithBackground(day, dotColor, isToday: true);
               },
             ),
           ),
@@ -217,29 +193,40 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
   }
 
 
-  Widget _buildDayCell(DateTime day, Color? dotColor, {bool isToday = false}) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          '${day.day}',
-          style: AppFontStyle.text_14_600(
-            color: AppColors.black,
-            fontFamily: isToday ? AppFontFamily.gilroyMedium : AppFontFamily.gilroyRegular,
-          ),
+  Widget _buildDayCellWithBackground(DateTime day, Color? bgColor, {bool isToday = false}) {
+    return Container(
+      decoration: bgColor != null
+          ? BoxDecoration(
+        color: bgColor.withOpacity(0.5),  // Light background
+        shape: BoxShape.circle,
+      )
+          : null,
+      child: Padding(
+        padding: EdgeInsets.all(8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '${day.day}',
+              style: AppFontStyle.text_14_600(
+                color: isToday ? Colors.white : AppColors.black,
+                fontFamily: isToday ? AppFontFamily.gilroyMedium : AppFontFamily.gilroyRegular,
+              ),
+            ),
+            // Chhota dot bhi rakh sakte ho center mein
+            // if (bgColor != null)
+            //   Container(
+            //     margin: EdgeInsets.only(top: 2),
+            //     height: 4,
+            //     width: 4,
+            //     decoration: BoxDecoration(
+            //       color: bgColor,
+            //       shape: BoxShape.circle,
+            //     ),
+            //   ),
+          ],
         ),
-        const SizedBox(height: 4),
-        dotColor != null
-            ? Container(
-          height: 6,
-          width: 6,
-          decoration: BoxDecoration(
-            color: dotColor,
-            shape: BoxShape.circle,
-          ),
-        )
-            : const SizedBox(height: 6),
-      ],
+      ),
     );
   }
 
