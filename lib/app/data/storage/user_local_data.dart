@@ -95,4 +95,20 @@ class UserLocalData {
 
 // Update your existing clearAllLocalData method to include the new key
 
+  // ---------------- SETUP COMPLETE ----------------
+  static const _postPregnancySetupCompleteKey = 'post_pregnancy_setup_complete';
+
+  static Future<void> savePostPregnancySetupComplete() async {
+    await _storage.write(key: _postPregnancySetupCompleteKey, value: 'true');
+    pt('Post pregnancy setup complete saved');
+  }
+
+  static Future<bool> isPostPregnancySetupComplete() async {
+    final value = await _storage.read(key: _postPregnancySetupCompleteKey);
+    return value == 'true';
+  }
+
+  static Future<void> clearPostPregnancySetupComplete() async {
+    await _storage.delete(key: _postPregnancySetupCompleteKey);
+  }
 }

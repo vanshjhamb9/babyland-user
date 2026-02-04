@@ -1,5 +1,6 @@
 import 'package:babyland/app/controller/post_pregenancy/post_pregenancy_controller.dart';
 import 'package:babyland/app/widgets/common_select_date_textfield.dart';
+import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -67,7 +68,20 @@ class _BabyDetailViewState extends State<BabyDetailView> {
                           style: AppFontStyle.text_15_400(fontFamily: AppFontFamily.gilroyMedium),
                         ),
                         SizedBox(height: 6,),
-                        buildCustomTextFormFieldSelectDate(controller: provider.dobController),
+                        CustomTextFormField(
+                          controller: provider.dobController,
+                          readOnly: true,
+                          borderColor: AppColors.borderColor,
+                          height: 45,
+                          hintText: "DD-MM-YYYY",
+                          hintStyle: AppFontStyle.text_13_400(
+                            fontFamily: AppFontFamily.gilroyRegular,
+                            color: AppColors.textLightClr,
+                          ),
+                          onTap: () {
+                            AppPopUp.showToast(message: "Please change delivery date to update birth date.");
+                          },
+                        ),
                       ],
                     ),
                     SizedBox(height: 16,),

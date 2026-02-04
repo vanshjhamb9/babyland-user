@@ -7,6 +7,7 @@ import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../data/storage/user_local_data.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/print.dart';
 import 'model/postpartums_add_model.dart';
@@ -18,6 +19,10 @@ class PostpregnancyProvider extends ChangeNotifier {
   int get currentIndex => _currentIndex;
 
   void changeIndex(int newIndex) {
+    // Pre-fill DOB if moving to baby details (index 1) and delivery date is set
+    if (newIndex == 1 && dateController.text.isNotEmpty && dobController.text.isEmpty) {
+      dobController.text = dateController.text;
+    }
     _currentIndex = newIndex;
     notifyListeners();
   }
@@ -138,11 +143,13 @@ class PostpregnancyProvider extends ChangeNotifier {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
           pt(name: "response", "${value.message}");
+          UserLocalData.savePostPregnancySetupComplete(); // Mark setup as complete
           Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
         }
         if(value.success == false) {
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
           if(value.message == "Postpartum tracker already exists for this user"){
+            UserLocalData.savePostPregnancySetupComplete(); // Mark setup as complete if already exists
             Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
           }
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");

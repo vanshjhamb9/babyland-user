@@ -44,6 +44,7 @@ class EndPoints {
   static const String recoveryProgressAdd = "$baseUrl/postpartums/recovery-task/add/";
   static const String postpartumsAppappointment = "$baseUrl/postpartums/doctor-appointment";
   static const String feedingGet = "$baseUrl/postpartums/feeding";
+  static const String feedingAdd = "$baseUrl/postpartums/feeding/add";
 
 
   /// Expert Consultation Screens

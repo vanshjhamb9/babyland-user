@@ -78,11 +78,20 @@ class _SplashViewState extends State<SplashView> {
               );
               break;
             case "2":
-              Navigator.pushNamedAndRemoveUntil(
-                navigatorKey.currentContext!,
-                AppRoutes.combinedBabyDetailScreen,
-                    (route) => false,
-              );
+              final isSetupComplete = await UserLocalData.isPostPregnancySetupComplete();
+              if (isSetupComplete) {
+                Navigator.pushNamedAndRemoveUntil(
+                  navigatorKey.currentContext!,
+                  AppRoutes.postPregnancyNavbarView,
+                  (route) => false,
+                );
+              } else {
+                Navigator.pushNamedAndRemoveUntil(
+                  navigatorKey.currentContext!,
+                  AppRoutes.combinedBabyDetailScreen,
+                  (route) => false,
+                );
+              }
               break;
             default:
             // If step is unknown, show stage screen

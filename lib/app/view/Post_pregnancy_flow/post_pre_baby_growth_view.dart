@@ -18,6 +18,8 @@ import '../../widgets/button.dart';
 import '../../widgets/container.dart';
 import '../../widgets/custom_cont.dart';
 import '../../widgets/custom_image.dart';
+import '../../widgets/feeding_entry_dialog.dart';
+import '../../widgets/feeding_details_dialog.dart';
 import '../../widgets/gradientprogressBar.dart';
 import '../../common_profile_header/profile_header.dart';
 import '../../widgets/print.dart';
@@ -401,7 +403,6 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> {
                                 ),
                               ],
                             ),
-
                             Button(
                               height: 36,
                               width: 84,
@@ -411,8 +412,16 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> {
                                 fontFamily: AppFontFamily.gilroyBold,
                                 color: AppColors.white,
                               ),
-
-                              onTap: () {},
+                              onTap: () async {
+                                final result = await showDialog(
+                                  context: context,
+                                  builder: (context) => FeedingEntryDialog(),
+                                );
+                                // Refresh data if feeding was added successfully
+                                if (result == true) {
+                                  // You can add logic here to refresh feeding data if needed
+                                }
+                              },
                             ),
                           ],
                         ),
@@ -459,7 +468,16 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> {
                                     ?.length ??
                                 0,
                             itemBuilder: (context, index) {
-                              return  AppContainer(
+                              final feeding = provider.getRecoveryApiData?.data?.tasks?.feedings?[index];
+                              return AppContainer(
+                                onTap: () {
+                                  if (feeding != null) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => FeedingDetailsDialog(feeding: feeding),
+                                    );
+                                  }
+                                },
                                 margin: const EdgeInsets.symmetric(vertical: 6),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -467,13 +485,15 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> {
                                 ),
                                 radius: 8,
                                 gradient: AppColors.backGroundColor,
-                                child:Text(
+                                child: Text(
                                   // ignore: prefer_interpolation_to_compose_strings
-                                  capitalizeFirstLetter(provider.getRecoveryApiData?.data?.tasks?.feedings?[index].notes ?? "") + " (${capitalizeFirstLetter(provider.getRecoveryApiData?.data?.tasks?.feedings?[index].type ?? "")})",
+                                  capitalizeFirstLetter(provider.getRecoveryApiData?.data?.tasks?.feedings?[index].notes ?? "") +
+                                      " (${capitalizeFirstLetter(provider.getRecoveryApiData?.data?.tasks?.feedings?[index].type ?? "")})",
                                   style: AppFontStyle.text_14_500(
                                     fontFamily: AppFontFamily.gilroyMedium,
                                     color: AppColors.black,
-                                  ),),
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -495,8 +515,8 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> {
                   const SizedBox(height: 20),
                   InkWell(
                     onTap: () {
-                      Navigator.pushNamed(context, AppRoutes.babyGrowthView);
-                      context.read<BabyGrowthProvider>().addBabyDataInitial();
+                      Navigator.pushNamed(context, AppRoutes.babyGrowthSummaryView);
+                      // context.read<BabyGrowthProvider>().addBabyDataInitial();
                     },
                     child: CustomCont(
                       title: "Baby Growth Tracker",
