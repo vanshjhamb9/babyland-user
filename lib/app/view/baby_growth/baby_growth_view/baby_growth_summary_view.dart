@@ -43,7 +43,7 @@ class _BabyGrowthSummaryViewState extends State<BabyGrowthSummaryView> {
     final apiData = provider.babyGrowthApiData;
     print("this is the data here ${apiData?.data?.success}");
     return Scaffold(
-      appBar: ProfileHeader(),
+      appBar: const ProfileHeader(showBackButton: true),
       body: AppContainer(
         height: mediaQueryH(context),
         padding: EdgeInsets.symmetric(horizontal: 14),
@@ -158,7 +158,7 @@ class _BabyGrowthSummaryViewState extends State<BabyGrowthSummaryView> {
                             SizedBox(height: 16 ),
                             InkWell(
                               onTap: (){
-                                Navigator.pop(navigatorKey.currentContext!);
+                                Navigator.pushNamed(context, AppRoutes.babyGrowthView);
                               },
                               child: AppContainer(
                                 gradient: AppColors.buttonClr,

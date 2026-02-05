@@ -47,16 +47,16 @@ class _ProcessingDetailsViewState extends State<ProcessingDetailsView> {
         // Skip stage screen, go directly to home based on saved preference
         switch (index) {
           case 0:
-            Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
+            Navigator.pushReplacementNamed(context, AppRoutes.navbarPrePregancyView);
             break;
           case 1:
-            Navigator.pushNamed(context, AppRoutes.pregnancyView);
+            Navigator.pushReplacementNamed(context, AppRoutes.pregnancyView);
             break;
           case 2:
-            Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
+            Navigator.pushReplacementNamed(context, AppRoutes.combinedBabyDetailScreen);
             break;
           default:
-            Navigator.pushNamed(context, AppRoutes.signInView);
+            Navigator.pushReplacementNamed(context, AppRoutes.signInView);
         }
       }
     });
