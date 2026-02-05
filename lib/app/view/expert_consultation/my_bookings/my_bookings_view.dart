@@ -48,6 +48,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
     final apiData = provider.bookingApiData;
 
     return Scaffold(
+      backgroundColor: AppColors.backgroundClr,
       appBar: CustomAppBar(
         isIosBackBtn: true,
         title: Text(
@@ -66,6 +67,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
           children: [
             // Tabs
             AppContainer(
+              gradient: AppColors.backGroundColor,
               radius: 12,
               color: AppColors.lightWhite,
               child: Row(
@@ -76,6 +78,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                     child: GestureDetector(
                       onTap: () => provider.setSelectedTab(index),
                       child: AppContainer(
+                        gradient: AppColors.backGroundColor,
                         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                         radius: 12,
                         color: isSelected ? AppColors.white : AppColors.lightWhite,
@@ -140,6 +143,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
             borderRadius: BorderRadius.circular(16),
           ),
           child: AppContainer(
+            gradient: AppColors.backGroundColor,
             radius: 16,
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -241,7 +245,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                         color: AppColors.greyLight,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Center(
-                          child: context.read<ExpertConsultationProvider>().cancelBooking?.status != ApiStatus.LOADING ? customLoading(color: AppColors.primary) : Text(
+                          child: context.read<ExpertConsultationProvider>().cancelBooking?.status == ApiStatus.LOADING ? customLoading(color: AppColors.primary) : Text(
                             "Cancel",
                             style: AppFontStyle.text_16_500(
                               fontFamily: AppFontFamily.gilroySemiBold,
@@ -272,7 +276,9 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                       ),
                     ),
                   ],
-                ) else Row(
+                ) ,
+                // else
+                  Row(
                   children: [
                     Expanded(
                       child: GestureDetector(

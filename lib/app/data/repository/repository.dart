@@ -23,6 +23,7 @@ import '../../controller/ai_assistant/model/chat_room_create_model.dart';
 import '../../controller/ai_assistant/model/create_ai_chat_model.dart';
 import '../../controller/baby_growth/model/add_baby_growth_data_model.dart';
 import '../../controller/experts_consultation/model/ConsultationDataModel.dart';
+import '../../controller/experts_consultation/model/availableslotdatamodel.dart';
 import '../../controller/experts_consultation/model/booking_add_model.dart';
 import '../../controller/forgot_password/model/forgot_password_model.dart';
 import '../../controller/policies/model/policy_model.dart';
@@ -33,6 +34,7 @@ import '../../controller/pre_pregenancy_flow/model/menstrual_dashboard_Predict_m
 import '../../controller/pre_pregenancy_flow/model/mentural_ai_insights_model.dart';
 import '../../controller/pre_pregenancy_flow/model/mentural_cycle_calender_model.dart';
 import '../../controller/pregnancy_flow/model/addAppointment_data_model.dart';
+import '../../controller/pregnancy_flow/model/postsenddatamodel.dart';
 import '../../controller/pregnancy_flow/model/pregnancy_data_model.dart';
 import '../network/end_points.dart';
 import '../network/network_api_services.dart';
@@ -146,6 +148,16 @@ class Repository extends ChangeNotifier {
       EndPoints.likeApi+likeId,
     );
     return CommonResponseModel.fromJson(response);
+  }
+
+
+  Future<PostSendDataModel> postSendApi(Map<String, dynamic> data,
+      ) async {
+    final response = await apiService.post(
+      EndPoints.postApi,
+      data: data,
+    );
+    return PostSendDataModel.fromJson(response);
   }
 
   Future<Appointment_Data_Model> getAppointmentDataApi() async {
@@ -333,6 +345,16 @@ class Repository extends ChangeNotifier {
       params: data,
     );
     return DoctorDataModel.fromJson(response);
+  }
+
+  Future<AvailableSlotDataModel> getSlotApi(
+      Map<String, dynamic> data,
+      ) async {
+    final response = await apiService.get(
+      EndPoints.getAvailableSlotApi,
+      params: data,
+    );
+    return AvailableSlotDataModel.fromJson(response);
   }
 
 

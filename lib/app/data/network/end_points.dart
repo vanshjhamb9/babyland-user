@@ -28,6 +28,7 @@ class EndPoints {
   static const String pregnancysLogs = "$baseUrl/pregnancys/logs";
   static const String getCommunities = "$baseUrl/communities/all";
   static const String likeApi = "$baseUrl/communities/toggle-like/";
+  static const String postApi = "$baseUrl/communities/add";
 
   //post pregnancy
   static const String postpartumsAdd = "$baseUrl/postpartums/add";
@@ -51,6 +52,7 @@ class EndPoints {
   static const String getBookingUpcoming = "$baseUrl/bookings/upcoming";
   static const String getBookingPast = "$baseUrl/bookings/past";
   static const String getDoctorApi = "$baseUrl/doctors/doctors";
+  static const String getAvailableSlotApi = "$baseUrl/bookings/doctor/68e0177aca35a4f118eed184/available-slots?date";
   static const String bookingAdd = "$baseUrl/bookings/add";
   static const String cancelBooking = "$baseUrl//api/bookings/cancel/";
 

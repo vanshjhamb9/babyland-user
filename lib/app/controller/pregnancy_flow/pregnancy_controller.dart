@@ -16,6 +16,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'model/addAppointment_data_model.dart';
+import 'model/postsenddatamodel.dart';
 
 class PregnancyController extends ChangeNotifier{
 
@@ -307,8 +308,8 @@ class PregnancyController extends ChangeNotifier{
   }
 
   Future<void> getCommunitiesData({bool load = true}) async {
-    setLoadingComm(true);
     if(load == true){
+      setLoadingComm(true);
       setCommunitiesApiData(ApiResponse.loading());
     }
 
@@ -366,5 +367,47 @@ class PregnancyController extends ChangeNotifier{
     }
   }
 
+
+
+  ///////// post api //////////////
+
+  ApiResponse<PostSendDataModel>? _postData = ApiResponse.completed(null);
+  ApiResponse<PostSendDataModel>? get postData => _postData;
+
+  TextEditingController msgController = TextEditingController();
+
+
+  void setPostApiData(ApiResponse<PostSendDataModel> response) {
+    _postData = response;
+    notifyListeners();
+  }
+
+
+  Future<void> postCreateApi({required String msg}) async {
+
+    setPostApiData(ApiResponse.loading());
+
+    try {
+
+      var data ={
+        "message":msg.toString()
+      };
+
+      final value = await repository.postSendApi(data);
+
+      if (value.success == true) {
+        setPostApiData(ApiResponse.completed(value));
+        AppPopUp.showToast(message: value.message.toString());
+        getCommunitiesData(load: false);
+      } else {
+        setPostApiData(ApiResponse.error(value.message ?? "post failed"));
+        AppPopUp.showToast(message: value.message ?? "post failed");
+      }
+    } catch (e, s) {
+      pt("Error in like api: $e\n$s");
+      setPostApiData(ApiResponse.error(e.toString()));
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+    }
+  }
 
 }

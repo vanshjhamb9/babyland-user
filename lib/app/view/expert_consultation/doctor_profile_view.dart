@@ -1,4 +1,4 @@
-import 'package:babyland/app/controller/experts_consultation/model/doctor_data_model.dart';
+import 'package:babyland/app/controller/experts_consultation/model/doctor_data_model.dart' hide Datum;
 import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
@@ -46,6 +46,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.backgroundClr,
       body: Consumer<ExpertConsultationProvider>(
           builder: (context,provider,_) {
             final doctorData = (provider.doctorApiData?.data?.data != null &&
@@ -58,23 +59,20 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                 // padding: EdgeInsets.symmetric(horizontal: 14),
                 child: RefreshIndicator(
                   onRefresh: () => provider.doctorDetailApiData(doctorId: doctorId),
-                  child: SingleChildScrollView(
-                    child: switch (provider.doctorApiData?.status) {
-                      ApiStatus.LOADING => Shimmer.fromColors(
-                        baseColor: Colors.grey.shade300,
-                        highlightColor: Colors.grey.shade100,
-                        child: doctorShimmer(),
-                      ),
+                  child: switch (provider.doctorApiData?.status) {
+                    ApiStatus.LOADING => Shimmer.fromColors(
+                      baseColor: Colors.grey.shade300,
+                      highlightColor: Colors.grey.shade100,
+                      child: doctorShimmer(),
+                    ),
 
-                      ApiStatus.COMPLETED => doctorData == null || (provider.doctorApiData?.data?.data?.isEmpty ?? false)
-                          ? CustomNoDataFound(isClr: false)
-                          : body(context, doctorData, provider),
+                    ApiStatus.COMPLETED => doctorData == null || (provider.doctorApiData?.data?.data?.isEmpty ?? false)
+                        ? CustomNoDataFound(isClr: false)
+                        : body(context, doctorData, provider),
 
-                      ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.doctorDetailApiData(doctorId: doctorId),),
-
-                      _ => SizedBox(),
-                    },
-                  ),
+                    ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.doctorDetailApiData(doctorId: doctorId),),
+                    _ => SizedBox(),
+                  },
                 ),
               ),
             );
@@ -99,17 +97,24 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                   ),
                   Button(
                     onTap: () {
-                      if(provider.selectedTimeIndex == -1){
-                        AppPopUp.showToast(message: "Please select time..",lineColor: AppColors.red);
-                      }else if(provider.selectedIndex == -1){
+                      pt("this is date ${provider.selectedTimeIndex}");
+                      pt("this is time ${provider.selectedIndex}");
+
+                      if(provider.selectedIndex == -1){
                         AppPopUp.showToast(message: "Please select date...",lineColor: AppColors.red);
-                      }else{
+                      }
+                      else if(provider.selectedTimeIndex == -1){
+                        AppPopUp.showToast(message: "Please select time..",lineColor: AppColors.red);
+                      } else{
+                        pt("this is date ${ provider.selectedDate}");
+                        pt("this is date ${ provider.selectedTime}");
                         Navigator.pushNamed(
                           context,
                           AppRoutes.selectSlotTimeView,
                           arguments: {
                             'appointmentDate': provider.selectedDate?.toString(),
                             'appointmentTime': provider.selectedTime?.toString(),
+                            'doctorId': doctorId.toString(),
                           },
                         );
                       }
@@ -159,7 +164,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                 children: [
                   Icon(Icons.star,color: AppColors.orangeClr,size: 15),
                   SizedBox(width: 2),
-                  Text("4.8",style: AppFontStyle.text_12_400(color: AppColors.textClr,fontFamily: AppFontFamily.gilroySemiBold),),
+                  Text("${doctorData?.doctorDetails?.totalAvgRating}",style: AppFontStyle.text_12_400(color: AppColors.textClr,fontFamily: AppFontFamily.gilroySemiBold),),
                 ],
               ),
             ],
@@ -175,7 +180,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text("162,92",style: AppFontStyle.text_18_600(color: AppColors.textClr,fontFamily: AppFontFamily.gilroyMedium),),
+                  Text("${doctorData?.doctorDetails?.consultationFee}",style: AppFontStyle.text_18_600(color: AppColors.textClr,fontFamily: AppFontFamily.gilroyMedium),),
                   Text("Consultation Fee",style: AppFontStyle.text_12_400(color: AppColors.black,fontFamily: AppFontFamily.gilroyMedium),),
                 ],
               ),

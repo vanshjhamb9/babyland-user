@@ -431,6 +431,7 @@ import '../../constants/images.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
+import '../../widgets/app_popup.dart';
 import '../../widgets/container.dart';
 
 class CommunityView extends StatefulWidget {
@@ -787,16 +788,21 @@ class _CommunityViewState extends State<CommunityView> {
           ],
         ),
       ),
-      floatingActionButton: AppContainer(
-        gradient:AppColors.buttonClr,
-        radius: 100,
-        height: 54,
-        width: 54,
-        child: const Center(
-          child: Icon(
-            Icons.add,
-            color: AppColors.white,
-            size: 26,
+      floatingActionButton: InkWell(
+        onTap: (){
+          _showPostMessageDialog(context,provider);
+        },
+        child: AppContainer(
+          gradient:AppColors.buttonClr,
+          radius: 100,
+          height: 54,
+          width: 54,
+          child: const Center(
+            child: Icon(
+              Icons.add,
+              color: AppColors.white,
+              size: 26,
+            ),
           ),
         ),
       ),
@@ -1058,5 +1064,104 @@ class _CommunityViewState extends State<CommunityView> {
     } catch (e) {
       return dateStr;
     }
+  }
+
+
+  void _showPostMessageDialog(BuildContext context, PregnancyController provider) {
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Column(
+            children: [
+              AppContainer(
+                radius: 30,
+                padding: EdgeInsets.all(12),
+                gradient: AppColors.buttonClr,
+                child: Icon(Icons.message, color: AppColors.white, size: 24),
+              ),
+              SizedBox(height: 12),
+              Text(
+                "Post Message",
+                style: AppFontStyle.text_18_600(
+                  color: AppColors.textClr,
+                  fontFamily: AppFontFamily.gilroySemiBold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Share your message with the community",
+                style: AppFontStyle.text_14_400(
+                  color: AppColors.textLightClr,
+                  fontFamily: AppFontFamily.gilroyMedium,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16),
+              CustomTextFormField(
+                controller: provider.msgController,
+                height: 150,
+                maxLines: 5,
+                minLines: 5,
+                borderColor: AppColors.borderColor,
+                hintText: "Type your message here...",
+                textInputType: TextInputType.multiline,
+              ),
+            ],
+          ),
+          actions: [
+            // Cancel Button
+            TextButton(
+              onPressed: () {
+                provider.msgController.clear();
+                Navigator.pop(dialogContext);
+
+              },
+              child: Text(
+                "Cancel",
+                style: AppFontStyle.text_16_500(
+                  color: AppColors.textLightClr,
+                  fontFamily: AppFontFamily.gilroyMedium,
+                ),
+              ),
+            ),
+            // Post Button
+            AppContainer(
+              radius: 8,
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              gradient: AppColors.buttonClr,
+              child: InkWell(
+                onTap: () {
+                  final message = provider.msgController.text.trim();
+                  if (message.isNotEmpty) {
+                    provider.msgController.clear();
+                    provider.postCreateApi(msg: message.toString());
+                    Navigator.pop(dialogContext);
+                  } else {
+                    AppPopUp.showToast(
+                      message: "Please enter a message",
+                      lineColor: AppColors.red,
+                    );
+                  }
+                },
+                child: Text(
+                  "Post",
+                  style: AppFontStyle.text_16_600(
+                    color: AppColors.white,
+                    fontFamily: AppFontFamily.gilroySemiBold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

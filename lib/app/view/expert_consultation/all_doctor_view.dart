@@ -21,8 +21,6 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../controller/experts_consultation/model/doctor_data_model.dart';
 import '../../widgets/text.dart';
-import '../../widgets/sizedbox.dart';
-import '../../widgets/validation.dart';
 
 class AllDoctorView extends StatefulWidget {
   const AllDoctorView({super.key});
@@ -300,7 +298,7 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                                     ),
                                                     SizedBox(width: 4),
                                                     Text(
-                                                      "4.9 (127 reviews)",
+                                                      "${doctor.doctorDetails?.totalAvgRating} (${doctor.doctorDetails?.totalReviewCount} reviews)",
                                                       style: AppFontStyle.text_14_400(
                                                         fontFamily: AppFontFamily.gilroyRegular,
                                                         color: AppColors.textClr,
@@ -318,7 +316,7 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                                     ),
                                                     SizedBox(width: 6),
                                                     Text(
-                                                      "Next available: Today 2:30 PM",
+                                                      "Next available: ${doctor.nextAvailable}",
                                                       style: AppFontStyle.text_14_400(
                                                         fontFamily: AppFontFamily.gilroyRegular,
                                                         color: AppColors.textClr,
@@ -334,15 +332,15 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                         Button(
                                           padding: EdgeInsets.zero,
                                           onTap: () async {
-                                            await UserLocalData.saveDoctorId(doctor.sId ?? "");
+                                            await UserLocalData.saveDoctorId(doctor.id ?? "");
                                             Navigator.pushNamed(
                                               context,
                                               AppRoutes.doctorProfileView,
                                               arguments: {
-                                                "doctorId": doctor.sId
+                                                "doctorId": doctor.id
                                               },
                                             );
-                                            provider.setSelectedDoctorId(doctor.sId ?? "");
+                                            provider.setSelectedDoctorId(doctor.id ?? "");
                                           },
                                           borderRadius: 12,
                                           width: MediaQuery.of(context).size.width,
