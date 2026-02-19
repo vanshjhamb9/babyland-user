@@ -551,7 +551,7 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
                 Icons.water_drop,
                     () {
                   Navigator.pop(context);
-                  AppPopUp.showToast(message: "Period Start logging - Coming Soon (Backend pending)");
+                  provider.addMenstrualCycle(startDate: provider.selectedDay);
                 },
                 color: Colors.redAccent,
               ),
@@ -562,7 +562,7 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
                 Icons.water_drop_outlined,
                     () {
                   Navigator.pop(context);
-                  AppPopUp.showToast(message: "Period End logging - Coming Soon (Backend pending)");
+                  provider.addMenstrualCycle(endDate: provider.selectedDay);
                 },
                 color: Colors.redAccent.shade100,
               ),

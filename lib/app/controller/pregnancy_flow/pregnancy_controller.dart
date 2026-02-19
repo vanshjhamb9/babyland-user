@@ -27,13 +27,6 @@ class PregnancyController extends ChangeNotifier{
   final titleController = TextEditingController();
   final timerController = TextEditingController();
 
-  Future<void> loadLocalConceptionDate() async {
-    String? date = await UserLocalData.getConceptionDate();
-    if (date != null && dateController.text.isEmpty) {
-      dateController.text = date;
-      notifyListeners();
-    }
-  }
 
 //--------------------------
   ApiResponse<PregnancyInfoModel>? _pregnancyInfoApiData = ApiResponse.completed(null);

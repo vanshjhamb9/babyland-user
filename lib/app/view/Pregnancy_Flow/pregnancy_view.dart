@@ -26,9 +26,6 @@ class _PregnancyViewState extends State<PregnancyView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PregnancyController>().loadLocalConceptionDate();
-    });
   }
 
   @override

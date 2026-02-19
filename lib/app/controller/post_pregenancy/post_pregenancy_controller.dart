@@ -24,25 +24,9 @@ class PostpregnancyProvider extends ChangeNotifier {
       dobController.text = dateController.text;
     }
     _currentIndex = newIndex;
-    if (newIndex == 1) {
-      loadLocalBabyDetails();
-    }
     notifyListeners();
   }
 
-  Future<void> loadLocalBabyDetails() async {
-    Map<String, String?> babyDetails = await UserLocalData.getBabyDetails();
-    if (babyDetails['name'] != null && babyNameController.text.isEmpty) {
-      babyNameController.text = babyDetails['name']!;
-    }
-    if (babyDetails['dob'] != null && dobController.text.isEmpty) {
-      dobController.text = babyDetails['dob']!;
-    }
-    if (babyDetails['gender'] != null && selectedGender == null) {
-      selectedGender = babyDetails['gender'];
-    }
-    notifyListeners();
-  }
 
   Set<int> _selectedIndexes = {};
 

@@ -58,12 +58,30 @@ class _StagesViewState extends State<StagesView> {
   }
 
   Future<void> _loadSelectedStage() async {
+    // 1. Start with local storage
     final step = await UserLocalData.getStep();
     if (step != null && step.isNotEmpty) {
       setState(() {
         selectedStageIndex = int.tryParse(step);
       });
-      pt("Selected stage index: $selectedStageIndex");
+    }
+    
+    // 2. Immediately prefer fresh backend data if available in the provider
+    final userProvider = context.read<GetUserProvider>();
+    final backendUser = userProvider.userData?.data?.user?.user;
+    if (backendUser != null) {
+      final cType = backendUser.cycleType;
+      int? backendIndex;
+      if (cType == "pregnancy") backendIndex = 1;
+      else if (cType == "post_pregnancy") backendIndex = 2;
+      else if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") backendIndex = 0;
+      
+      if (backendIndex != null) {
+        setState(() {
+          selectedStageIndex = backendIndex;
+        });
+        pt("StagesView initialized from backend state: $backendIndex ($cType)");
+      }
     }
   }
 
@@ -97,7 +115,9 @@ class _StagesViewState extends State<StagesView> {
                     onTap: () async {
                       // Save timestamp when user makes a selection
                       await UserLocalData.saveLastStageScreenShown();
-                      await UserLocalData.saveStep(index.toString());
+                      
+                      // Sync with backend (updates local step and cycleType)
+                      await context.read<GetUserProvider>().updateUserStage(index);
 
                       // Update the selected stage visually
                       setState(() {
@@ -118,8 +138,6 @@ class _StagesViewState extends State<StagesView> {
                             Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
                             break;
                         }
-
-                        context.read<GetUserProvider>().getUser();
                       }
 
                       else if (widget.fromProfile == true) {
@@ -198,8 +216,6 @@ class _StagesViewState extends State<StagesView> {
                           AppRoutes.processingDetailsView,
                           arguments: {"index": index},
                         );
-
-                        context.read<GetUserProvider>().getUser();
                       }
                     },
                     child: Container(

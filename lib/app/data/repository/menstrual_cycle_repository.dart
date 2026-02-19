@@ -13,25 +13,22 @@ class MenstrualRepository extends ChangeNotifier {
 
   Future<Menstruals_Cycle_model> getMenstrual() async {
     final response = await apiService.get(
-      "EndPoints.menstruals",
+      EndPoints.menstruals,
     );
     return Menstruals_Cycle_model.fromJson(response);
   }
 
   Future<Menstruals_Cycle_model> getDailyLog() async {
     final response = await apiService.get(
-      "EndPoints.menstruals",
+      EndPoints.menstruals,
     );
     return Menstruals_Cycle_model.fromJson(response);
   }
 
   Future<Menstruals_Cycle_model> allInsights() async {
     final response = await apiService.get(
-     " EndPoints.menstruals",
+      EndPoints.menstruals,
     );
     return Menstruals_Cycle_model.fromJson(response);
   }
-
-
-
 }

@@ -42,7 +42,28 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("${provider.userData?.data?.user?.user?.name ?? ""} 👋", style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroyMedium),),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text("${provider.userData?.data?.user?.user?.name ?? ""} 👋", style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroyMedium),),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getStageColor(provider.currentStageLabel).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: _getStageColor(provider.currentStageLabel).withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        provider.currentStageLabel,
+                        style: AppFontStyle.text_10_400(
+                          fontFamily: AppFontFamily.gilroyMedium,
+                          color: _getStageColor(provider.currentStageLabel),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 Text(subtitle ?? "Track your cycle and stay healthy", style: AppFontStyle.text_12_400(fontFamily: AppFontFamily.gilroyRegular,color: AppColors.textClr),),
               ],
             ),
@@ -112,6 +133,19 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
         SizedBox(width: 14),
       ],
     );
+  }
+
+  Color _getStageColor(String label) {
+    switch (label) {
+      case "Pregnancy":
+        return AppColors.buttonClr2; // Pink
+      case "Post-pregnancy":
+        return AppColors.green; // Green
+      case "Pre-pregnancy":
+        return AppColors.blue; // Blue
+      default:
+        return AppColors.buttonClr1; // Orange
+    }
   }
 
   @override

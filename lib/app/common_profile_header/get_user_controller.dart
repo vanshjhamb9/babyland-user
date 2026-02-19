@@ -22,17 +22,23 @@ class GetUserProvider extends ChangeNotifier{
     notifyListeners();
   }
 
+  String get currentStageLabel {
+    final user = _userData?.data?.user?.user;
+    if (user == null) return "Unknown";
+    
+    // Check cycleType (used for logic mapping in this app)
+    final cType = user.cycleType;
+    if (cType == "pregnancy") return "Pregnancy";
+    if (cType == "post_pregnancy") return "Post-pregnancy";
+    if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") return "Pre-pregnancy";
+    
+    return "Onboarding";
+  }
+
   Future<void> getUser() async {
     pt("getUser() called - Setting loading");
     // Preserve existing data while loading
     if (_userData != null && _userData!.data != null) {
-       // Keep old data but status loading? 
-       // Start with loading status but keep data.
-       // However, ApiResponse usually replaces.
-       // Let's create a new ApiResponse with loading stats + old data if possible.
-       // But typically loading() sets data to null.
-       // Instead, let's NOT set loading if we already have data, just notify listeners?
-       // Or set status to loading but keep data.
        _userData = ApiResponse.loading(data: _userData!.data);
     } else {
        setUserData(ApiResponse.loading());
@@ -45,23 +51,19 @@ class GetUserProvider extends ChangeNotifier{
         setUserData(ApiResponse.completed(value));
         pt(name: "response", "${value.message}");
         
-        // Sync local data with backend profile
         final user = value.user?.user;
         if (user != null) {
            String? cType = user.cycleType;
-           pt("Syncing local data. Backend cycleType: $cType");
+           pt("Syncing data. Backend cycleType: $cType");
            
+           // Minimal sync for Splash screen routing
            if (cType == "pregnancy") {
               UserLocalData.saveStep("1");
-              UserLocalData.savePregnancySetupComplete();
-              if (user.pregnancyStartDate != null) {
-                UserLocalData.saveConceptionDate(user.pregnancyStartDate);
-              }
-           } else if (cType == "regular" || cType == "irregular") {
-              UserLocalData.saveStep("0");
            } else if (cType == "post_pregnancy") {
               UserLocalData.saveStep("2");
-              UserLocalData.savePostPregnancySetupComplete();
+           } else if (cType == "regular" || cType == "irregular") {
+              // We don't overwrite local step if it's already set to something else,
+              // to respect the user's current session until backend catches up.
            }
         }
       }
@@ -74,6 +76,53 @@ class GetUserProvider extends ChangeNotifier{
       setUserData(ApiResponse.error(error.toString()));
       notifyListeners();
     },);
+  }
+
+  /// Synchronize the user's stage with the backend
+  Future<bool> updateUserStage(int index) async {
+    String cycleType;
+    String step;
+    switch (index) {
+      case 0:
+        cycleType = "regular";
+        step = "0";
+        break;
+      case 1:
+        cycleType = "pregnancy";
+        step = "1";
+        break;
+      case 2:
+        cycleType = "post_pregnancy";
+        step = "2";
+        break;
+      default:
+        return false;
+    }
+
+    pt("Syncing stage to backend: index=$index, cycleType=$cycleType");
+    
+    // 1. Update local step immediately for snappy UI
+    await UserLocalData.saveStep(step);
+    
+    try {
+      // 2. Sync with backend
+      // We update BOTH cycleType and stage to ensure backend persistence
+      await repository.updateUserProfile({
+        "cycleType": cycleType,
+        "stage": cycleType == "post_pregnancy" ? "postpregnancy" : cycleType
+      });
+      
+      // Also call onboardingCompleted for potential side effects if needed
+      await repository.onboardingCompleted({"cycleType": cycleType});
+      
+      pt("Backend stage sync successful");
+      // 3. Refresh profile data
+      await getUser();
+      return true;
+    } catch (e) {
+      pt("Error syncing stage: $e");
+      return false;
+    }
   }
 
   // update profile

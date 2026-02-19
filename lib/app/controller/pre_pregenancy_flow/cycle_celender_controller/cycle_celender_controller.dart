@@ -21,6 +21,14 @@ class CycleCalenderProvider extends ChangeNotifier {
 
   List<String> imagesForMood = [ImageConstants.great,ImageConstants.good,ImageConstants.okay,ImageConstants.low,ImageConstants.sad];
 
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  void setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
   // 🔴 Predicted Period Dates
   final List<int> _predictedPeriodDays = [10, 11, 12, 13, 14];
 
@@ -313,6 +321,40 @@ class CycleCalenderProvider extends ChangeNotifier {
 
   //--------------------------------------------------------------------------------------------
 
+  Future<void> addMenstrualCycle({DateTime? startDate, DateTime? endDate}) async {
+    setLoading(true);
+    notifyListeners();
+    try {
+      Map<String, dynamic> data = {
+        if (startDate != null) "startDate": DateFormat('yyyy-MM-dd').format(startDate),
+        if (endDate != null) "endDate": DateFormat('yyyy-MM-dd').format(endDate),
+        "notes": "Added from App"
+      };
+
+      await repository.addMenstrual(data).then((value) async {
+        if (value['success'] == true) {
+          pt(name: "response", "${value['message']}");
+          AppPopUp.showToast(message: value['message'] ?? "Successfully updated!");
+          
+          // Refresh all relevant data
+          await dashboardData();
+          await getDashBoardAiInsights();
+          await dashboardMoodData();
+          await cycleCalender(year: focusedDay.year, month: focusedDay.month);
+        } else {
+          AppPopUp.showToast(message: value['message'] ?? "Something went wrong!");
+        }
+      });
+    } catch (e, s) {
+      pt("Error in addMenstrualCycle: $e\n$s");
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+      notifyListeners();
+    }
+  }
+
+  //--------------------------------------------------------------------------------------------
 
   DateTime _focusedDay = DateTime.now();
 

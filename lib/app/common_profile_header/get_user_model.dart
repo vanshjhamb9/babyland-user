@@ -26,13 +26,15 @@ class User {
   bool? success;
   String? profileCompletion;
   Users? user;
+  Map<String, dynamic>? pregnancyTracker;
 
-  User({this.success, this.profileCompletion, this.user});
+  User({this.success, this.profileCompletion, this.user, this.pregnancyTracker});
 
   User.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     profileCompletion = json['profileCompletion']?.toString();
     user = json['user'] != null ? Users.fromJson(json['user']) : null;
+    pregnancyTracker = json['pregnancyTracker'];
   }
 
   Map<String, dynamic> toJson() {
@@ -42,6 +44,7 @@ class User {
     if (user != null) {
       data['user'] = user!.toJson();
     }
+    data['pregnancyTracker'] = pregnancyTracker;
     return data;
   }
 }
@@ -69,6 +72,7 @@ class Users {
   String? phone;
   String? weight;
   String? pregnancyStartDate;
+  String? stage;
 
   Users(
       {this.irregularCycleRangeDays,
@@ -92,6 +96,7 @@ class Users {
         this.phone,
         this.weight,
         this.pregnancyStartDate,
+        this.stage,
         this.medicalHistory});
 
   Users.fromJson(Map<String, dynamic> json) {
@@ -121,6 +126,7 @@ class Users {
     phone = json['phone']?.toString();
     weight = json['weight']?.toString();
     pregnancyStartDate = json['pregnancyStartDate']?.toString();
+    stage = json['stage']?.toString();
   }
 
   Map<String, dynamic> toJson() {
@@ -151,6 +157,7 @@ class Users {
     data['profilePicture'] = profilePicture;
     data['phone'] = phone;
     data['weight'] = weight;
+    data['stage'] = stage;
     return data;
   }
 }

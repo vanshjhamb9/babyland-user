@@ -40,6 +40,7 @@ class EndPoints {
   static const String insights = "$baseUrl/ai/insights";
   static const String menstrualsDashboardInsight = "$baseUrl/menstruals/dashboard/insight";
   static const String addDailyLogMentrual = "$baseUrl/menstruals/logs";
+  static const String addMenstrual = "$baseUrl/menstruals/add-cycle";
   static const String dashboardCurrentMood = "$baseUrl/menstruals/dashboard/current-mood";
   static const String predictCalenderMentrual = "$baseUrl/menstruals/dashboard/predict-calender";
   static const String postpartumsDoctorAppointmentAdd = "$baseUrl/postpartums/doctor-appointment";

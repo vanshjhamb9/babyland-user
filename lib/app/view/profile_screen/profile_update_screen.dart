@@ -87,23 +87,9 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
 
   Future<void> _loadStage() async {
     String? step = await UserLocalData.getStep();
-    String? localConceptionDate = await UserLocalData.getConceptionDate();
-    Map<String, String?> babyDetails = await UserLocalData.getBabyDetails();
     
     setState(() {
       currentStage = step;
-      if (conceptionDateController.text.isEmpty && localConceptionDate != null) {
-        conceptionDateController.text = localConceptionDate;
-      }
-      if (babyNameController.text.isEmpty && babyDetails['name'] != null) {
-        babyNameController.text = babyDetails['name']!;
-      }
-      if (babyDobController.text.isEmpty && babyDetails['dob'] != null) {
-        babyDobController.text = babyDetails['dob']!;
-      }
-      if (babyGenderController.text.isEmpty && babyDetails['gender'] != null) {
-        babyGenderController.text = babyDetails['gender']!;
-      }
     });
   }
 
