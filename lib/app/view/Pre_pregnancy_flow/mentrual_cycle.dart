@@ -324,7 +324,7 @@ class _MentrualCycleState extends State<MentrualCycle> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    (provider.menstrualAiInsightsDash?.data?.data?.isEmpty ?? false) ?
+                    (provider.menstrualAiInsightsDash?.data?.dataexit?.items?.isEmpty ?? false) ?
                     Padding(
                       padding: const EdgeInsets.all(18.0),
                       child: Center(
@@ -334,14 +334,15 @@ class _MentrualCycleState extends State<MentrualCycle> {
                       ),
                     )  :
                     ListView.separated(
-                      itemCount: provider.menstrualAiInsightsDash?.data?.data?.length ?? 0,
+                      itemCount: provider.menstrualAiInsightsDash?.data?.dataexit?.items?.length ?? 0,
                       shrinkWrap: true,
                       physics: NeverScrollableScrollPhysics(),
                       itemBuilder: (context, index) {
                         List<String> images = [ImageConstants.moon,ImageConstants.walk,ImageConstants.water];
+                        final item = provider.menstrualAiInsightsDash?.data?.dataexit?.items?[index];
                       return Tile(
                         path: images[index % images.length],
-                        text: provider.menstrualAiInsightsDash?.data?.data?[index].message ?? "",
+                        text: item?.description ?? "",
                       );
                     },
                     separatorBuilder: (context, index) => SizedBox(height: 0),

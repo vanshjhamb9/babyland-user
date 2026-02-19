@@ -5,6 +5,7 @@ import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../data/network/end_points.dart';
 
 import '../../constants/images.dart';
 import '../../controller/pregnancy_flow/pregnancy_controller.dart';
@@ -71,8 +72,8 @@ class _PregnancyHomeViewState extends State<PregnancyHomeView> {
         return const Center(child: Text("No pregnancy data available."));
       }
 
-      final currentWeek = data.currentWeek ?? 0;
-      final trimester = data.trimester ?? 0;
+      final currentWeek = data.currentWeek ?? "0";
+      final trimester = data.trimester ?? "0";
       final expectedDueDate = data.expectedDueDate ?? "";
       final fetalGrowthStage = data.fetalGrowthStage ?? "";
       final predictions = data.predictions;
@@ -144,7 +145,8 @@ class _PregnancyHomeViewState extends State<PregnancyHomeView> {
                         ),
                       ),
                       ],
-                      const SizedBox(height: 14),
+
+
                       Row(
                         children: [
                           Expanded(

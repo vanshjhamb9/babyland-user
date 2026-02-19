@@ -107,10 +107,10 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                         AppPopUp.showToast(message: "Please select time..",lineColor: AppColors.red);
                       } else{
                         pt("this is date ${ provider.selectedDate}");
-                        pt("this is date ${ provider.selectedTime}");
+                        pt("this is time ${ provider.selectedTime}");
                         Navigator.pushNamed(
                           context,
-                          AppRoutes.selectSlotTimeView,
+                          AppRoutes.bookingsView,
                           arguments: {
                             'appointmentDate': provider.selectedDate?.toString(),
                             'appointmentTime': provider.selectedTime?.toString(),
@@ -143,8 +143,10 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
     );
   }
 
-  Column body(BuildContext context, Doctor? doctorData, ExpertConsultationProvider provider) {
-    return Column(
+  Widget body(BuildContext context, Doctor? doctorData, ExpertConsultationProvider provider) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Stack(
@@ -259,47 +261,111 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
         SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Text("Select Appointment Time ",style: AppFontStyle.text_14_600(color: AppColors.black,fontFamily: AppFontFamily.gilroyMedium)),
+          child: Text(
+            "Select Appointment Time",
+            style: AppFontStyle.text_14_600(color: AppColors.black, fontFamily: AppFontFamily.gilroyMedium),
+          ),
         ),
         SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(4, (index) {
-              bool isSelected = index == provider.selectedTimeIndex;
+        // DOC-01/DOC-02: real available slots from API
+        Builder(builder: (_) {
+          final slotStatus = provider.getAvailableSlot?.status;
+          final slots = provider.getAvailableSlot?.data?.data
+              ?.where((s) => s.status == true)
+              .toList() ?? [];
 
-              return GestureDetector(
-                onTap: () {
-                  provider.setSelectedTimeIndex(index);
-                  provider.pickTime(provider.timeSlots[index]);
-                },
-                child: AppContainer(
-                  margin: EdgeInsets.only(left: index == 0 ? 14 : 8, top: 10, bottom: 10),
-                  padding: EdgeInsets.all(8),
-                  radius: 4,
-                  gradient: isSelected
-                      ? AppColors.buttonClr
-                      : LinearGradient(
-                    colors: [Colors.grey.shade200, Colors.grey.shade300],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          // No date selected yet
+          if (provider.selectedDate == null) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Text(
+                "Select a date to see available slots",
+                style: AppFontStyle.text_12_400(
+                  color: AppColors.textLightClr,
+                  fontFamily: AppFontFamily.gilroyMedium,
+                ),
+              ),
+            );
+          }
+
+          // Loading shimmer
+          if (slotStatus == ApiStatus.LOADING) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(4, (i) => Shimmer.fromColors(
+                  baseColor: Colors.grey.shade300,
+                  highlightColor: Colors.grey.shade100,
+                  child: AppContainer(
+                    margin: EdgeInsets.only(left: i == 0 ? 14 : 8, top: 10, bottom: 10),
+                    width: 80,
+                    height: 36,
+                    radius: 4,
+                    color: Colors.grey.shade300,
+                    child: const SizedBox(),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 2),
-                    child: Text(
-                      provider.timeSlots[index] ?? "",
-                      style: AppFontStyle.text_11_400(
-                        color: isSelected ? AppColors.black : AppColors.textClr,
-                        fontFamily:isSelected ? AppFontFamily.gilroySemiBold : AppFontFamily.gilroyMedium,
+                )),
+              ),
+            );
+          }
+
+          // No slots available
+          if (slots.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Text(
+                "No slots available for this date",
+                style: AppFontStyle.text_12_400(
+                  color: AppColors.textLightClr,
+                  fontFamily: AppFontFamily.gilroyMedium,
+                ),
+              ),
+            );
+          }
+
+          // Render real slots
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: slots.asMap().entries.map((entry) {
+                final index = entry.key;
+                final slot = entry.value;
+                final isSelected = index == provider.selectedTimeIndex;
+                return GestureDetector(
+                  onTap: () {
+                    provider.setSelectedTimeIndex(index);
+                    provider.pickTime(slot.time ?? "");
+                  },
+                  child: AppContainer(
+                    margin: EdgeInsets.only(left: index == 0 ? 14 : 8, top: 10, bottom: 10),
+                    padding: const EdgeInsets.all(8),
+                    radius: 4,
+                    gradient: isSelected
+                        ? AppColors.buttonClr
+                        : LinearGradient(
+                            colors: [Colors.grey.shade200, Colors.grey.shade300],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      child: Text(
+                        slot.time ?? "",
+                        style: AppFontStyle.text_11_400(
+                          color: isSelected ? AppColors.black : AppColors.textClr,
+                          fontFamily: isSelected ? AppFontFamily.gilroySemiBold : AppFontFamily.gilroyMedium,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }),
-          ),
-        ),
+                );
+              }).toList(),
+            ),
+          );
+        }),
+        const SizedBox(height: 24),
       ],
+      ),
     );
   }
 

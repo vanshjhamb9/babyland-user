@@ -125,9 +125,8 @@ class _StagesViewState extends State<StagesView> {
                       else if (widget.fromProfile == true) {
                         // Check if this is an update flow
                         if (widget.isUpdateFlow == true) {
-                          // Just update local data and go back
+                          // Update local data
                           await UserLocalData.saveStep(index.toString());
-                          Navigator.pop(context);
 
                           // Show a snackbar to confirm update
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -137,6 +136,34 @@ class _StagesViewState extends State<StagesView> {
                               duration: Duration(seconds: 2),
                             ),
                           );
+
+                          // Navigate to the respective screen based on selection
+                          // Using pushNamedAndRemoveUntil to clear stack and switch mode
+                          switch (index) {
+                            case 0: // Pre-Pregnancy
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                AppRoutes.navbarPrePregancyView,
+                                    (route) => false,
+                              );
+                              break;
+
+                            case 1: // Pregnancy
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                AppRoutes.pregnancyView,
+                                    (route) => false,
+                              );
+                              break;
+
+                            case 2: // Post-Pregnancy
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                AppRoutes.combinedBabyDetailScreen,
+                                    (route) => false,
+                              );
+                              break;
+                          }
                         } else {
                           // Original flow - navigate and remove all routes
                           switch (index) {

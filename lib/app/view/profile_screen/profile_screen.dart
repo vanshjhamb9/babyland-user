@@ -163,7 +163,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget buildTiles() {
     List<String> titles = [
       "Stage",
-      "Update Stage",
       "Subscription",
       "Doctors",
       "My Booking",
@@ -176,7 +175,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     List<IconData> icons = [
       Icons.flag_rounded,
-      Icons.refresh_rounded,
       Icons.card_membership,
       Icons.local_hospital,
       Icons.save,
@@ -237,9 +235,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 18),
             onTap: () {
-              if(index == 0){
-                Navigator.push(context, MaterialPageRoute(builder: (context) => StagesView(fromProfile: true,),));
-              }else if(index == 1){
+              if (index == 0) {
+                // Stage - Open formatted for update and reload on return
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -248,8 +245,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isUpdateFlow: true,
                     ),
                   ),
-                );
-              }else if(index == 2){
+                ).then((_) {
+                  _loadCurrentStage();
+                });
+              } else if (index == 1) { // Subscription
                 switch(widget.stage!) {
                   case Stages.PREPREGRANCY:
                     Navigator.pushNamed(context, AppRoutes.prePreSubscriptionView);
@@ -261,19 +260,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.pushNamed(context, AppRoutes.postPreSubscriptionView);
                     break;
                 }
-              }else if (index == 3) {
+              } else if (index == 2) { // Doctors
                 Navigator.pushNamed(context, AppRoutes.allDoctorView);
-              }else if (index == 4) {
+              } else if (index == 3) { // My Booking
                 Navigator.pushNamed(context, AppRoutes.myBookingsView);
-              }else if (index == 5) {
+              } else if (index == 4) { // Terms
                 Navigator.pushNamed(context, AppRoutes.termOfServicesScreen);
-              }else if (index == 6) {
+              } else if (index == 5) { // Privacy
                 Navigator.pushNamed(context, AppRoutes.privacyPolicy);
-              }else if (index == 7) {
+              } else if (index == 6) { // Refund
                 Navigator.pushNamed(context, AppRoutes.refundPolicyScreen);
-              }else if (index == 8) {
+              } else if (index == 7) { // Shipping
                 Navigator.pushNamed(context, AppRoutes.shippingPolicyScreen);
-              }else if (index == 9) {
+              } else if (index == 8) { // Logout
                 showLogoutDialog();
               }
             },

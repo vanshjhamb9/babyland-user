@@ -251,9 +251,17 @@ class Repository extends ChangeNotifier {
     return PolicyModel.fromJson(response);
   }
 
-  Future<CommonResponseModel> updateUserProfile(Map<String,dynamic> data) async {
-    final response = await apiService.put(EndPoints.updateUserProfile,data: data);
-    return CommonResponseModel.fromJson(response);
+  Future<CommonResponseModel> updateUserProfile(Map<String,dynamic> data, {File? profileImage}) async {
+    if (profileImage != null) {
+      return await apiService.putApiMultiPart(
+        EndPoints.updateUserProfile,
+        data,
+        {'profilePicture': profileImage}, 
+      ).then((value) => CommonResponseModel.fromJson(value));
+    } else {
+      final response = await apiService.put(EndPoints.updateUserProfile, data: data);
+      return CommonResponseModel.fromJson(response);
+    }
   }
 
  Future<CommonResponseModel> addBabygrowths(Map<String, dynamic> data) async {
@@ -273,6 +281,11 @@ class Repository extends ChangeNotifier {
 
   Future<CommonResponseModel> babygrowthsAddPage(Map<String, dynamic> data) async {
     final response = await apiService.put(EndPoints.babygrowthsAddData,data: data);
+    return CommonResponseModel.fromJson(response);
+  }
+
+  Future<CommonResponseModel> babygrowthsUpdate(Map<String, dynamic> data) async {
+    final response = await apiService.put(EndPoints.babygrowthsUpdate,data: data);
     return CommonResponseModel.fromJson(response);
   }
 
@@ -333,7 +346,7 @@ class Repository extends ChangeNotifier {
   }
 
   Future<CommonResponseModel> cancelBooking(String id) async {
-    final response = await apiService.delete(EndPoints.cancelBooking);
+    final response = await apiService.delete(EndPoints.cancelBooking + id);
     return CommonResponseModel.fromJson(response);
   }
 
@@ -348,10 +361,11 @@ class Repository extends ChangeNotifier {
   }
 
   Future<AvailableSlotDataModel> getSlotApi(
+      String doctorId,
       Map<String, dynamic> data,
       ) async {
     final response = await apiService.get(
-      EndPoints.getAvailableSlotApi,
+      EndPoints.getAvailableSlotApi(doctorId),
       params: data,
     );
     return AvailableSlotDataModel.fromJson(response);
@@ -399,9 +413,9 @@ class Repository extends ChangeNotifier {
   }
 
 
-  Future<ConsultationDataModel> consultationRepo(Map<String, String> data,Map<String,File> filesData) async {
+  Future<ConsultationDataModel> consultationRepo(Map<String, String> data, Map<String, File> filesData) async {
     final response = await apiService.postApiMultiPart(
-      EndPoints.uploadFiles,data,filesData
+      EndPoints.medicalRecordUpload, data, filesData
     );
     return ConsultationDataModel.fromJson(response);
   }

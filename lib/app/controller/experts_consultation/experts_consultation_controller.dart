@@ -58,6 +58,13 @@ class ExpertConsultationProvider extends ChangeNotifier {
   void pickDate(DateTime date) {
     pt(date.toString());
     selectedDate = date;
+    // DOC-01/DOC-02: auto-load real available slots for the selected date + doctor
+    if (selectedDoctorId.isNotEmpty) {
+      getAvailableSlotApiData(
+        doctorId: selectedDoctorId,
+        date: date,
+      );
+    }
     notifyListeners();
   }
 
@@ -221,7 +228,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
 
       _combinedFilteredDoctors = sourceList.where((doctor) {
         final name = doctor.name?.toLowerCase() ?? '';
-        final specialization = doctor.name?.toLowerCase() ?? '';
+        final specialization = (doctor.doctorDetails?.speciality ?? [])
+            .join(' ').toLowerCase();
         final qualifications = doctor.email?.toLowerCase() ?? '';
 
         return name.contains(searchQuery) ||
@@ -307,7 +315,7 @@ class ExpertConsultationProvider extends ChangeNotifier {
       "time": time,
       "consultationFee": 500,
       "currency": "INR",
-      "paymentMethod": isRazorPaySelected ? "Razorpay" : "COD"
+      "paymentMethod": "COD"
     };
     pt("data>>>>>>>>>> $data");
     try {
@@ -333,6 +341,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
     }
   }
  ///================================================cancel booking
+  String? selectedBookingId;
+
   ApiResponse<CommonResponseModel>? _cancelBooking = ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get cancelBooking => _cancelBooking;
 
@@ -345,6 +355,7 @@ class ExpertConsultationProvider extends ChangeNotifier {
   }
 
   Future<void> cancelBookingApi({required String id}) async {
+    selectedBookingId = id;
     cancelBookingData(ApiResponse.loading());
     try {
       final value = await repository.cancelBooking(id);
@@ -363,6 +374,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
       }
     } catch (e) {
       cancelBookingData(ApiResponse.error(e.toString()));
+    } finally {
+      selectedBookingId = null;
     }
   }
 
@@ -499,6 +512,7 @@ class ExpertConsultationProvider extends ChangeNotifier {
 
 
   Future<void> getAvailableSlotApiData({
+    required String doctorId,
     DateTime? date,
   }) async {
     setAvailableSlotData(ApiResponse.loading());
@@ -507,10 +521,10 @@ class ExpertConsultationProvider extends ChangeNotifier {
       if (date != null) "date": formatDate(date),
     };
 
-    pt("data>>>>>>>>>> $data");
+    pt("getAvailableSlotApiData doctorId=$doctorId date=$data");
 
     try {
-      final value = await repository.getSlotApi(data);
+      final value = await repository.getSlotApi(doctorId, data);
 
       if (value.success == true) {
         setAvailableSlotData(ApiResponse.completed(value));

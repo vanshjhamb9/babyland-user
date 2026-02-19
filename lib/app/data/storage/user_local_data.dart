@@ -111,4 +111,21 @@ class UserLocalData {
   static Future<void> clearPostPregnancySetupComplete() async {
     await _storage.delete(key: _postPregnancySetupCompleteKey);
   }
+
+  // ---------------- PREGNANCY SETUP COMPLETE ----------------
+  static const _pregnancySetupCompleteKey = 'pregnancy_setup_complete';
+
+  static Future<void> savePregnancySetupComplete() async {
+    await _storage.write(key: _pregnancySetupCompleteKey, value: 'true');
+    pt('Pregnancy setup complete saved');
+  }
+
+  static Future<bool> isPregnancySetupComplete() async {
+    final value = await _storage.read(key: _pregnancySetupCompleteKey);
+    return value == 'true';
+  }
+
+  static Future<void> clearPregnancySetupComplete() async {
+    await _storage.delete(key: _pregnancySetupCompleteKey);
+  }
 }

@@ -38,7 +38,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BookingController>().getBookingApi(false);
+      context.read<BookingController>().getBookingApi();
     });
   }
 
@@ -47,9 +47,25 @@ class _MyBookingsViewState extends State<MyBookingsView> {
     final provider = context.watch<BookingController>();
     final apiData = provider.bookingApiData;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.profileScreen,
+            (route) => false,
+          );
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.backgroundClr,
       appBar: CustomAppBar(
+        leadingOnTap: () => Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.profileScreen,
+          (route) => false,
+        ),
         isIosBackBtn: true,
         title: Text(
           "My Bookings",
@@ -71,8 +87,8 @@ class _MyBookingsViewState extends State<MyBookingsView> {
               radius: 12,
               color: AppColors.lightWhite,
               child: Row(
-                children: List.generate(2, (index) {
-                  final titles = ["Upcoming", "Past"];
+                children: List.generate(3, (index) {
+                  final titles = ["Upcoming", "Past", "Cancelled"];
                   final isSelected = provider.selectedTabIndex == index;
                   return Expanded(
                     child: GestureDetector(
@@ -121,11 +137,11 @@ class _MyBookingsViewState extends State<MyBookingsView> {
           ],
         ),
       ),
-    );
+    ),   // closes WillPopScope child: Scaffold
+    );   // closes WillPopScope
   }
 
   Widget _buildBookingsList(List<Booking> bookings, int selectedTabIndex) {
-
     if (bookings.isEmpty) {
       return const CustomNoDataFound(isClr: false);
     }
@@ -134,7 +150,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
       itemCount: bookings.length,
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final booking =bookings[index];
+        final booking = bookings[index];
         return Card(
           elevation: 0,
           surfaceTintColor: Colors.transparent,
@@ -149,7 +165,6 @@ class _MyBookingsViewState extends State<MyBookingsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 Text(
                   "Order ID: ${booking.sId ?? 'N/A'}",
                   style: AppFontStyle.text_16_600(
@@ -166,6 +181,8 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                
+                // Doctor Info Row
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -183,24 +200,24 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                           Row(
                             children: [
                               Text(
-                                booking.doctorId?.name?.capitalizeFirst() ?? "", // Replace with real doctor name if available
+                                booking.doctorId?.name?.capitalizeFirst() ?? "",
                                 style: AppFontStyle.text_16_600(
                                   fontFamily: AppFontFamily.gilroyMedium,
                                   color: AppColors.textClr,
                                 ),
                               ),
-                              Spacer(),
+                              const Spacer(),
                               InkWell(
                                 onTap: () {
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => VideoCallScreen()));
                                 },
-                                child: Icon(Icons.video_camera_back_outlined),
+                                child: const Icon(Icons.video_camera_back_outlined),
                               ),
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            "Specialty", // Replace with doctor specialty if available
+                            "Specialty",
                             style: AppFontStyle.text_13_400(
                               fontFamily: AppFontFamily.gilroyRegular,
                               color: AppColors.textClr,
@@ -209,7 +226,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined, size: 16, color: AppColors.black),
+                              const Icon(Icons.location_on_outlined, size: 16, color: AppColors.black),
                               const SizedBox(width: 4),
                               Text(
                                 "1.0 km away",
@@ -219,7 +236,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                                 ),
                               ),
                               const Spacer(),
-                              Icon(Icons.star, color: AppColors.orangeClr, size: 16),
+                              const Icon(Icons.star, color: AppColors.orangeClr, size: 16),
                               const SizedBox(width: 2),
                               Text(
                                 "4.8",
@@ -236,68 +253,30 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                if (selectedTabIndex == 0) Row(
+
+                // Button Row Logic based on Tab
+                Row(
                   children: [
-                    Expanded(
-                      child: AppContainer(
-                        onTap: () => context.read<ExpertConsultationProvider>().cancelBookingApi(id: booking.sId ?? ""),
-                        radius: 12,
-                        color: AppColors.greyLight,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: context.read<ExpertConsultationProvider>().cancelBooking?.status == ApiStatus.LOADING ? customLoading(color: AppColors.primary) : Text(
-                            "Cancel",
-                            style: AppFontStyle.text_16_500(
-                              fontFamily: AppFontFamily.gilroySemiBold,
-                              color: AppColors.textClr,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Button(
-                        borderRadius: 12,
-                        padding: EdgeInsets.zero,
-                        height: 44,
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.doctorProfileView,arguments: {
-                          "doctorId" : booking.doctorId ?? "",
-                        }),
-                        child: Center(
-                          child: Text(
-                            "View Details",
-                            style: AppFontStyle.text_16_500(
-                              fontFamily: AppFontFamily.gilroySemiBold,
-                              color: AppColors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ) ,
-                // else
-                  Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.recordsView,
-                            arguments: {
-                              'doctorId': booking.doctorId ?? "",
-                            },
-                          );
-                        },
+                    // LEFT BUTTON
+                    if (selectedTabIndex == 0) ...[
+                      // Upcoming: CANCEL
+                      Expanded(
                         child: AppContainer(
+                          onTap: () async {
+                              await context.read<ExpertConsultationProvider>().cancelBookingApi(id: booking.sId ?? "");
+                              if (context.mounted) {
+                                context.read<BookingController>().getBookingApi();
+                              }
+                          },
                           radius: 12,
                           color: AppColors.greyLight,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
-                            child: Text(
-                              "Write a Review",
+                            child: context.watch<ExpertConsultationProvider>().cancelBooking?.status == ApiStatus.LOADING 
+                                && context.read<ExpertConsultationProvider>().selectedBookingId == booking.sId 
+                                ? customLoading(color: AppColors.primary) 
+                                : Text(
+                              "Cancel",
                               style: AppFontStyle.text_16_500(
                                 fontFamily: AppFontFamily.gilroySemiBold,
                                 color: AppColors.textClr,
@@ -306,19 +285,72 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                           ),
                         ),
                       ),
-                    ),
+                    ] else ...[
+                      // Past/Cancelled: Write Review (Only for Past) OR just placeholder
+                      // For Cancelled, maybe we don't show "Write Review". 
+                      // Let's hide it for Cancelled, show for Past.
+                      if (selectedTabIndex == 1) ...[ // Past
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.recordsView,
+                                arguments: {
+                                  'doctorId': booking.doctorId ?? "",
+                                },
+                              );
+                            },
+                            child: AppContainer(
+                              radius: 12,
+                              color: AppColors.greyLight,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: Text(
+                                  "Write a Review",
+                                  style: AppFontStyle.text_16_500(
+                                    fontFamily: AppFontFamily.gilroySemiBold,
+                                    color: AppColors.textClr,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        // Cancelled (Tab 2) -> Maybe nothing? Or empty expanded to keep alignment?
+                        // Or just show View Details full width on right?
+                        // Let's just put an empty container or "Book Again"
+                         const Spacer(), // Placeholder for left side
+                      ]
+                    ],
+
                     const SizedBox(width: 12),
+
+                    // RIGHT BUTTON
                     Expanded(
                       child: Button(
                         borderRadius: 12,
                         padding: EdgeInsets.zero,
                         height: 44,
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.doctorProfileView,arguments: {
-                          "doctorId" : booking.doctorId ?? "",
-                        }),
+                        onTap: () {
+                            // If Upcoming (0) -> View Details
+                            // If Past (1) -> Book Again
+                            // If Cancelled (2) -> Book Again
+                            if (selectedTabIndex == 0) {
+                                Navigator.pushNamed(context, AppRoutes.doctorProfileView,arguments: {
+                                  "doctorId" : booking.doctorId ?? "",
+                                });
+                            } else {
+                                // Book Again logic -> Go to profile
+                                Navigator.pushNamed(context, AppRoutes.doctorProfileView,arguments: {
+                                  "doctorId" : booking.doctorId ?? "",
+                                });
+                            }
+                        },
                         child: Center(
                           child: Text(
-                            "Book Again",
+                            selectedTabIndex == 0 ? "View Details" : "Book Again",
                             style: AppFontStyle.text_16_500(
                               fontFamily: AppFontFamily.gilroySemiBold,
                               color: AppColors.white,

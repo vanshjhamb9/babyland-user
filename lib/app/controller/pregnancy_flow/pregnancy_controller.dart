@@ -6,6 +6,7 @@ import 'package:babyland/app/controller/pregnancy_flow/model/pregnancy_data_mode
 import 'package:babyland/app/controller/pregnancy_flow/pregnancy_info_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/navbar/pregnancy/navbar.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
@@ -45,12 +46,42 @@ class PregnancyController extends ChangeNotifier{
     };
 
     try {
-      await repository.pregnancyInfo(data).then((value) {
+      await repository.pregnancyInfo(data).then((value) async {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
+          await UserLocalData.savePregnancySetupComplete(); // Save flag locally
           Navigator.pushAndRemoveUntil(navigatorKey.currentContext!, MaterialPageRoute(builder: (context) => NavbarView(flow: FlowType.pregnancy),), (route) => false);
           // Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.navbarView,(route) => false,);
           pt(name: "response", "${value.message}");
+        }
+        if(value.success == false) {
+          setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
+          AppPopUp.showToast(message: value.message ?? "Something went wrong!");
+        }
+      },);
+      notifyListeners();
+    } catch (e, s) {
+      pt("Error in pregnancyInfo: $e\n$s");
+      setPregnancyData(ApiResponse.error(e.toString()));
+      notifyListeners();
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+    }
+  }
+
+  Future<void> updatePregnancyDate({required String date}) async {
+    setPregnancyData(ApiResponse.loading());
+    notifyListeners();
+    final userId = await SecureStorage.getUserId();
+    final data = {
+      "userId": userId,
+      "pregnancyStartDate": formatDateForApi(date),
+    };
+
+    try {
+      await repository.pregnancyInfo(data).then((value) {
+        if (value.success == true) {
+          setPregnancyData(ApiResponse.completed(value));
+          // AppPopUp.showToast(message: value.message ?? "Date updated successfully");
         }
         if(value.success == false) {
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));

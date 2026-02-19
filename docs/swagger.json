@@ -1,0 +1,2288 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Baby Land API",
+    "description": "Comprehensive healthcare platform for women's health management including menstrual tracking, pregnancy, postpartum recovery, and baby growth.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Baby Land Support",
+      "email": "support@babyland.com",
+      "url": "https://babyland.com"
+    },
+    "license": {
+      "name": "ISC License"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api-babyland.duckdns.org/",
+      "description": "Development Server"
+    },
+    {
+      "url": "https://api.babyland.com",
+      "description": "Production Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "652c6f5b8f1b9e1234567890"
+          },
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "example": "jane@example.com"
+          },
+          "isVerified": {
+            "type": "boolean",
+            "default": false
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "User",
+              "HealthcareProfessional",
+              "Doctor",
+              "Admin"
+            ],
+            "default": "User"
+          },
+          "approved": {
+            "type": "boolean",
+            "default": false
+          },
+          "lastPeriodStartDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2025-10-01"
+          },
+          "cycleType": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "irregular"
+            ],
+            "default": "regular"
+          },
+          "cycleLengthDays": {
+            "type": "number",
+            "example": 28
+          },
+          "averagePeriodLengthDays": {
+            "type": "number",
+            "example": 5
+          },
+          "conditions": {
+            "type": "object",
+            "properties": {
+              "PCOS": {
+                "type": "boolean"
+              },
+              "PMS": {
+                "type": "boolean"
+              },
+              "Endometriosis": {
+                "type": "boolean"
+              },
+              "ThyroidIssues": {
+                "type": "boolean"
+              },
+              "Diabetes": {
+                "type": "boolean"
+              },
+              "Hypertension": {
+                "type": "boolean"
+              }
+            }
+          },
+          "medicalHistory": {
+            "type": "string",
+            "example": "No major medical history"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Doctor": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Dr. Ravi Kumar"
+          },
+          "email": {
+            "type": "string",
+            "example": "ravi@example.com"
+          },
+          "doctorDetails": {
+            "type": "object",
+            "properties": {
+              "firstName": {
+                "type": "string",
+                "example": "Ravi"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "Kumar"
+              },
+              "speciality": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "Gynecology",
+                  "Obstetrics"
+                ]
+              },
+              "profileBio": {
+                "type": "string",
+                "example": "Experienced cardiologist with 10+ years"
+              },
+              "consultationFee": {
+                "type": "number",
+                "example": 500
+              },
+              "languages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "English",
+                  "Hindi"
+                ]
+              },
+              "totalAvgRating": {
+                "type": "number",
+                "example": 4.6
+              },
+              "weeklySlots": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "day": {
+                      "type": "string",
+                      "enum": [
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                        "Saturday",
+                        "Sunday"
+                      ]
+                    },
+                    "startTime": {
+                      "type": "string",
+                      "example": "09:00 AM"
+                    },
+                    "endTime": {
+                      "type": "string",
+                      "example": "05:00 PM"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number",
+                "example": 24.5854
+              },
+              "longitude": {
+                "type": "number",
+                "example": 73.9129
+              }
+            }
+          }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "time": {
+            "type": "string"
+          },
+          "consultationFee": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "completed",
+              "failed"
+            ]
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "Razorpay",
+              "COD"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "required": [
+          "name",
+          "price",
+          "duration"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Premium Plan"
+          },
+          "price": {
+            "type": "number",
+            "example": 499
+          },
+          "duration": {
+            "type": "number",
+            "description": "Duration in days",
+            "example": 30
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Unlimited chats",
+              "Priority support",
+              "AI insights"
+            ]
+          },
+          "active": {
+            "type": "boolean",
+            "default": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "paymentMethod": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "razorpayOrderId": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MenstrualTracker": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "cycles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "startDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "endDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "notes": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "dailyLogs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "mood": {
+                  "type": "string",
+                  "enum": [
+                    "Great",
+                    "Good",
+                    "Okay",
+                    "Low",
+                    "Sad"
+                  ]
+                },
+                "symptoms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "stressLevel": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              }
+            }
+          }
+        }
+      },
+      "PregnancyTracker": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "pregnancyStartDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentWeek": {
+            "type": "integer",
+            "example": 5
+          },
+          "trimester": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3
+            ]
+          },
+          "expectedDueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "fetalGrowthStage": {
+            "type": "string"
+          }
+        }
+      },
+      "PostpartumTracker": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "deliveryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "deliveryType": {
+            "type": "string",
+            "enum": [
+              "Normal",
+              "c_section"
+            ]
+          },
+          "babyDetails": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "gender": {
+                "type": "string",
+                "enum": [
+                  "Male",
+                  "Female"
+                ]
+              },
+              "weight": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "BabyGrowthTracker": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "measurements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "weight": {
+                  "type": "number"
+                },
+                "headCircumference": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "photo": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CommunityPost": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "likes": {
+            "type": "integer"
+          },
+          "comments": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AIChat": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "_id": {
+                  "type": "string"
+                },
+                "sender": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "ai"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
+      "MedicalRecord": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Prescription": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "primaryDiagnosis": {
+            "type": "string"
+          },
+          "clinicalNotes": {
+            "type": "string"
+          },
+          "medicines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "dosage": {
+                  "type": "string"
+                },
+                "schedule": {
+                  "type": "string"
+                },
+                "instructions": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recommendations": {
+            "type": "string"
+          },
+          "nextAppointment": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "video",
+              "chat",
+              "audio"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "declined",
+              "ended"
+            ]
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Specialization": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "Policy": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "details": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auths/request-verification": {
+      "post": {
+        "summary": "Request verification code for user registration",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  },
+                  "deviceToken": {
+                    "type": "string",
+                    "example": "firebase_device_token"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification code generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Verification code generated successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "_id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "verificationCode": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/request-verification' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"deviceToken\": \"firebase_device_token\"\n  }'"
+      }
+    },
+    "/api/auths/verify-code": {
+      "post": {
+        "summary": "Verify verification code",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "verificationCode"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  },
+                  "verificationCode": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Code verified successfully"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/verify-code' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"email\": \"john@example.com\",\n    \"verificationCode\": \"123456\"\n  }'"
+      }
+    },
+    "/api/auths/complete-signup": {
+      "post": {
+        "summary": "Complete user registration after code verification",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "verificationCode",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  },
+                  "verificationCode": {
+                    "type": "string",
+                    "example": "123456"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "securePassword123"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "User",
+                      "HealthcareProfessional"
+                    ],
+                    "default": "User"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User registered successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "token": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/complete-signup' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"email\": \"john@example.com\",\n    \"verificationCode\": \"123456\",\n    \"password\": \"securePassword123\",\n    \"role\": \"User\"\n  }'"
+      }
+    },
+    "/api/auths/login": {
+      "post": {
+        "summary": "User login",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "securePassword123"
+                  },
+                  "deviceToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User logged in successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User logged in successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "token": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/login' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"email\": \"john@example.com\",\n    \"password\": \"securePassword123\"\n  }'"
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "summary": "Get user profile",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X GET 'https://api-babyland.duckdns.org//api/users/profile' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'"
+      }
+    },
+    "/api/users/onboarding/complete": {
+      "put": {
+        "summary": "Complete user onboarding",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lastPeriodStartDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "cycleType": {
+                    "type": "string",
+                    "enum": [
+                      "regular",
+                      "irregular"
+                    ]
+                  },
+                  "cycleLengthDays": {
+                    "type": "integer"
+                  },
+                  "averagePeriodLengthDays": {
+                    "type": "integer"
+                  },
+                  "conditions": {
+                    "type": "object"
+                  },
+                  "medicalHistory": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Onboarding completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X PUT 'https://api-babyland.duckdns.org//api/users/onboarding/complete' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"lastPeriodStartDate\": \"2025-09-28\",\n    \"cycleType\": \"regular\",\n    \"cycleLengthDays\": 28,\n    \"averagePeriodLengthDays\": 5,\n    \"conditions\": {\n      \"PCOS\": true,\n      \"PMS\": false\n    },\n    \"medicalHistory\": \"No major medical history.\"\n  }'"
+      }
+    },
+    "/api/menstruals/add-cycle": {
+      "post": {
+        "summary": "Add menstrual cycle",
+        "tags": [
+          "Menstrual Tracking"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "startDate"
+                ],
+                "properties": {
+                  "startDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cycle added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/menstruals/add-cycle' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"startDate\": \"2025-10-01\",\n    \"endDate\": \"2025-10-05\",\n    \"notes\": \"Heavy flow\"\n  }'"
+      }
+    },
+    "/api/pregnancys/start": {
+      "post": {
+        "summary": "Start pregnancy tracking",
+        "tags": [
+          "Pregnancy"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pregnancyStartDate",
+                  "expectedDueDate"
+                ],
+                "properties": {
+                  "pregnancyStartDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "expectedDueDate": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pregnancy tracking started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PregnancyTracker"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/pregnancys/start' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"pregnancyStartDate\": \"2025-10-01\",\n    \"expectedDueDate\": \"2026-06-30\"\n  }'"
+      }
+    },
+    "/api/bookings/add": {
+      "post": {
+        "summary": "Create booking with doctor",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "doctorId",
+                  "date",
+                  "time",
+                  "consultationFee",
+                  "paymentMethod"
+                ],
+                "properties": {
+                  "doctorId": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "time": {
+                    "type": "string"
+                  },
+                  "consultationFee": {
+                    "type": "number"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "Razorpay",
+                      "COD"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Booking"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/bookings/add' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"doctorId\": \"64f7c1a2b1234567890abcd\",\n    \"date\": \"2025-10-12\",\n    \"time\": \"09:30 AM\",\n    \"consultationFee\": 500,\n    \"paymentMethod\": \"Razorpay\"\n  }'"
+      }
+    },
+    "/api/doctors/all": {
+      "get": {
+        "summary": "Get all doctors",
+        "tags": [
+          "Doctors"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctors retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Doctor"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X GET 'https://api-babyland.duckdns.org//api/doctors/all?page=1&limit=10' \\\n  -H 'Content-Type: application/json'"
+      }
+    },
+    "/api/plans": {
+      "get": {
+        "summary": "Get all subscription plans",
+        "tags": [
+          "Plans"
+        ],
+        "responses": {
+          "200": {
+            "description": "Plans retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Plan"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X GET 'https://api-babyland.duckdns.org//api/plans' \\\n  -H 'Content-Type: application/json'"
+      }
+    },
+    "/api/plans/add": {
+      "post": {
+        "summary": "Create new plan (Admin)",
+        "tags": [
+          "Plans"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "price",
+                  "duration"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "price": {
+                    "type": "number"
+                  },
+                  "duration": {
+                    "type": "number"
+                  },
+                  "features": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plan created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Plan"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/plans/add' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"name\": \"Premium Plan\",\n    \"price\": 499,\n    \"duration\": 30,\n    \"features\": [\"AI Chat\", \"Unlimited Insights\", \"Priority Support\"]\n  }'"
+      }
+    },
+    "/api/subscriptions/add": {
+      "post": {
+        "summary": "Subscribe to plan",
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "planId",
+                  "paymentMethod"
+                ],
+                "properties": {
+                  "planId": {
+                    "type": "string"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "Razorpay",
+                      "COD"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Subscription"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/subscriptions/add' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"planId\": \"6719dd4b9371e7a5501fabb3\",\n    \"paymentMethod\": \"Razorpay\"\n  }'"
+      }
+    },
+    "/api/aichats/send-message": {
+      "post": {
+        "summary": "Send message to AI",
+        "tags": [
+          "AI Chat"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "chatInput"
+                ],
+                "properties": {
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "chatInput": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI response generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "conversationId": {
+                          "type": "string"
+                        },
+                        "userMessage": {
+                          "type": "string"
+                        },
+                        "aiResponse": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/aichats/send-message' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"conversationId\": \"625a4c8e7f1b2c3d4e5f6789\",\n    \"chatInput\": \"What are safe exercises during pregnancy?\"\n  }'"
+      }
+    },
+    "/api/communities/add": {
+      "post": {
+        "summary": "Create community post",
+        "tags": [
+          "Community"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "message"
+                ],
+                "properties": {
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CommunityPost"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/communities/add' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"message\": \"Felt my baby kick for the first time! #movement #trimester2\"\n  }'"
+      }
+    },
+    "/api/medical-record/upload": {
+      "post": {
+        "summary": "Upload medical record",
+        "tags": [
+          "Medical Records"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "doctorId": {
+                    "type": "string"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Record uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MedicalRecord"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/medical-record/upload' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -F 'doctorId=652c6f5b8f1b9e1234567890' \\\n  -F 'file=@/path/to/medical_record.pdf'"
+      }
+    },
+    "/api/prescriptions/add": {
+      "post": {
+        "summary": "Create prescription",
+        "tags": [
+          "Prescriptions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "patientId",
+                  "doctorId",
+                  "primaryDiagnosis"
+                ],
+                "properties": {
+                  "patientId": {
+                    "type": "string"
+                  },
+                  "doctorId": {
+                    "type": "string"
+                  },
+                  "primaryDiagnosis": {
+                    "type": "string"
+                  },
+                  "clinicalNotes": {
+                    "type": "string"
+                  },
+                  "medicines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "dosage": {
+                          "type": "string"
+                        },
+                        "schedule": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "recommendations": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prescription created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/prescriptions/add' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"patientId\": \"6741babb81bd7a6d9c73a3e9\",\n    \"doctorId\": \"6741cacb18abcf32109a45e1\",\n    \"primaryDiagnosis\": \"Acute viral fever\",\n    \"clinicalNotes\": \"Patient has high fever and weakness for 2 days.\",\n    \"medicines\": [\n      {\n        \"name\": \"Paracetamol\",\n        \"dosage\": \"500mg\",\n        \"schedule\": \"1-1-1\"\n      }\n    ],\n    \"recommendations\": \"Drink warm water, take proper rest.\"\n  }'"
+      }
+    },
+    "/api/sessions/invite": {
+      "post": {
+        "summary": "Invite for session",
+        "tags": [
+          "Sessions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "doctorId",
+                  "type"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "doctorId": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "video",
+                      "chat",
+                      "audio"
+                    ]
+                  },
+                  "senderType": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "doctor"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session invitation sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/sessions/invite' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"userId\": \"652c6f5b8f1b9e1234567890\",\n    \"doctorId\": \"652c6f5b8f1b9e1234567800\",\n    \"type\": \"video\",\n    \"senderType\": \"user\"\n  }'"
+      }
+    },
+    "/api/agoras/rtc": {
+      "post": {
+        "summary": "Generate Agora RTC token",
+        "tags": [
+          "Agora"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "channelName",
+                  "uid"
+                ],
+                "properties": {
+                  "channelName": {
+                    "type": "string"
+                  },
+                  "uid": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "publisher",
+                      "subscriber"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "expireIn": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/agoras/rtc' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"channelName\": \"testChannel\",\n    \"uid\": \"user123\",\n    \"role\": \"publisher\"\n  }'"
+      }
+    },
+    "/api/reviews/add/{doctorId}": {
+      "post": {
+        "summary": "Add review for doctor",
+        "tags": [
+          "Reviews"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rating"
+                ],
+                "properties": {
+                  "rating": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "comment": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Review"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/reviews/add/652c6f5b8f1b9e1234567890' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"rating\": 4.5,\n    \"comment\": \"Great doctor, very professional and caring\"\n  }'"
+      }
+    },
+    "/api/roles/add": {
+      "post": {
+        "summary": "Add new role",
+        "tags": [
+          "Roles"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Role created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/roles/add' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"name\": \"Moderator\",\n    \"permissions\": [\"view_posts\", \"delete_comments\", \"ban_users\"],\n    \"active\": true\n  }'"
+      }
+    },
+    "/api/notification/getAll/{userId}": {
+      "get": {
+        "summary": "Get all notifications",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifications retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Notification"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X GET 'https://api-babyland.duckdns.org//api/notification/getAll/652c6f5b8f1b9e1234567890' \\\n  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'"
+      }
+    },
+    "/api/fileuploads/single": {
+      "post": {
+        "summary": "Upload single file",
+        "tags": [
+          "File Upload"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "publicId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-curl-example": "curl -X POST 'https://api-babyland.duckdns.org//api/fileuploads/single' \\\n  -F 'file=@/path/to/file.jpg'"
+      }
+    }
+  },
+  "x-curl-examples": {
+    "authentication": {
+      "description": "Complete authentication flow",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Request verification code",
+          "curl": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/request-verification' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"John Doe\",\"email\":\"john@example.com\",\"deviceToken\":\"abc123\"}'"
+        },
+        {
+          "step": 2,
+          "description": "Verify code",
+          "curl": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/verify-code' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"john@example.com\",\"verificationCode\":\"123456\"}'"
+        },
+        {
+          "step": 3,
+          "description": "Complete signup",
+          "curl": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/complete-signup' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"john@example.com\",\"verificationCode\":\"123456\",\"password\":\"password123\",\"role\":\"User\"}'"
+        },
+        {
+          "step": 4,
+          "description": "Login",
+          "curl": "curl -X POST 'https://api-babyland.duckdns.org//api/auths/login' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"john@example.com\",\"password\":\"password123\"}'"
+        }
+      ]
+    }
+  }
+}

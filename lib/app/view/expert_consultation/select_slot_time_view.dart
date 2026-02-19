@@ -37,7 +37,10 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
       date = args?['appointmentDate'];
       time = args?['appointmentTime'];
       doctorId = args?['doctorId'];
-      context.read<ExpertConsultationProvider>().getAvailableSlotApiData(date: DateTime.parse(date.toString()));
+      context.read<ExpertConsultationProvider>().getAvailableSlotApiData(
+        doctorId: doctorId ?? "",
+        date: DateTime.parse(date.toString()),
+      );
     });
   }
 
@@ -52,12 +55,18 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
         child: Consumer<ExpertConsultationProvider>(
           builder: (context, provider, _) {
             return RefreshIndicator(
-              onRefresh: () => provider.getAvailableSlotApiData(date:DateTime.parse(date.toString())),
+              onRefresh: () => provider.getAvailableSlotApiData(
+                doctorId: doctorId ?? "",
+                date: DateTime.parse(date.toString()),
+              ),
               child: switch (provider.getAvailableSlot?.status) {
                 ApiStatus.LOADING => _buildShimmerLoading(),
                 ApiStatus.COMPLETED => _buildCompletedUI(provider),
                 ApiStatus.ERROR => GeneralExceptionWidget(
-                  onPress: () => provider.getAvailableSlotApiData(date: DateTime.parse(date.toString())),
+                  onPress: () => provider.getAvailableSlotApiData(
+                    doctorId: doctorId ?? "",
+                    date: DateTime.parse(date.toString()),
+                  ),
                 ),
                 _ => const SizedBox(),
               },

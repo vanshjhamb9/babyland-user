@@ -87,7 +87,11 @@ class Data1 {
     mood = json['mood']?.toString();
     stressLevel = json['stressLevel']?.toString();
     anxietyLevel = json['anxietyLevel']?.toString();
-    symptoms = json['symptoms'].cast<String>();
+    if(json['symptoms'] != null) {
+      symptoms = json['symptoms'].cast<String>();
+    } else {
+      symptoms = [];
+    }
     tracker =
     json['tracker'] != null ? Tracker.fromJson(json['tracker']) : null;
   }
@@ -120,18 +124,20 @@ class Predictions {
   String? trimesterProgress;
   String? fetalSize;
   String? nextMilestone;
+  String? fetalImage;
 
   Predictions(
       {this.dueDate,
         this.trimesterProgress,
         this.fetalSize,
-        this.nextMilestone});
+        this.nextMilestone, this.fetalImage});
 
   Predictions.fromJson(Map<String, dynamic> json) {
     dueDate = json['dueDate']?.toString();
     trimesterProgress = json['trimesterProgress']?.toString();
     fetalSize = json['fetalSize']?.toString();
     nextMilestone = json['nextMilestone']?.toString();
+    fetalImage = json['fetalImage']?.toString();
   }
 
   Map<String, dynamic> toJson() {
@@ -140,6 +146,7 @@ class Predictions {
     data['trimesterProgress'] = trimesterProgress;
     data['fetalSize'] = fetalSize;
     data['nextMilestone'] = nextMilestone;
+    data['fetalImage'] = fetalImage;
     return data;
   }
 }

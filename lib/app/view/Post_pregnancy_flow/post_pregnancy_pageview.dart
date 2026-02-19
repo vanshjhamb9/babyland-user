@@ -13,6 +13,8 @@ import '../../routes/app_routes.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/container.dart';
 import '../../widgets/print.dart';
+import 'package:babyland/main.dart';
+import '../../data/storage/user_local_data.dart';
 import 'baby_detail_view.dart';
 import 'post_pregnancy_view.dart';
 
@@ -25,9 +27,63 @@ class CombinedBabyDetailScreen extends StatefulWidget {
 
 class _CombinedBabyDetailScreenState extends State<CombinedBabyDetailScreen> {
   final PageController _pageController = PageController();
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingData();
+  }
+
+  Future<void> _checkExistingData() async {
+    // First check local flag
+    bool isComplete = await UserLocalData.isPostPregnancySetupComplete();
+    if (isComplete) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRoutes.postPregnancyNavbarView);
+      }
+      return;
+    }
+
+    // Fallback: Check backend if local flag is false
+    // We use babygrowthsDetails as a proxy to check if post-pregnancy setup is done
+    try {
+      final response = await repository.babygrowthsDetails();
+      if (response.success == true && response.tracker != null) {
+        // Data exists! Mark local flag and redirect
+        await UserLocalData.savePostPregnancySetupComplete();
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.postPregnancyNavbarView);
+        }
+      } else {
+        // No data, show form
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      pt("Error checking existing data: $e");
+      // On error, assume no data (or let user try submitting form which handles "exists" error)
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.buttonClr1),
+        ),
+      );
+    }
+
     return ChangeNotifierProvider<PostpregnancyProvider>(
       create: (context) => PostpregnancyProvider(),
       child: Scaffold(
@@ -79,7 +135,7 @@ class _CombinedBabyDetailScreenState extends State<CombinedBabyDetailScreen> {
                     Expanded(
                       child: PageView(
                         controller: _pageController,
-                        // physics: const NeverScrollableScrollPhysics(),
+                        physics: const NeverScrollableScrollPhysics(), // Prevent manual swiping
                         onPageChanged: (index) {
                           pageProvider.changeIndex(index);
                         },

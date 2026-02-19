@@ -1,5 +1,6 @@
 class EndPoints {
-  static const String baseUrl = "https://baby-land-node-servers.onrender.com/api";
+  static const String baseUrl = "https://api-babyland.duckdns.org/api";
+  // static const String baseUrl = "https://baby-land-node-servers.onrender.com/api";
   // static const String baseUrl = "http://91.203.133.76:5000/api";
 
   /* ---------------- video call -----------------------------------------  */
@@ -52,14 +53,18 @@ class EndPoints {
   static const String getBookingUpcoming = "$baseUrl/bookings/upcoming";
   static const String getBookingPast = "$baseUrl/bookings/past";
   static const String getDoctorApi = "$baseUrl/doctors/doctors";
-  static const String getAvailableSlotApi = "$baseUrl/bookings/doctor/68e0177aca35a4f118eed184/available-slots?date";
+  /// Dynamic: pass doctorId to build the URL
+  static String getAvailableSlotApi(String doctorId) =>
+      "$baseUrl/bookings/doctor/$doctorId/available-slots";
   static const String bookingAdd = "$baseUrl/bookings/add";
-  static const String cancelBooking = "$baseUrl//api/bookings/cancel/";
+  static const String cancelBooking = "$baseUrl/bookings/cancel/";
+  static const String medicalRecordUpload = "$baseUrl/medical-record/upload";
+  static const String medicalRecordGetAll = "$baseUrl/medical-record/gettall";
 
   static const String postpartumsLogs = "$baseUrl/postpartums/logs";
   static const String getUser = "$baseUrl/users/getUser";
   static const String updateUserProfile = "$baseUrl/users/profile-update";
-  static const String uploadFiles = "$baseUrl/upload";
+  static const String uploadFiles = "$baseUrl/upload"; // legacy generic upload
 
 
   //baby growth
@@ -67,6 +72,7 @@ class EndPoints {
   static const String addBabygrowths = "$baseUrl/babygrowths/add";
   static const String babygrowthsDetails = "$baseUrl/babygrowths/get";
   static const String babygrowthsAdd = "$baseUrl/babygrowths/add";
+  static const String babygrowthsUpdate = "$baseUrl/babygrowths/update";
   static const String babygrowthsAddData = "$baseUrl/babygrowths/";
   static const String addMildStones = "$baseUrl/babygrowths/add/milestone";
   static const String getMildStone = "$baseUrl/babygrowths/get/milestones";

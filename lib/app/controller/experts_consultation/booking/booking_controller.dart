@@ -71,10 +71,10 @@ class BookingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sets selected tab (Upcoming / Past)
+  /// Sets selected tab (Upcoming / Past / Cancelled)
   void setSelectedTab(int index) {
     selectedTabIndex = index;
-    getBookingApi(index == 1 ? true : false);
+    getBookingApi();
     notifyListeners();
   }
 
@@ -84,8 +84,6 @@ class BookingController extends ChangeNotifier {
         ? upcomingAppointments
         : pastAppointments;
   }
-
-
 
   /////////////// get booking data here /////////////
 
@@ -105,26 +103,39 @@ class BookingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> getBookingApi(bool isPast) async {
+  Future<void> getBookingApi() async {
     setLoading(true);
-
     setBookingApiData(ApiResponse.loading());
 
     try {
-      final value = await repository.getBookingApi(isPast: isPast);
+      // Tab 0 (Upcoming) & Tab 2 (Cancelled) -> use upcoming endpoint
+      // Tab 1 (Past) -> use past endpoint
+      final bool usePastEndpoint = selectedTabIndex == 1;
+
+      final value = await repository.getBookingApi(isPast: usePastEndpoint);
 
       if (value.success == true) {
+        // Filter locally because "upcoming" endpoint returns mixed status
+        if (!usePastEndpoint) {
+          if (selectedTabIndex == 0) {
+            // Tab 0: Show non-cancelled
+            value.bookings = value.bookings?.where((b) => b.status?.toLowerCase() != "cancelled").toList();
+          } else if (selectedTabIndex == 2) {
+            // Tab 2: Show ONLY cancelled
+            value.bookings = value.bookings?.where((b) => b.status?.toLowerCase() == "cancelled").toList();
+          }
+        }
+        
         setBookingApiData(ApiResponse.completed(value));
-
         pt(name: "response", "${value.bookings}");
-
       } else {
+         setBookingApiData(ApiResponse.error("failed"));
       }
     } catch (e, s) {
-      pt("Error in login: $e\n$s");
+      pt("Error in booking api: $e\n$s");
       setBookingApiData(ApiResponse.error(e.toString()));
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
-    }finally {
+    } finally {
       setLoading(false);
     }
   }

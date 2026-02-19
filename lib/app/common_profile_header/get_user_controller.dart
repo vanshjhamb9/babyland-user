@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:babyland/app/common_model/common_model.dart';
@@ -66,22 +67,32 @@ class GetUserProvider extends ChangeNotifier{
     required String email,
     required Map<String, bool> conditions,
     File? profileImage,
+    String? phone,
+    String? weight,
+    String? medicalHistory,
   }) async {
     updateProfile(ApiResponse.loading());
     notifyListeners();
 
     // Send conditions as-is: selected = true, unselected = false
+    // Send conditions as-is: selected = true, unselected = false
+    final conditionsMap = {
+      "PCOS": conditions["PCOS"] ?? false,
+      "PMS": conditions["PMS"] ?? false,
+      "Endometriosis": conditions["Endometriosis"] ?? false,
+      "ThyroidIssues": conditions["Thyroid Issues"] ?? false,
+      "Diabetes": conditions["Diabetes"] ?? false,
+      "Hypertension": conditions["Hypertension"] ?? false,
+    };
+
     Map<String, dynamic> data = {
       "name": name,
-      "email": email,
-      "conditions": {
-        "PCOS": conditions["PCOS"] ?? false,
-        "PMS": conditions["PMS"] ?? false,
-        "Endometriosis": conditions["Endometriosis"] ?? false,
-        "ThyroidIssues": conditions["Thyroid Issues"] ?? false,
-        "Diabetes": conditions["Diabetes"] ?? false,
-        "Hypertension": conditions["Hypertension"] ?? false,
-      },
+      "email": email, // Keeping email, though API might ignore/get from token
+      "phone": phone,
+      "weight": weight,
+      "medicalHistory": medicalHistory,
+      // If image is present (Multipart), we MUST send string. If not (JSON), send Map.
+      "conditions": (profileImage != null) ? jsonEncode(conditionsMap) : conditionsMap,
     };
 
     // Optionally include profileImage if API supports it
@@ -90,7 +101,7 @@ class GetUserProvider extends ChangeNotifier{
     // }
 
     try {
-      final value = await repository.updateUserProfile(data);
+      final value = await repository.updateUserProfile(data, profileImage: profileImage);
       if (value.success == true) {
         updateProfile(ApiResponse.completed(value));
         AppPopUp.showToast(message: value.message ?? "Profile updated successfully!");

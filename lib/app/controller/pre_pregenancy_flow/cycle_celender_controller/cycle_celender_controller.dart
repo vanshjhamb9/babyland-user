@@ -196,7 +196,7 @@ class CycleCalenderProvider extends ChangeNotifier {
       if(value.success == true){
         setDashboardAiInsightsApiData(ApiResponse.completed(value));
       }else{
-        setDashboardAiInsightsApiData(ApiResponse.error(value.message ?? ""));
+        setDashboardAiInsightsApiData(ApiResponse.error(""));
       }
     },).onError((error, stackTrace) {
       pt("Error>>>>>> $error , $stackTrace");
@@ -215,40 +215,36 @@ class CycleCalenderProvider extends ChangeNotifier {
   }
 
   Future<void> aiInsightsApi(String category) async {
-    setDashboardApiData(ApiResponse.loading());
+    setAiInsightsApiData(ApiResponse.loading());
     notifyListeners();
+    final userId = await SecureStorage.getUserId();
 
     final data = {
       "category": category,
+      "userId": userId,
     };
 
     try {
       final value = await repository.menturalAiInsights(data);
 
-      final message = value.message ?? "";
-      final isPlanError =
-      message.contains("Your plan does not include");
-      final isTrackerNotFound =
-          message == "Tracker not found";
+      final message = ""; // value.message ?? "";  Model no longer has message
+      final isPlanError = false; // message.contains("Your plan does not include");
+      final isTrackerNotFound = false; // message == "Tracker not found";
 
       if (value.success == true) {
         setAiInsightsApiData(ApiResponse.completed(value));
       }
-      else if (isPlanError || isTrackerNotFound) {
-        // ⬅️ Treat these as VALID responses
-        setAiInsightsApiData(ApiResponse.completed(value));
-      }
+      // else if (isPlanError || isTrackerNotFound) {
+      //   // ⬅️ Treat these as VALID responses
+      //   setAiInsightsApiData(ApiResponse.completed(value));
+      // }
       else {
         // ⬅️ Real error
         setAiInsightsApiData(
-          ApiResponse.error(message.isNotEmpty
-              ? message
-              : "Something went wrong!"),
+          ApiResponse.error("Something went wrong!"),
         );
         AppPopUp.showToast(
-            message: message.isNotEmpty
-                ? message
-                : "Something went wrong!");
+            message: "Something went wrong!");
       }
 
     } catch (error, stackTrace) {

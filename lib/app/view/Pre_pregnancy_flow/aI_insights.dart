@@ -244,7 +244,10 @@ class _AiInsightsState extends State<AiInsights> {
 
   Widget _buildTabSection(CycleCalenderProvider provider) {
     final status = provider.menturalAiInsights?.status;
-    final insights = provider.menturalAiInsights?.data?.data ?? [];
+    final dataExit = provider.menturalAiInsights?.data?.dataexit;
+    final insights = dataExit?.items ?? [];
+    final quickTip = dataExit?.quickTip;
+
 
     /// 🔥 Show shimmer when loading
 
@@ -255,10 +258,11 @@ class _AiInsightsState extends State<AiInsights> {
     if (insights.isEmpty) {
       return CustomNoDataFound(isClr: false,heightBox: SizedBox(height: 0),);
     }
-
-    final types = insights.map((e) => e.type ?? "General").toSet().toList();
-    final allTabs = ["All", ...types];
-
+    
+    // Since we only get one category at a time (e.g. nutrition), we don't need tabs for separate types anymore
+    // Or we can just use the category name as a single tab
+    final category = dataExit?.category ?? "General";
+    
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.white,
@@ -268,72 +272,38 @@ class _AiInsightsState extends State<AiInsights> {
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: DefaultTabController(
-        initialIndex: 0,
-        length: allTabs.length,
-        child: Column(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// 🔹 Left-align tabs using alignment and wrap
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TabBar(
-                tabAlignment:TabAlignment.start,
-                isScrollable: true,
-                labelColor: AppColors.black,
-                unselectedLabelColor: AppColors.lightGrey,
-                tabs: allTabs.map((type) => Tab(child: textCard(type))).toList(),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                indicatorColor: AppColors.black,
-                indicatorPadding: const EdgeInsets.only(left: 8, right: 8),
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicatorWeight: 3,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 9),
-                labelStyle: AppFontStyle.text_15_400(
-                  fontFamily: AppFontFamily.gilroyMedium,
-                ),
-                unselectedLabelStyle: AppFontStyle.text_15_400(
-                  fontFamily: AppFontFamily.gilroyMedium,
-                  color: AppColors.textLightClr,
-                ),
-              ),
-            ),
+             Padding(
+               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+               child: Text(
+                 category[0].toUpperCase() + category.substring(1), // Capitalize
+                 style: AppFontStyle.text_18_400(
+                   fontFamily: AppFontFamily.gilroySemiBold,
+                 ),
+               ),
+             ),
 
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.75,
-              child: TabBarView(
-                physics: const BouncingScrollPhysics(),
-                children: allTabs.map((type) {
-                  List<Data> filtered = [];
-
-                  if (type == "All") {
-                    filtered = insights;
-                  } else {
-                    filtered = insights.where((e) => e.type == type).toList();
-                  }
-
-                  return SingleChildScrollView(
+            SingleChildScrollView(
                     padding: const EdgeInsets.only(bottom: 100),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _insightList(filtered),
+                        _insightList(insights),
                         const SizedBox(height: 20),
-                        quickTips(),
+                        if (quickTip != null)
+                          quickTips(quickTip),
                         const SizedBox(height: 100),
                       ],
                     ),
-                  );
-                }).toList(),
-              ),
             ),
           ],
         ),
-      ),
     );
   }
 
-  AppContainer quickTips() {
+  AppContainer quickTips(QuickTip tip) {
     return AppContainer(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       radius: 8,
@@ -361,14 +331,24 @@ class _AiInsightsState extends State<AiInsights> {
             ],
           ),
           const SizedBox(height: 18),
-          Text(
-            "At week 16, your baby's hearing is developing rapidly. "
-                "Try talking or playing gentle music - they can hear you!",
-            maxLines: 3,
-            style: AppFontStyle.text_12_400(
-              color: AppColors.textLightClr,
-              fontFamily: AppFontFamily.gilroyMedium,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+               if (tip.emoji != null) ...[
+                 Text(tip.emoji!, style: const TextStyle(fontSize: 20)),
+                 const SizedBox(width: 8),
+               ],
+               Expanded(
+                 child: Text(
+                  tip.text ?? "",
+                  maxLines: 5,
+                  style: AppFontStyle.text_12_400(
+                    color: AppColors.textLightClr,
+                    fontFamily: AppFontFamily.gilroyMedium,
+                  ),
+                           ),
+               ),
+             ],
           ),
         ],
       ),
@@ -495,7 +475,7 @@ class _AiInsightsState extends State<AiInsights> {
   }
 
   /// 🔹 Different image for each card + All tab support
-  Widget _insightList(List<Data> items) {
+  Widget _insightList(List<InsightItem> items) {
     // 🔹 Use 3 repeating images
     final List<String> images = [
       ImageConstants.Frame,
@@ -514,8 +494,9 @@ class _AiInsightsState extends State<AiInsights> {
 
         return NutritionCard(
           imagePath: imagePath,
-          title: item.type ?? 'Insight',
-          description: item.message ?? '',
+          title: item.title ?? 'Insight',
+          description: item.description ?? '',
+          emoji: item.emoji,
         );
       },
     );
@@ -537,12 +518,14 @@ class NutritionCard extends StatelessWidget {
   final String imagePath;
   final String title;
   final String description;
+  final String? emoji;
 
   const NutritionCard({
     super.key,
     required this.imagePath,
     required this.title,
     required this.description,
+    this.emoji,
   });
 
   @override
@@ -558,7 +541,16 @@ class NutritionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomImage(path: imagePath, scale: 4),
+          Row(
+            children: [
+               if(emoji != null) ...[
+                 Text(emoji!, style: TextStyle(fontSize: 24)),
+                 SizedBox(width: 8,),
+               ],
+               if(emoji == null)
+              CustomImage(path: imagePath, scale: 4),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
             title,

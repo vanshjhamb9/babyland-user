@@ -66,6 +66,8 @@ class Users {
   String? lastPeriodStartDate;
   String? medicalHistory;
   String? profilePicture;
+  String? phone;
+  String? weight;
 
   Users(
       {this.irregularCycleRangeDays,
@@ -86,6 +88,8 @@ class Users {
         this.cycleLengthDays,
         this.lastPeriodStartDate,
         this.profilePicture,
+        this.phone,
+        this.weight,
         this.medicalHistory});
 
   Users.fromJson(Map<String, dynamic> json) {
@@ -112,6 +116,8 @@ class Users {
     lastPeriodStartDate = json['lastPeriodStartDate']?.toString();
     medicalHistory = json['medicalHistory']?.toString();
     profilePicture = json['profilePicture']?.toString();
+    phone = json['phone']?.toString();
+    weight = json['weight']?.toString();
   }
 
   Map<String, dynamic> toJson() {
@@ -137,8 +143,11 @@ class Users {
     data['averagePeriodLengthDays'] = averagePeriodLengthDays;
     data['cycleLengthDays'] = cycleLengthDays;
     data['lastPeriodStartDate'] = lastPeriodStartDate;
+    data['lastPeriodStartDate'] = lastPeriodStartDate;
     data['medicalHistory'] = medicalHistory;
     data['profilePicture'] = profilePicture;
+    data['phone'] = phone;
+    data['weight'] = weight;
     return data;
   }
 }

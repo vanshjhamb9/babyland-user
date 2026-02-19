@@ -118,7 +118,7 @@ class RecordsView extends StatelessWidget {
                                   ),
                                   builder: (context) {
                                     return SizedBox(
-                                      height: 200,
+                                      height: 230,
                                       width: double.infinity,
                                       child: Padding(
                                         padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
@@ -127,16 +127,17 @@ class RecordsView extends StatelessWidget {
                                           children: [
                                             Center(
                                               child: Text(
-                                                "Pick Image",
+                                                "Pick File",
                                                 style: AppFontStyle.text_22_600(),
                                               ),
                                             ),
                                             const SizedBox(height: 20),
                                             Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 50.0),
+                                              padding: const EdgeInsets.symmetric(horizontal: 20.0),
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                                 children: [
+                                                  // Camera
                                                   GestureDetector(
                                                     onTap: () async {
                                                       Navigator.pop(context);
@@ -144,16 +145,13 @@ class RecordsView extends StatelessWidget {
                                                     },
                                                     child: Column(
                                                       children: [
-                                                        Text("📸" ,style: AppFontStyle.text_40_600(
-                                                            color: AppColors.textClr)),
+                                                        Text("📸", style: AppFontStyle.text_40_600(color: AppColors.textClr)),
                                                         const SizedBox(height: 8),
-                                                        Text("Camera",
-                                                            style: AppFontStyle.text_16_500(
-                                                                color: AppColors.textClr))
+                                                        Text("Camera", style: AppFontStyle.text_16_500(color: AppColors.textClr)),
                                                       ],
                                                     ),
                                                   ),
-
+                                                  // Gallery
                                                   GestureDetector(
                                                     onTap: () async {
                                                       Navigator.pop(context);
@@ -161,11 +159,23 @@ class RecordsView extends StatelessWidget {
                                                     },
                                                     child: Column(
                                                       children: [
-                                                        CustomImage(path: ImageConstants.photos,h: 45,w: 45),
+                                                        CustomImage(path: ImageConstants.photos, h: 45, w: 45),
                                                         const SizedBox(height: 8),
-                                                        Text("Gallery",
-                                                            style: AppFontStyle.text_16_500(
-                                                                color: AppColors.textClr))
+                                                        Text("Gallery", style: AppFontStyle.text_16_500(color: AppColors.textClr)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  // Files (PDF, DOC, images)
+                                                  GestureDetector(
+                                                    onTap: () async {
+                                                      Navigator.pop(context);
+                                                      provider.pickFromGoogleDrive(); // supports PDF/doc/images
+                                                    },
+                                                    child: Column(
+                                                      children: [
+                                                        Text("📄", style: AppFontStyle.text_40_600(color: AppColors.textClr)),
+                                                        const SizedBox(height: 8),
+                                                        Text("Files", style: AppFontStyle.text_16_500(color: AppColors.textClr)),
                                                       ],
                                                     ),
                                                   ),

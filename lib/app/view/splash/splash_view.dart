@@ -8,6 +8,8 @@ import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 import '../../data/storage/user_local_data.dart';
+import '../../navbar/pregnancy/navbar.dart';
+import '../../constants/flow.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -71,11 +73,22 @@ class _SplashViewState extends State<SplashView> {
               );
               break;
             case "1":
-              Navigator.pushNamedAndRemoveUntil(
-                navigatorKey.currentContext!,
-                AppRoutes.pregnancyView,
-                    (route) => false,
-              );
+              final isPregnancySetupComplete = await UserLocalData.isPregnancySetupComplete();
+              if (isPregnancySetupComplete) {
+                Navigator.pushAndRemoveUntil(
+                  navigatorKey.currentContext!,
+                  MaterialPageRoute(
+                    builder: (context) => const NavbarView(flow: FlowType.pregnancy),
+                  ),
+                      (route) => false,
+                );
+              } else {
+                Navigator.pushNamedAndRemoveUntil(
+                  navigatorKey.currentContext!,
+                  AppRoutes.pregnancyView,
+                      (route) => false,
+                );
+              }
               break;
             case "2":
               final isSetupComplete = await UserLocalData.isPostPregnancySetupComplete();

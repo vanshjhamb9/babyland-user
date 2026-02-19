@@ -263,6 +263,29 @@ class BabyGrowthProvider extends ChangeNotifier{
     },);
   }
 
+  Future<void> updateBabyDetails({
+    required String babyName,
+    required String dob,
+    required String gender,
+  }) async {
+    Map<String, dynamic> data = {
+      "babyName": babyName,
+      "dob": formatDateForApi(dob),
+      "gender": gender,
+    };
+    
+    await repository.babygrowthsUpdate(data).then((value) {
+      if (value.success == true) {
+         // AppPopUp.showToast(message: value.message ?? "Baby details updated");
+      } else {
+        AppPopUp.showToast(message: value.message ?? "Failed to update baby details");
+      }
+    }).onError((error, stackTrace) {
+        pt("Error in updateBabyDetails: $error");
+        // AppPopUp.showToast(message: "Error updating baby details");
+    });
+  }
+
 
 
 }

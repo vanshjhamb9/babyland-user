@@ -129,6 +129,40 @@ class NetworkApiServices {
     }
   }
 
+  Future<dynamic> putApiMultiPart(
+      String url, Map<String, dynamic> fields, Map<String, File> files) async {
+    try {
+      FormData formData = FormData();
+
+      fields.forEach((key, value) {
+        formData.fields.add(MapEntry(key, value.toString()));
+      });
+
+      for (var entry in files.entries) {
+        formData.files.add(
+          MapEntry(
+            entry.key,
+            await MultipartFile.fromFile(
+              entry.value.path,
+              filename: entry.value.path.split('/').last,
+            ),
+          ),
+        );
+      }
+
+      pt("Uploading fields (PUT): ${formData.fields}");
+      if(formData.files.isNotEmpty) pt("Uploading file (PUT): ${formData.files.first.key}");
+
+      Response response = await _dio.put(url, data: formData);
+      pt("Multipart PUT response: ${response.data}");
+
+      return _handleResponse(response);
+    } catch (e, st) {
+      pt("Multipart PUT error: $e\n$st");
+      rethrow;
+    }
+  }
+
   dynamic _handleResponse(Response response) {
     pt('API Response == ${response.statusCode}\n${response.data}');
     if ([200, 201, 202, 204, 400, 401, 403, 404, 409, 422,].contains(response.statusCode)) {
