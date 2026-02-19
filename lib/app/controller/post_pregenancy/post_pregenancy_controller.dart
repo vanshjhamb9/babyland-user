@@ -24,6 +24,23 @@ class PostpregnancyProvider extends ChangeNotifier {
       dobController.text = dateController.text;
     }
     _currentIndex = newIndex;
+    if (newIndex == 1) {
+      loadLocalBabyDetails();
+    }
+    notifyListeners();
+  }
+
+  Future<void> loadLocalBabyDetails() async {
+    Map<String, String?> babyDetails = await UserLocalData.getBabyDetails();
+    if (babyDetails['name'] != null && babyNameController.text.isEmpty) {
+      babyNameController.text = babyDetails['name']!;
+    }
+    if (babyDetails['dob'] != null && dobController.text.isEmpty) {
+      dobController.text = babyDetails['dob']!;
+    }
+    if (babyDetails['gender'] != null && selectedGender == null) {
+      selectedGender = babyDetails['gender'];
+    }
     notifyListeners();
   }
 
@@ -139,10 +156,18 @@ class PostpregnancyProvider extends ChangeNotifier {
 
     pt("data body==>> $data");
 
-      await repository.postpartumsAdd(data).then((value) {
+      await repository.postpartumsAdd(data).then((value) async {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
           pt(name: "response", "${value.message}");
+          
+          // Save baby details locally
+          await UserLocalData.saveBabyDetails(
+            name: babyNameController.text,
+            dob: dobController.text,
+            gender: selectedGender,
+          );
+          
           UserLocalData.savePostPregnancySetupComplete(); // Mark setup as complete
           Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
         }

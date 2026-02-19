@@ -251,17 +251,18 @@ class Repository extends ChangeNotifier {
     return PolicyModel.fromJson(response);
   }
 
-  Future<CommonResponseModel> updateUserProfile(Map<String,dynamic> data, {File? profileImage}) async {
-    if (profileImage != null) {
-      return await apiService.putApiMultiPart(
-        EndPoints.updateUserProfile,
-        data,
-        {'profilePicture': profileImage}, 
-      ).then((value) => CommonResponseModel.fromJson(value));
-    } else {
+  Future<CommonResponseModel> updateUserProfile(Map<String,dynamic> data) async {
       final response = await apiService.put(EndPoints.updateUserProfile, data: data);
       return CommonResponseModel.fromJson(response);
-    }
+  }
+
+  Future<Map<String, dynamic>> uploadFile(File file) async {
+    final response = await apiService.postApiMultiPart(
+      EndPoints.uploadSingleFile,
+      {},
+      {'file': file},
+    );
+    return response is Map<String, dynamic> ? response : {};
   }
 
  Future<CommonResponseModel> addBabygrowths(Map<String, dynamic> data) async {

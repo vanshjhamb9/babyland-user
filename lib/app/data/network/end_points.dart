@@ -65,6 +65,7 @@ class EndPoints {
   static const String getUser = "$baseUrl/users/getUser";
   static const String updateUserProfile = "$baseUrl/users/profile-update";
   static const String uploadFiles = "$baseUrl/upload"; // legacy generic upload
+  static const String uploadSingleFile = "$baseUrl/fileuploads/single";
 
 
   //baby growth

@@ -15,8 +15,21 @@ import '../../widgets/common_select_date_textfield.dart';
 import '../../widgets/custom_image.dart';
 import '../../common_profile_header/profile_header.dart';
 
-class PregnancyView extends StatelessWidget {
+class PregnancyView extends StatefulWidget {
   const PregnancyView({super.key});
+
+  @override
+  State<PregnancyView> createState() => _PregnancyViewState();
+}
+
+class _PregnancyViewState extends State<PregnancyView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PregnancyController>().loadLocalConceptionDate();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

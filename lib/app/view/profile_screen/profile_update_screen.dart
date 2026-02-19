@@ -16,6 +16,8 @@ import 'package:babyland/app/widgets/validation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:babyland/app/widgets/custom_image.dart';
+import 'package:babyland/app/data/network/end_points.dart';
 import 'package:intl/intl.dart';
 
 class ProfileUpdateScreen extends StatefulWidget {
@@ -67,7 +69,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     medicalHistoryController = TextEditingController(text: user?.user?.medicalHistory ?? "");
     
     // Initialize stage specific controllers
-    conceptionDateController = TextEditingController(); 
+    conceptionDateController = TextEditingController(text: user?.user?.pregnancyStartDate ?? ""); 
     babyNameController = TextEditingController();
     babyDobController = TextEditingController();
     babyGenderController = TextEditingController();
@@ -85,8 +87,23 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
 
   Future<void> _loadStage() async {
     String? step = await UserLocalData.getStep();
+    String? localConceptionDate = await UserLocalData.getConceptionDate();
+    Map<String, String?> babyDetails = await UserLocalData.getBabyDetails();
+    
     setState(() {
       currentStage = step;
+      if (conceptionDateController.text.isEmpty && localConceptionDate != null) {
+        conceptionDateController.text = localConceptionDate;
+      }
+      if (babyNameController.text.isEmpty && babyDetails['name'] != null) {
+        babyNameController.text = babyDetails['name']!;
+      }
+      if (babyDobController.text.isEmpty && babyDetails['dob'] != null) {
+        babyDobController.text = babyDetails['dob']!;
+      }
+      if (babyGenderController.text.isEmpty && babyDetails['gender'] != null) {
+        babyGenderController.text = babyDetails['gender']!;
+      }
     });
   }
 
@@ -289,14 +306,49 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                             ),
                             child: CircleAvatar(
                               radius: 50,
-                              backgroundImage: profileImage != null
-                                  ? FileImage(profileImage!)
-                                  : (user?.user?.profilePicture != null
-                                      ? NetworkImage(user!.user!.profilePicture!) as ImageProvider
-                                      : (user?.user?.name != null
-                                          ? NetworkImage(
-                                              "https://ui-avatars.com/api/?name=${user!.user?.name}") as ImageProvider
-                                          : const AssetImage('assets/profile_placeholder.png'))),
+                              backgroundColor: Colors.transparent,
+                              child: ClipOval(
+                                child: Builder(
+                                  builder: (context) {
+                                    if (profileImage != null) {
+                                      return CustomImage(
+                                        path: profileImage!.path,
+                                        w: 100,
+                                        h: 100,
+                                        fit: BoxFit.cover,
+                                      );
+                                    } else {
+                                      String? profilePic = user?.user?.profilePicture;
+                                      if (profilePic != null && profilePic.isNotEmpty) {
+                                         if (!profilePic.startsWith('http')) {
+                                            final uri = Uri.parse(EndPoints.baseUrl);
+                                            final rootUrl = "${uri.scheme}://${uri.host}"; 
+                                            String cleanPath = profilePic.replaceAll('\\', '/');
+                                            if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+                                            profilePic = "$rootUrl/$cleanPath";
+                                         }
+                                         return CustomImage(
+                                            path: profilePic!,
+                                            w: 100,
+                                            h: 100,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (context, url, _) => Image.network(
+                                                "https://ui-avatars.com/api/?name=${user?.user?.name ?? 'User'}",
+                                                fit: BoxFit.cover,
+                                            ),
+                                         );
+                                      } else {
+                                         return Image.network(
+                                            "https://ui-avatars.com/api/?name=${user?.user?.name ?? 'User'}",
+                                            fit: BoxFit.cover,
+                                            width: 100,
+                                            height: 100,
+                                         );
+                                      }
+                                    }
+                                  }
+                                ),
+                              ),
                             ),
                           ),
                           Positioned(

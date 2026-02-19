@@ -68,6 +68,7 @@ class Users {
   String? profilePicture;
   String? phone;
   String? weight;
+  String? pregnancyStartDate;
 
   Users(
       {this.irregularCycleRangeDays,
@@ -90,6 +91,7 @@ class Users {
         this.profilePicture,
         this.phone,
         this.weight,
+        this.pregnancyStartDate,
         this.medicalHistory});
 
   Users.fromJson(Map<String, dynamic> json) {
@@ -118,6 +120,7 @@ class Users {
     profilePicture = json['profilePicture']?.toString();
     phone = json['phone']?.toString();
     weight = json['weight']?.toString();
+    pregnancyStartDate = json['pregnancyStartDate']?.toString();
   }
 
   Map<String, dynamic> toJson() {

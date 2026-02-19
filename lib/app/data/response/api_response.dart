@@ -6,7 +6,7 @@ class ApiResponse<T> {
   String? message;
 
   ApiResponse(this.status, this.data, this.message);
-  ApiResponse.loading() : status = ApiStatus.LOADING;
+  ApiResponse.loading({this.data}) : status = ApiStatus.LOADING;
   ApiResponse.completed(this.data) : status = ApiStatus.COMPLETED;
   ApiResponse.error(this.message) : status = ApiStatus.ERROR;
 

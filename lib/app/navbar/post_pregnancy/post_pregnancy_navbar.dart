@@ -1,4 +1,5 @@
 import 'package:babyland/app/navbar/post_pregnancy/post_pregnancy_navbar_controller.dart';
+import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/navbar/pregnancy/navbar_controller.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
@@ -124,7 +125,10 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
     return InkWell(
       splashColor: AppColors.transparent,
       highlightColor: AppColors.transparent,
-      onTap: () => provider.setSelectedIndex(index),
+      onTap: () {
+        context.read<GetUserProvider>().getUser();
+        provider.setSelectedIndex(index);
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.start,

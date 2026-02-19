@@ -1,4 +1,5 @@
 import 'package:babyland/app/routes/app_routes.dart';
+import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
@@ -122,7 +123,10 @@ class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
     return InkWell(
       splashColor: AppColors.transparent,
       highlightColor: AppColors.transparent,
-      onTap: () => provider.setSelectedIndex(index),
+      onTap: () {
+        context.read<GetUserProvider>().getUser();
+        provider.setSelectedIndex(index);
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.start,

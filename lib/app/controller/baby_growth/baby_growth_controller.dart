@@ -11,6 +11,7 @@ import 'package:babyland/app/widgets/validation.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 
 import '../../routes/app_routes.dart';
 import '../../view/baby_growth/milestones/add_mild_stones.dart';
@@ -41,11 +42,18 @@ class BabyGrowthProvider extends ChangeNotifier{
       "dob": "2025-11-14"
     };
 
-    await repository.babygrowthsAdd(data).then((value) {
+    await repository.babygrowthsAdd(data).then((value) async {
       if (value.success == true) {
         setBabyGrowthData(ApiResponse.completed(value));
         pt(name: "response", "${value.message}");
         SecureStorage.saveTrackerId(value.tracker?.sId.toString() ?? "");
+        
+        // Save baby details if they were provided in the initial data
+        await UserLocalData.saveBabyDetails(
+          name: data['babyName'],
+          dob: data['dob'],
+        );
+        await UserLocalData.savePostPregnancySetupComplete();
         // AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         // Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
       }
@@ -274,8 +282,10 @@ class BabyGrowthProvider extends ChangeNotifier{
       "gender": gender,
     };
     
-    await repository.babygrowthsUpdate(data).then((value) {
+    await repository.babygrowthsUpdate(data).then((value) async {
       if (value.success == true) {
+         UserLocalData.saveBabyDetails(name: babyName, dob: dob, gender: gender);
+         UserLocalData.savePostPregnancySetupComplete();
          // AppPopUp.showToast(message: value.message ?? "Baby details updated");
       } else {
         AppPopUp.showToast(message: value.message ?? "Failed to update baby details");

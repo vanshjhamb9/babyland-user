@@ -128,4 +128,39 @@ class UserLocalData {
   static Future<void> clearPregnancySetupComplete() async {
     await _storage.delete(key: _pregnancySetupCompleteKey);
   }
+
+  // ---------------- ONBOARDING DATA ----------------
+  static const _conceptionDateKey = 'conception_date';
+  static const _babyNameKey = 'baby_name';
+  static const _babyDobKey = 'baby_dob';
+  static const _babyGenderKey = 'baby_gender';
+
+  static Future<void> saveConceptionDate(String? date) async {
+    await _storage.write(key: _conceptionDateKey, value: date);
+  }
+
+  static Future<String?> getConceptionDate() async {
+    return await _storage.read(key: _conceptionDateKey);
+  }
+
+  static Future<void> saveBabyDetails({String? name, String? dob, String? gender}) async {
+    if (name != null) await _storage.write(key: _babyNameKey, value: name);
+    if (dob != null) await _storage.write(key: _babyDobKey, value: dob);
+    if (gender != null) await _storage.write(key: _babyGenderKey, value: gender);
+  }
+
+  static Future<Map<String, String?>> getBabyDetails() async {
+    return {
+      'name': await _storage.read(key: _babyNameKey),
+      'dob': await _storage.read(key: _babyDobKey),
+      'gender': await _storage.read(key: _babyGenderKey),
+    };
+  }
+
+  static Future<void> clearOnboardingData() async {
+    await _storage.delete(key: _conceptionDateKey);
+    await _storage.delete(key: _babyNameKey);
+    await _storage.delete(key: _babyDobKey);
+    await _storage.delete(key: _babyGenderKey);
+  }
 }

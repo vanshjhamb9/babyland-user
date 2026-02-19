@@ -9,7 +9,9 @@ import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/view/basic_information/stages_view.dart';
 import 'package:babyland/app/widgets/button.dart';
 import 'package:babyland/app/widgets/container.dart';
+import 'package:babyland/app/data/network/end_points.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
+import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -97,6 +99,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ---------------- PROFILE CARD ----------------
   Widget buildProfileCard(GetUserProvider provider) {
+    String? profilePic = provider.userData?.data?.user?.user?.profilePicture;
+    if (profilePic != null && profilePic.isNotEmpty && !profilePic.startsWith('http')) {
+      // Construct full URL for relative paths
+      final uri = Uri.parse(EndPoints.baseUrl);
+      final rootUrl = "${uri.scheme}://${uri.host}"; 
+      // replace backslashes if any
+      String cleanPath = profilePic.replaceAll('\\', '/');
+      if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+      profilePic = "$rootUrl/$cleanPath";
+      // Add cache buster if needed, but usually not ideal for cached images. 
+      // CachedNetworkImage handles caching. If the URL changes (which it should on new upload), it fetches new one.
+    }
+
     return InkWell(
       onTap: () => Navigator.pushNamed(context, AppRoutes.profileUpdateScreen),
       child: Container(
@@ -117,13 +132,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             CircleAvatar(
               radius: 35,
               backgroundColor: AppColors.textLightClr.withAlpha(40),
-              child: Center(
-                child: Text(provider.userData?.data?.user?.user?.name?[0] ?? "",
-                  style: AppFontStyle.text_40_600(
-                    color: AppColors.black,
-                    fontFamily: AppFontFamily.gilroyRegular,
-                  ),
-                )  ?? const Icon(Icons.person, size: 38, color: Colors.white),
+              child: ClipOval(
+                child: profilePic != null && profilePic.isNotEmpty
+                    ? CustomImage(
+                        path: profilePic,
+                        w: 70, 
+                        h: 70,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => Center(
+                          child: Text(provider.userData?.data?.user?.user?.name?[0] ?? "",
+                            style: AppFontStyle.text_40_600(
+                              color: AppColors.black,
+                              fontFamily: AppFontFamily.gilroyRegular,
+                            ),
+                          )
+                        ),
+                      )
+                    : Center(
+                        child: Text(provider.userData?.data?.user?.user?.name?[0] ?? "",
+                          style: AppFontStyle.text_40_600(
+                            color: AppColors.black,
+                            fontFamily: AppFontFamily.gilroyRegular,
+                          ),
+                        )  ?? const Icon(Icons.person, size: 38, color: Colors.white),
+                      ),
               ),
             ),
             const SizedBox(width: 16),

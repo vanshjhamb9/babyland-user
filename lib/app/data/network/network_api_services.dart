@@ -29,6 +29,7 @@ class NetworkApiServices {
           pt("token...... $token");
           if (token.isNotEmpty) {
             options.headers['auth-token'] = token;
+            options.headers['Authorization'] = "Bearer $token";
           }
           options.headers['Accept'] = 'application/json';
           // final curl = _toCurl(options);

@@ -27,6 +27,14 @@ class PregnancyController extends ChangeNotifier{
   final titleController = TextEditingController();
   final timerController = TextEditingController();
 
+  Future<void> loadLocalConceptionDate() async {
+    String? date = await UserLocalData.getConceptionDate();
+    if (date != null && dateController.text.isEmpty) {
+      dateController.text = date;
+      notifyListeners();
+    }
+  }
+
 //--------------------------
   ApiResponse<PregnancyInfoModel>? _pregnancyInfoApiData = ApiResponse.completed(null);
   ApiResponse<PregnancyInfoModel>? get pregnancyInfoApiData => _pregnancyInfoApiData;
@@ -40,21 +48,46 @@ class PregnancyController extends ChangeNotifier{
     setPregnancyData(ApiResponse.loading());
     notifyListeners();
     final userId = await SecureStorage.getUserId();
+    final dateText = dateController.text;
+    
+    pt("pregnancyInfo called. Date: $dateText, UserID: $userId");
+
     final data = {
       "userId": userId,
-      if(dateController.text.isNotEmpty) "pregnancyStartDate": formatDateForApi(dateController.text),
+      if(dateText.isNotEmpty) "pregnancyStartDate": formatDateForApi(dateText),
     };
 
     try {
+      // 1. Send pregnancy info
       await repository.pregnancyInfo(data).then((value) async {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
-          await UserLocalData.savePregnancySetupComplete(); // Save flag locally
-          Navigator.pushAndRemoveUntil(navigatorKey.currentContext!, MaterialPageRoute(builder: (context) => NavbarView(flow: FlowType.pregnancy),), (route) => false);
-          // Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.navbarView,(route) => false,);
-          pt(name: "response", "${value.message}");
+          pt("Pregnancy info saved successfully: ${value.message}");
+          
+          // 2. Ensure local data is saved
+          await UserLocalData.saveStep("1"); // 1 = Pregnancy
+          await UserLocalData.savePregnancySetupComplete();
+          if (dateText.isNotEmpty) await UserLocalData.saveConceptionDate(dateText);
+          
+          // 3. Sync profile with backend (Critical for profile persistence)
+          // We update cycleType to 'pregnancy' so the profile knows the stage.
+          // Note: Ignoring error here as pregnancy info is the primary goal, but logging it.
+          try {
+             await repository.updateUserProfile({'cycleType': 'pregnancy'});
+             pt("Profile cycleType updated to pregnancy");
+          } catch (e) {
+             pt("Failed to update profile cycleType: $e");
+          }
+
+          // 4. Navigate
+          Navigator.pushAndRemoveUntil(
+            navigatorKey.currentContext!, 
+            MaterialPageRoute(builder: (context) => NavbarView(flow: FlowType.pregnancy),), 
+            (route) => false
+          );
         }
         if(value.success == false) {
+          pt("Pregnancy info failed: ${value.message}");
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
@@ -81,6 +114,7 @@ class PregnancyController extends ChangeNotifier{
       await repository.pregnancyInfo(data).then((value) {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
+          UserLocalData.saveConceptionDate(date);
           // AppPopUp.showToast(message: value.message ?? "Date updated successfully");
         }
         if(value.success == false) {
