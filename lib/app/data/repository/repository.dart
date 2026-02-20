@@ -256,14 +256,6 @@ class Repository extends ChangeNotifier {
     return DailyLogsMenturalModel.fromJson(response);
   }
 
-  Future<dynamic> addMenstrual(Map<String, dynamic> data) async {
-    final response = await apiService.post(
-      EndPoints.addMenstrual,
-      data: data,
-    );
-    return response;
-  }
-
  Future<MenturalAiInsightsModel> menturalAiInsights(Map<String, dynamic> data) async {
     final response = await apiService.get(EndPoints.insights,params: data);
     return MenturalAiInsightsModel.fromJson(response);

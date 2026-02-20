@@ -6,16 +6,13 @@ class MenturalAiInsightsModel {
   MenturalAiInsightsModel({this.success, this.source, this.dataexit});
 
   MenturalAiInsightsModel.fromJson(Map<String, dynamic> json) {
-    // The top-level 'data' field in the API response contains the actual model data
-    // So if 'data' exists and is a Map, we parse THAT.
-    // Otherwise fallback to parsing the root (incase the structure varies or is already unwrapped)
     if (json['data'] != null && json['data'] is Map<String, dynamic>) {
        final dataObj = json['data'];
-       success = dataObj['success'];
-       source = dataObj['source'];
+       success = dataObj['success'] ?? json['success'];
+       source = dataObj['source'] ?? json['source'];
+       // The user's curl payload showed dataexit inside data: { success: true, dataexit: {...} }
        dataexit = dataObj['dataexit'] != null ? DataExit.fromJson(dataObj['dataexit']) : null;
     } else {
-       // Fallback or direct mapping
        success = json['success'];
        source = json['source'];
        dataexit = json['dataexit'] != null ? DataExit.fromJson(json['dataexit']) : null;
