@@ -66,114 +66,86 @@ class PostpregnancyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-    Future<void> pregnancyInfo() async {
+  Future<void> pregnancyInfo() async {
     setPregnancyData(ApiResponse.loading());
     notifyListeners();
-    final userId = await SecureStorage.getUserId();
 
     final data = {
-      "userId": userId,
       "deliveryDate": formatDateForApiYMD(dateController.text),
-      "deliveryType": selectedDeliveryType,
+      "deliveryType": _normalizeDeliveryType(selectedDeliveryType),
       "babyDetails": {
         "name": babyNameController.text,
         "date": formatDateForApiYMD(dobController.text),
-        "gender": selectedGender?.toLowerCase() == "boy" ? "Male" : selectedGender?.toLowerCase() == "girl" ? "Female": "Prefer not to say",
+        "gender": selectedGender?.toLowerCase() == "boy"
+            ? "Male"
+            : selectedGender?.toLowerCase() == "girl"
+            ? "Female"
+            : "Prefer not to say",
       }
-//   "dailyLogs": [
-//     {
-//       "date": "2025-10-09",
-//       "mood": "Good",
-//       "symptoms": [
-//         "nausea",
-//         "fatigue"
-//       ],
-//       "stressLevel": 2,
-//       "anxietyLevel": 1,
-//       "notes": "Felt slightly tired today",
-//       "sleepQuality": 4
-//     }
-//   ],
-//   "feedingSchedule": [
-//     {
-//       "time": "2025-11-13T15:46:37.311Z",
-//       "type": "Breastfeeding",
-//       "side": "Both",
-//       "durationMinutes": 0,
-//       "quantity": "100ml",
-//       "notes": "string"
-//     }
-//   ],
-//   "recoveryChecklist": [
-//     {
-//       "task": "string",
-//       "dateAssigned": "2025-11-13",
-//       "dueDate": "2025-11-13",
-//       "completed": false,
-//       "dateCompleted": "2025-11-13"
-//     }
-//   ],
-//   "appointments": [
-//     {
-//       "title": "OB-GYN Checkup",
-//       "date": "2025-10-15",
-//       "time": "10:30 AM",
-//       "reminder": false,
-//       "notes": "Bring previous test reports"
-//     }
-//   ],
-//   "aiPredictions": [
-//     {
-//       "date": "2025-11-13",
-//       "modelOutput": {
-//         "recoveryScore": 0,
-//         "depressionRisk": "Low",
-//         "fatigueLevel": "Low",
-//         "insights": "string",
-//         "recommendations": [
-//           "string"
-//         ]
-//       }
-//     }
-//   ]
     };
 
     pt("data body==>> $data");
 
-      await repository.postpartumsAdd(data).then((value) async {
-        if (value.success == true) {
-          setPregnancyData(ApiResponse.completed(value));
-          pt(name: "response", "${value.message}");
-          
-          // Save baby details locally
-          await UserLocalData.saveBabyDetails(
-            name: babyNameController.text,
-            dob: dobController.text,
-            gender: selectedGender,
+    try {
+      final value = await repository.postpartumsAdd(data);
+
+      if (value.success == true) {
+        setPregnancyData(ApiResponse.completed(value));
+        pt(name: "response", "${value.message}");
+
+        await UserLocalData.saveBabyDetails(
+          name: babyNameController.text,
+          dob: dobController.text,
+          gender: selectedGender,
+        );
+
+        await UserLocalData.savePostPregnancySetupComplete();
+
+        Navigator.pushNamed(
+          navigatorKey.currentContext!,
+          AppRoutes.postPregnancyNavbarView,
+        );
+      } else {
+        setPregnancyData(
+          ApiResponse.error(value.message ?? "Something went wrong!"),
+        );
+
+        if (value.message == "Postpartum tracker already exists for this user") {
+          await UserLocalData.savePostPregnancySetupComplete();
+          Navigator.pushNamed(
+            navigatorKey.currentContext!,
+            AppRoutes.postPregnancyNavbarView,
           );
-          
-          UserLocalData.savePostPregnancySetupComplete(); // Mark setup as complete
-          Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
-        }
-        if(value.success == false) {
-          setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
-          if(value.message == "Postpartum tracker already exists for this user"){
-            UserLocalData.savePostPregnancySetupComplete(); // Mark setup as complete if already exists
-            Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
-          }
+        } else {
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
-        notifyListeners();
-      },).onError((error, stackTrace) {
-        pt("Error in pregnancyInfo: $error\n$stackTrace");
-        setPregnancyData(ApiResponse.error(error.toString()));
-        notifyListeners();
-        AppPopUp.showToast(message: "Something went wrong. Please try again.");
-        notifyListeners();
-      },);
+      }
+    } catch (error, stackTrace) {
+      pt("Error in pregnancyInfo: $error\n$stackTrace");
+      setPregnancyData(ApiResponse.error(error.toString()));
+      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+    } finally {
+      notifyListeners();
     }
+  }
 
-  //--------------------------------------------------------------------------------------------
+// Updated to match exactly what is in swagger.json
+  String _normalizeDeliveryType(String type) {
+    switch (type.trim().toLowerCase()) {
+      case 'c-section':
+      case 'csection':
+      case 'c section':
+      case 'c_section':
+        return 'c_section'; // Exact value from swagger.json
+      case 'normal':
+      case 'vaginal':
+      case 'natural':
+        return 'Normal'; // Exact value from swagger.json
+      default:
+        return type;
+    }
+  }
+
   ApiResponse<CommonResponseModel>? _postpartumsLogsAdd = ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get postpartumsLogsAdd => _postpartumsLogsAdd;
 
