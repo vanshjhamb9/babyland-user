@@ -259,9 +259,9 @@ class CycleCalenderProvider extends ChangeNotifier {
       pt("Error in aiInsightsApi: $error\n$stackTrace");
 
       setAiInsightsApiData(
-          ApiResponse.error("Something went wrong. Please try again."));
+          ApiResponse.error("Error: $error"));
       AppPopUp.showToast(
-          message: "Something went wrong. Please try again.");
+          message: "Error: $error");
     }
 
     notifyListeners();
@@ -332,9 +332,9 @@ class CycleCalenderProvider extends ChangeNotifier {
       };
 
       await repository.addMenstrual(data).then((value) async {
-        if (value['success'] == true) {
-          pt(name: "response", "${value['message']}");
-          AppPopUp.showToast(message: value['message'] ?? "Successfully updated!");
+        if (value.success == true) {
+          pt(name: "response", "${value.message}");
+          AppPopUp.showToast(message: value.message ?? "Successfully updated!");
           
           // Refresh all relevant data
           await dashboardData();
@@ -342,12 +342,12 @@ class CycleCalenderProvider extends ChangeNotifier {
           await dashboardMoodData();
           await cycleCalender(year: focusedDay.year, month: focusedDay.month);
         } else {
-          AppPopUp.showToast(message: value['message'] ?? "Something went wrong!");
+          AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
       });
     } catch (e, s) {
       pt("Error in addMenstrualCycle: $e\n$s");
-      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+      AppPopUp.showToast(message: "Error: $e");
     } finally {
       setLoading(false);
       notifyListeners();

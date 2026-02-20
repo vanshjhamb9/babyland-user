@@ -29,7 +29,7 @@ class GetUserProvider extends ChangeNotifier{
     // Check cycleType (used for logic mapping in this app)
     final cType = user.cycleType;
     if (cType == "pregnancy") return "Pregnancy";
-    if (cType == "post_pregnancy") return "Post-pregnancy";
+    if (cType == "postpregnancy") return "Post-pregnancy";
     if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") return "Pre-pregnancy";
     
     return "Onboarding";
@@ -91,7 +91,7 @@ class GetUserProvider extends ChangeNotifier{
                  UserLocalData.savePregnancySetupComplete();
                  UserLocalData.saveConceptionDate(conceptionDate);
               }
-           } else if (cType == "post_pregnancy") {
+           } else if (cType == "postpregnancy") {
               UserLocalData.saveStep("2");
            } else if (cType == "regular" || cType == "irregular") {
               // We don't overwrite local step if it's already set to something else,
@@ -124,7 +124,7 @@ class GetUserProvider extends ChangeNotifier{
         step = "1";
         break;
       case 2:
-        cycleType = "post_pregnancy";
+        cycleType = "postpregnancy"; // Changed from post_pregnancy to match backend enum
         step = "2";
         break;
       default:
@@ -141,7 +141,7 @@ class GetUserProvider extends ChangeNotifier{
       // We update BOTH cycleType and stage to ensure backend persistence
       await repository.updateUserProfile({
         "cycleType": cycleType,
-        "stage": cycleType == "post_pregnancy" ? "postpregnancy" : cycleType
+        "stage": cycleType // no need for ternary anymore since postpregnancy matches
       });
       
       // Also call onboardingCompleted for potential side effects if needed

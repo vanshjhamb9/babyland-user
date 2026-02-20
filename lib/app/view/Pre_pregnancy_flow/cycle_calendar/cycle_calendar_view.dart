@@ -131,7 +131,7 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
         margin: EdgeInsets.only(bottom: 14.0),
         child: InkWell(
           onTap: () {
-            // TODO: Create a new screen once the backend is completed.
+            showAddPeriodLogDialog(context, context.read<CycleCalenderProvider>());
           },
           child: AppContainer(
             padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -154,6 +154,166 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
           ),
         ),
       ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // ADD MANUAL PERIOD LOG DIALOG
+  // ---------------------------------------------------------
+  void showAddPeriodLogDialog(BuildContext context, CycleCalenderProvider provider) {
+    DateTime? startDate;
+    DateTime? endDate;
+
+    // Constraints: previous months and current month, up to today
+    final DateTime now = DateTime.now();
+    // Allow going back for example 12 months, but restrict to current month max
+    final DateTime firstDate = DateTime(now.year - 1, now.month, now.day); 
+    final DateTime lastDate = now;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text(
+                "Add Period Log",
+                style: AppFontStyle.text_20_500(
+                  fontFamily: AppFontFamily.gilroySemiBold,
+                  color: AppColors.black,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Select the actual start and end dates of your period.",
+                    style: AppFontStyle.text_14_400(color: AppColors.textLightClr),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Start Date Picker
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text("Start Date", style: AppFontStyle.text_16_400()),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          startDate != null ? DateFormat('yyyy-MM-dd').format(startDate!) : "Select",
+                          style: AppFontStyle.text_14_400(
+                             color: startDate != null ? AppColors.black : AppColors.textLightClr,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.calendar_month, color: AppColors.buttonClr2),
+                      ],
+                    ),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: startDate ?? now,
+                        firstDate: firstDate,
+                        lastDate: lastDate,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary: AppColors.buttonClr2,
+                                onPrimary: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          startDate = picked;
+                          // Reset end date if it's before new start date
+                          if (endDate != null && endDate!.isBefore(startDate!)) {
+                            endDate = null;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  
+                  // End Date Picker
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text("End Date", style: AppFontStyle.text_16_400()),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          endDate != null ? DateFormat('yyyy-MM-dd').format(endDate!) : "Select",
+                          style: AppFontStyle.text_14_400(
+                             color: endDate != null ? AppColors.black : AppColors.textLightClr,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.calendar_month, color: AppColors.buttonClr2),
+                      ],
+                    ),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: endDate ?? (startDate ?? now),
+                        firstDate: startDate ?? firstDate, // End date cannot physically be before start date
+                        lastDate: lastDate,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary: AppColors.buttonClr2,
+                                onPrimary: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          endDate = picked;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("Cancel", style: AppFontStyle.text_14_600(color: AppColors.textLightClr)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.buttonClr2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: (startDate == null || endDate == null)
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          // Call controller
+                          provider.addMenstrualCycle(
+                            startDate: startDate!,
+                            endDate: endDate!,
+                          );
+                        },
+                  child: Text("Add", style: AppFontStyle.text_14_600(color: AppColors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

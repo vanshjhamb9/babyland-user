@@ -115,6 +115,14 @@ class Repository extends ChangeNotifier {
     return MenstrualDashboardPredictModel.fromJson(response);
   }
 
+  Future<CommonResponseModel> addMenstrual(Map<String, dynamic> data) async {
+    final response = await apiService.post(
+      EndPoints.addMenstrual,
+      data: data,
+    );
+    return CommonResponseModel.fromJson(response);
+  }
+
   ///--------------Postpartums --------
   Future<PostpartumsAddModel> postpartumsAdd(Map<String, dynamic> data) async {
     final response = await apiService.post(
