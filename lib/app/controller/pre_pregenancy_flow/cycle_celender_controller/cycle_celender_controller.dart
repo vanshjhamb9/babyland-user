@@ -82,7 +82,7 @@ class CycleCalenderProvider extends ChangeNotifier {
     final userId = await SecureStorage.getUserId();
 
     Map<String,dynamic> data = {
-      "userId " : userId,
+      "userId" : userId,
     };
     // pt("data body==>> $data");
 
@@ -392,40 +392,67 @@ class CycleCalenderProvider extends ChangeNotifier {
   // ⛳ MAIN API CALL
   // -------------------------------------------------------
   Future<void> cycleCalender({required int year, required int month}) async {
-    _setCalendarApi(ApiResponse.loading());
-    notifyListeners();
 
     Map<String, dynamic> data = {
-      "year": year.toString(),
-      "month": month.toString(),
+      "year": year,
+      "month": month,
     };
 
-    await repository.menturalCycleCalender(data).then((value) {
+    try {
+      final value = await repository.menturalCycleCalender(data);
+      pt("🔥 Calendar API for $year-$month: success=${value.success}");
+
       if (value.success == true) {
         _setCalendarApi(ApiResponse.completed(value));
 
-        // 🔥 API se dates ko provider lists me set kar rahe hain
-        predictedPeriod = value.data?.filteredCalendar?.predictedPeriod ?? [];
-        fertileWindow = value.data?.filteredCalendar?.fertileWindow ?? [];
-        ovulationDays = value.data?.filteredCalendar?.ovulationDays ?? [];
+        // Use filteredCalendar directly — this endpoint returns pre-computed date lists
+        if (value.data?.filteredCalendar != null) {
+          predictedPeriod = _sanitizeDates(
+            value.data!.filteredCalendar!.predictedPeriod ?? [], limit: 10);
+          fertileWindow = _sanitizeDates(
+            value.data!.filteredCalendar!.fertileWindow ?? [], limit: 10);
+          ovulationDays = _sanitizeDates(
+            value.data!.filteredCalendar!.ovulationDays ?? [], limit: 3);
+        } else {
+          predictedPeriod = [];
+          fertileWindow = [];
+          ovulationDays = [];
+        }
 
-        pt("🔥 Predicted: $predictedPeriod");
-        pt("🔥 Fertile: $fertileWindow");
-        pt("🔥 Ovulation: $ovulationDays");
-
-        notifyListeners();
+        pt("🔥 Predicted[$month]: $predictedPeriod");
+        pt("🔥 Fertile[$month]: $fertileWindow");
+        pt("🔥 Ovulation[$month]: $ovulationDays");
       } else {
+        pt("🔥 API returned success=false: ${value.message}");
         _setCalendarApi(ApiResponse.error(value.message ?? "Something went wrong!"));
-        AppPopUp.showToast(message: value.message ?? "Something went wrong!");
       }
+      notifyListeners();
+    } catch (e, stackTrace) {
+      pt("🔥 CRASH in cycleCalender: $e\n$stackTrace");
+      _setCalendarApi(ApiResponse.error(e.toString()));
+      notifyListeners();
+    }
+  }
 
-      notifyListeners();
-    }).onError((error, stackTrace) {
-      pt("Error: $error\n$stackTrace");
-      _setCalendarApi(ApiResponse.error(error.toString()));
-      AppPopUp.showToast(message: "Something went wrong. Please try again.");
-      notifyListeners();
-    });
+  /// Prunes invalid dates and limits consecutive ranges to prevent "All-Red-Month" bugs
+  List<String> _sanitizeDates(List<String> dates, {int limit = 10}) {
+    if (dates.isEmpty) return [];
+    
+    // 1. Remove impossible years (handle backend 1970 bug)
+    final validYearDates = dates.where((d) {
+      try {
+        final year = DateTime.parse(d).year;
+        return year > 2000 && year < 2100;
+      } catch(_) { return false; }
+    }).toList();
+
+    // 2. Limit length if it's unnaturally long for a period/fertile window
+    // If more than 'limit' days in a single month are marked, it's likely a calculation error
+    if (validYearDates.length > limit) {
+       return validYearDates.take(limit).toList();
+    }
+
+    return validYearDates;
   }
 
 
@@ -434,12 +461,7 @@ class CycleCalenderProvider extends ChangeNotifier {
   // -------------------------------------------------------
   void nextMonth() {
     _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
-
-    cycleCalender(
-      year: _focusedDay.year,
-      month: _focusedDay.month,
-    );
-
+    cycleCalender(year: _focusedDay.year, month: _focusedDay.month);
     notifyListeners();
   }
 
@@ -448,12 +470,7 @@ class CycleCalenderProvider extends ChangeNotifier {
   // -------------------------------------------------------
   void previousMonth() {
     _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-
-    cycleCalender(
-      year: _focusedDay.year,
-      month: _focusedDay.month,
-    );
-
+    cycleCalender(year: _focusedDay.year, month: _focusedDay.month);
     notifyListeners();
   }
 
@@ -461,6 +478,8 @@ class CycleCalenderProvider extends ChangeNotifier {
   // ⛳ UPDATE CALENDAR PAGE CHANGE
   // -------------------------------------------------------
   void updateFocusedDay(DateTime day) {
+    // Skip if already on the same month (prevents duplicate API call from onPageChanged)
+    if (_focusedDay.year == day.year && _focusedDay.month == day.month) return;
     _focusedDay = day;
     cycleCalender(
       year: _focusedDay.year,

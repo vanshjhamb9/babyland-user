@@ -59,7 +59,7 @@ class Data {
         ? NextPeriod.fromJson(json['nextPeriod'])
         : null;
     nextOvulation = json['nextOvulation']?.toString();
-    nextFertileWindow = json['nextFertileWindow'].cast<String>();
+    nextFertileWindow = json['nextFertileWindow'] != null ? json['nextFertileWindow'].cast<String>() : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -111,9 +111,9 @@ class FilteredCalendar {
       {this.predictedPeriod, this.fertileWindow, this.ovulationDays});
 
   FilteredCalendar.fromJson(Map<String, dynamic> json) {
-    predictedPeriod = json['predictedPeriod'].cast<String>();
-    fertileWindow = json['fertileWindow'].cast<String>();
-    ovulationDays = json['ovulationDays'].cast<String>();
+    predictedPeriod = json['predictedPeriod'] != null ? json['predictedPeriod'].cast<String>() : [];
+    fertileWindow = json['fertileWindow'] != null ? json['fertileWindow'].cast<String>() : [];
+    ovulationDays = json['ovulationDays'] != null ? json['ovulationDays'].cast<String>() : [];
   }
 
   Map<String, dynamic> toJson() {

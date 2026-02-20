@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/common_profile_header/get_user_model.dart';
 import 'package:babyland/app/controller/ai_assistant/model/ai_chat_model.dart';
@@ -31,6 +32,7 @@ import '../../controller/post_pregenancy/model/recovery_progress_model.dart';
 import '../../controller/pre_pregenancy_flow/model/daily_logs_mentural_model.dart';
 import '../../controller/pre_pregenancy_flow/model/dashboard_current_mood_model.dart';
 import '../../controller/pre_pregenancy_flow/model/menstrual_dashboard_Predict_model.dart';
+import '../../controller/pre_pregenancy_flow/model/menstrual_predict_model.dart';
 import '../../controller/pre_pregenancy_flow/model/mentural_ai_insights_model.dart';
 import '../../controller/pre_pregenancy_flow/model/mentural_cycle_calender_model.dart';
 import '../../controller/pregnancy_flow/model/addAppointment_data_model.dart';
@@ -209,6 +211,16 @@ class Repository extends ChangeNotifier {
     return MentauralCalenderModel.fromJson(response);
   }
 
+  Future<MenstrualPredictModel> predictMenstrual(
+    Map<String, dynamic> data,
+  ) async {
+    final response = await apiService.post(
+      EndPoints.predictMenstrual,
+      data: data,
+    );
+    return MenstrualPredictModel.fromJson(response);
+  }
+
   Future<DashboardCurrentMood> menstrualDashboardMood() async {
     final response = await apiService.get(EndPoints.dashboardCurrentMood);
     return DashboardCurrentMood.fromJson(response);
@@ -259,9 +271,34 @@ class Repository extends ChangeNotifier {
     return PolicyModel.fromJson(response);
   }
 
-  Future<CommonResponseModel> updateUserProfile(Map<String,dynamic> data) async {
+  Future<CommonResponseModel> updateUserProfile(Map<String,dynamic> data, {File? profileImage}) async {
+    print("----- REPOSITORY updateUserProfile CALLED -----");
+    print("Has Image: ${profileImage != null}");
+    if (profileImage != null) {
+      print("Image path: ${profileImage.path}");
+      // Send as multipart with file under field name 'photo' (backend expects upload.single("photo"))
+      final fields = <String, dynamic>{};
+      data.forEach((key, value) {
+        if (value is Map) {
+          fields[key] = jsonEncode(value);
+        } else if (value != null) {
+          fields[key] = value;
+        }
+      });
+      print("Sending fields: $fields");
+      final files = <String, File>{'photo': profileImage};
+      final response = await apiService.putApiMultiPart(
+        EndPoints.updateUserProfile,
+        fields,
+        files,
+      );
+      print("Multipart response: $response");
+      return CommonResponseModel.fromJson(response);
+    } else {
+      print("No image, sending fallback JSON PUT");
       final response = await apiService.put(EndPoints.updateUserProfile, data: data);
       return CommonResponseModel.fromJson(response);
+    }
   }
 
   Future<Map<String, dynamic>> uploadFile(File file) async {

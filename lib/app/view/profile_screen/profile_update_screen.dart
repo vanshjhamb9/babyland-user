@@ -69,7 +69,25 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     medicalHistoryController = TextEditingController(text: user?.user?.medicalHistory ?? "");
     
     // Initialize stage specific controllers
-    conceptionDateController = TextEditingController(text: user?.user?.pregnancyStartDate ?? ""); 
+    String? concDate = user?.user?.pregnancyStartDate;
+    if (concDate == null && user?.pregnancyTracker != null) {
+      concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ??
+                 user?.pregnancyTracker!['conception_date']?.toString();
+    }
+    if (concDate != null && concDate.isNotEmpty) {
+      try {
+        if (concDate.contains('T')) {
+          concDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(concDate));
+        } else if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(concDate)) {
+          // already yyyy-mm-dd format
+        } else {
+          try {
+             concDate = DateFormat('yyyy-MM-dd').format(DateFormat('dd-MM-yyyy').parse(concDate));
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+    conceptionDateController = TextEditingController(text: concDate ?? "");
     babyNameController = TextEditingController();
     babyDobController = TextEditingController();
     babyGenderController = TextEditingController();
@@ -93,12 +111,22 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     });
   }
 
+  bool isPickingImage = false;
+
   Future<void> pickImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        profileImage = File(pickedFile.path);
-      });
+    if (isPickingImage) return;
+    try {
+      isPickingImage = true;
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        setState(() {
+          profileImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    } finally {
+      isPickingImage = false;
     }
   }
 

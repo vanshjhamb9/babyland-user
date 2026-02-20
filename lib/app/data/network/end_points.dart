@@ -19,6 +19,7 @@ class EndPoints {
    static const String forgot = "$baseUrl/auths/request-forget-password";
 
   static const String menstrualsDashboardPredict = "$baseUrl/menstruals/dashboard/predict";
+  static const String predictMenstrual = "$baseUrl/menstruals/predict";
 
    //pregnancy
   static const String pregnancyInfo = "$baseUrl/pregnancys/info";

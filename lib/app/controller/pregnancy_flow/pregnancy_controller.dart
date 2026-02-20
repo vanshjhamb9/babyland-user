@@ -46,7 +46,6 @@ class PregnancyController extends ChangeNotifier{
     pt("pregnancyInfo called. Date: $dateText, UserID: $userId");
 
     final data = {
-      "userId": userId,
       if(dateText.isNotEmpty) "pregnancyStartDate": formatDateForApi(dateText),
     };
 
@@ -100,7 +99,7 @@ class PregnancyController extends ChangeNotifier{
     final userId = await SecureStorage.getUserId();
     final data = {
       "userId": userId,
-      "pregnancyStartDate": formatDateForApi(date),
+      "pregnancyStartDate": formatDateForApiYMD(date),
     };
 
     try {

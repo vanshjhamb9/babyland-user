@@ -131,7 +131,18 @@ class _StagesViewState extends State<StagesView> {
                             break;
 
                           case 1: // Pregnancy
-                            Navigator.pushNamed(context, AppRoutes.pregnancyView);
+                            {
+                              final user = context.read<GetUserProvider>().userData?.data?.user;
+                              String? concDate = user?.user?.pregnancyStartDate;
+                              if (concDate == null && user?.pregnancyTracker != null) {
+                                concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ?? user?.pregnancyTracker!['conception_date']?.toString();
+                              }
+                              if (concDate != null && concDate.isNotEmpty) {
+                                Navigator.pushNamed(context, AppRoutes.navbarView);
+                              } else {
+                                Navigator.pushNamed(context, AppRoutes.pregnancyView);
+                              }
+                            }
                             break;
 
                           case 2: // Post-Pregnancy
@@ -167,11 +178,26 @@ class _StagesViewState extends State<StagesView> {
                               break;
 
                             case 1: // Pregnancy
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                AppRoutes.pregnancyView,
-                                    (route) => false,
-                              );
+                              {
+                                final user = context.read<GetUserProvider>().userData?.data?.user;
+                                String? concDate = user?.user?.pregnancyStartDate;
+                                if (concDate == null && user?.pregnancyTracker != null) {
+                                  concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ?? user?.pregnancyTracker!['conception_date']?.toString();
+                                }
+                                if (concDate != null && concDate.isNotEmpty) {
+                                  Navigator.pushNamedAndRemoveUntil(
+                                    context,
+                                    AppRoutes.navbarView,
+                                        (route) => false,
+                                  );
+                                } else {
+                                  Navigator.pushNamedAndRemoveUntil(
+                                    context,
+                                    AppRoutes.pregnancyView,
+                                        (route) => false,
+                                  );
+                                }
+                              }
                               break;
 
                             case 2: // Post-Pregnancy
@@ -193,10 +219,24 @@ class _StagesViewState extends State<StagesView> {
                               break;
 
                             case 1: // Pregnancy
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.pregnancyView,
-                              );
+                              {
+                                final user = context.read<GetUserProvider>().userData?.data?.user;
+                                String? concDate = user?.user?.pregnancyStartDate;
+                                if (concDate == null && user?.pregnancyTracker != null) {
+                                  concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ?? user?.pregnancyTracker!['conception_date']?.toString();
+                                }
+                                if (concDate != null && concDate.isNotEmpty) {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.navbarView,
+                                  );
+                                } else {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.pregnancyView,
+                                  );
+                                }
+                              }
                               break;
 
                             case 2: // Post-Pregnancy

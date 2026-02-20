@@ -66,6 +66,7 @@ class Users {
   String? verificationExpiresAt;
   String? averagePeriodLengthDays;
   String? cycleLengthDays;
+  bool hasCorruptedTypes = false;
   String? lastPeriodStartDate;
   String? medicalHistory;
   String? profilePicture;
@@ -122,11 +123,15 @@ class Users {
     cycleLengthDays = json['cycleLengthDays']?.toString();
     lastPeriodStartDate = json['lastPeriodStartDate']?.toString();
     medicalHistory = json['medicalHistory']?.toString();
-    profilePicture = json['profilePicture']?.toString();
+    profilePicture = (json['photo'] ?? json['profilePicture'])?.toString();
     phone = json['phone']?.toString();
     weight = json['weight']?.toString();
     pregnancyStartDate = json['pregnancyStartDate']?.toString();
     stage = json['stage']?.toString();
+
+    if (json['averagePeriodLengthDays'] is String || json['cycleLengthDays'] is String) {
+      hasCorruptedTypes = true;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -154,9 +159,10 @@ class Users {
     data['lastPeriodStartDate'] = lastPeriodStartDate;
     data['lastPeriodStartDate'] = lastPeriodStartDate;
     data['medicalHistory'] = medicalHistory;
-    data['profilePicture'] = profilePicture;
+    data['photo'] = profilePicture;
     data['phone'] = phone;
     data['weight'] = weight;
+    data['pregnancyStartDate'] = pregnancyStartDate;
     data['stage'] = stage;
     return data;
   }

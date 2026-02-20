@@ -18,6 +18,7 @@ import '../../widgets/custom_image.dart';
 import '../../widgets/gradientprogressBar.dart';
 import '../../common_profile_header/profile_header.dart';
 import '../Pre_pregnancy_flow/Mentrual_cycle.dart';
+import 'pregnancy_view.dart';
 
 class PregnancyHomeView extends StatefulWidget {
   const PregnancyHomeView({super.key});
@@ -32,8 +33,17 @@ class _PregnancyHomeViewState extends State<PregnancyHomeView> {
   void initState() {
     super.initState();
     // Fetch the pregnancy data on screen load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<PregnancyController>(context, listen: false).getPregnancyApiData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final controller = Provider.of<PregnancyController>(context, listen: false);
+      await controller.getPregnancyApiData();
+      // If no data returned (Tracker not found), redirect to conception date screen
+      final data = controller.pregnancyApiData?.data?.data?.data;
+      if (data == null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PregnancyView()),
+        );
+      }
     });
   }
 

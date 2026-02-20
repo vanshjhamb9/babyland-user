@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
+import 'package:babyland/app/widgets/validation.dart';
 
 class CycleCalendarView extends StatefulWidget {
   const CycleCalendarView({super.key});
@@ -39,6 +40,7 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
+        isNavbarTab: true,
         centerTitle: true,
         title: Text(
           "Cycle Calendar",
@@ -80,17 +82,42 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
                     isBordered: true,
                     child: Column(
                       children: [
-                        SizedBox(height: 8),
-                        if(provider.calendarApi?.data?.data?.nextPeriod?.start?.isNotEmpty ?? false)
-                          buildRow(
-                            title: "Next Period:",
-                            date: "${DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextPeriod?.start.toString() ?? ""))} - ${DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextPeriod?.end.toString() ?? ""))}",
-                          ),
-                        if(provider.calendarApi?.data?.data?.nextFertileWindow?.first.isNotEmpty ?? false)
-                          buildRow(title: "Fertile window:",date:  DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextFertileWindow?.first ?? "")) ),
-                        if(provider.calendarApi?.data?.data?.nextOvulation?.isNotEmpty ?? false)
-                          buildRow(title: "Ovulation day:",date: DateFormat("dd MMM").format(DateTime.parse(provider.calendarApi?.data?.data?.nextOvulation ?? ""))),
-                        SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final data = provider.calendarApi?.data?.data;
+
+                            // Use the old model's dedicated fields
+                            final nextPeriodStart = data?.nextPeriod?.start;
+                            final nextPeriodEnd = data?.nextPeriod?.end;
+                            final fertileWindow = data?.nextFertileWindow;
+                            final nextOvulation = data?.nextOvulation;
+
+                            return Column(
+                              children: [
+                                if (nextPeriodStart != null && nextPeriodStart.isNotEmpty)
+                                  buildRow(
+                                    title: "Next Period:",
+                                    date: (nextPeriodEnd != null && nextPeriodEnd.isNotEmpty && nextPeriodEnd != nextPeriodStart) 
+                                        ? "${formatDateToDayMonth(nextPeriodStart)} - ${formatDateToDayMonth(nextPeriodEnd)}"
+                                        : formatDateToDayMonth(nextPeriodStart),
+                                  ),
+                                if (fertileWindow != null && fertileWindow.isNotEmpty)
+                                  buildRow(
+                                    title: "Fertile window:",
+                                    date: fertileWindow.length >= 2
+                                        ? "${formatDateToDayMonth(fertileWindow.first)} - ${formatDateToDayMonth(fertileWindow.last)}"
+                                        : formatDateToDayMonth(fertileWindow.first),
+                                  ),
+                                if (nextOvulation != null && nextOvulation.isNotEmpty)
+                                  buildRow(
+                                    title: "Ovulation day:",
+                                    date: formatDateToDayMonth(nextOvulation),
+                                  ),
+                                SizedBox(height: 8),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   )
@@ -99,6 +126,33 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
             ),
           );
         },
+      ),
+      floatingActionButton: AppContainer(
+        margin: EdgeInsets.only(bottom: 14.0),
+        child: InkWell(
+          onTap: () {
+            // TODO: Create a new screen once the backend is completed.
+          },
+          child: AppContainer(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            radius: 100,
+            gradient: AppColors.buttonClr,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add, color: AppColors.white),
+                SizedBox(width: 2),
+                Text(
+                  "Add Period Log",
+                  style: AppFontStyle.text_16_400(
+                    fontFamily: AppFontFamily.gilroySemiBold,
+                    color: AppColors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -154,13 +208,13 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
 
           // 📅 TABLE CALENDAR
           TableCalendar(
+            key: ValueKey('${provider.focusedDay.year}-${provider.focusedDay.month}-${provider.predictedPeriod.length}-${provider.fertileWindow.length}'),
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: provider.focusedDay,
             onPageChanged: provider.updateFocusedDay,
             onDaySelected: (selectedDay, focusedDay) {
               provider.onDaySelected(selectedDay, focusedDay);
-              _showOptionsBottomSheet(context, provider);
             },
             selectedDayPredicate: (day) => provider.isSameDay(provider.selectedDay, day),
             headerVisible: false,

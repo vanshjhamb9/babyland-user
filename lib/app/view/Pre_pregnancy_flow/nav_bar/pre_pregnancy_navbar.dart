@@ -19,8 +19,17 @@ class NavbarPrePregancyView extends StatefulWidget {
 class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xfffdfcff),
+    return WillPopScope(
+      onWillPop: () async {
+        final provider = context.read<PrePregancyNavBarProvider>();
+        if (provider.selectedIndex != 0) {
+          provider.setSelectedIndex(0);
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xfffdfcff),
 
       body: Consumer<PrePregancyNavBarProvider>(
         builder: (context, provider, child) {
@@ -32,8 +41,8 @@ class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
           builder: (context, provider, child) {
             return  provider.selectedIndex != 0 ? SizedBox.shrink() :
             InkWell(
-              onTap:()=>  Navigator.pushNamed(
-                context,
+              onTap:()=> Navigator.pushNamed(
+                context, 
                 AppRoutes.dailyLogs,
                 arguments: {"prePregnancyFlow": true},
               ),
@@ -92,7 +101,7 @@ class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
           );
         },
       ),
-    );
+    ));
   }
 
   Widget _buildNavItem(String label, int index, PrePregancyNavBarProvider provider) {

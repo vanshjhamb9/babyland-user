@@ -59,6 +59,7 @@ class _AiInsightsState extends State<AiInsights> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
+        isNavbarTab: true,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

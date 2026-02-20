@@ -1,6 +1,10 @@
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:babyland/app/view/Pre_pregnancy_flow/nav_bar/pre_pregnancy_nav_controller.dart';
+import 'package:babyland/app/navbar/pregnancy/navbar_controller.dart';
+import 'package:babyland/app/navbar/post_pregnancy/post_pregnancy_navbar_controller.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
@@ -14,6 +18,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double? appbarRightPadding;
   final bool? isPop;
   final bool? isIosBackBtn;
+  final bool? isNavbarTab;
   final Color? backgroundClr;
   final Function()? leadingOnTap;
 
@@ -30,6 +35,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.appbarRightPadding,
     this.backgroundClr,
     this.isPop = true,
+    this.isNavbarTab = false,
     this.leadingOnTap,
     this.isIosBackBtn,
   });
@@ -54,6 +60,26 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   highlightColor: Colors.transparent,
                   hoverColor: Colors.transparent,
                   onTap:leadingOnTap ?? (){
+                    if (isNavbarTab == true) {
+                      try {
+                        if (Provider.of<PrePregancyNavBarProvider>(context, listen: false).selectedIndex != 0) {
+                          Provider.of<PrePregancyNavBarProvider>(context, listen: false).setSelectedIndex(0);
+                          return;
+                        }
+                      } catch (_) {}
+                      try {
+                        if (Provider.of<NavBarProvider>(context, listen: false).selectedIndex != 0) {
+                          Provider.of<NavBarProvider>(context, listen: false).setSelectedIndex(0);
+                          return;
+                        }
+                      } catch (_) {}
+                      try {
+                        if (Provider.of<PostPregnancyNavBarProvider>(context, listen: false).selectedIndex != 0) {
+                          Provider.of<PostPregnancyNavBarProvider>(context, listen: false).setSelectedIndex(0);
+                          return;
+                        }
+                      } catch (_) {}
+                    }
                     isPop == true ? Navigator.pop(context) : null;
                   },
                   child:  Icon(

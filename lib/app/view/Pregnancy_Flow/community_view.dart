@@ -542,6 +542,7 @@ class _CommunityViewState extends State<CommunityView> {
 
     return Scaffold(
       appBar: CustomAppBar(
+        isNavbarTab: true,
         title: Text(
           "Community",
           style: AppFontStyle.text_20_400(

@@ -32,7 +32,9 @@ class _MentrualCycleState extends State<MentrualCycle> {
     // TODO: implement initState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      final now = DateTime.now();
       context.read<CycleCalenderProvider>().dashboardData();
+      context.read<CycleCalenderProvider>().cycleCalender(year: now.year, month: now.month);
       context.read<CycleCalenderProvider>().getDashBoardAiInsights();
       context.read<CycleCalenderProvider>().dashboardMoodData();
     });
@@ -162,7 +164,29 @@ class _MentrualCycleState extends State<MentrualCycle> {
                     const SizedBox(height: 14),
                     Builder(
                       builder: (context) {
-                        final nextPeriodStr = provider.dashboardApiData?.data?.data?.nextPeriodDate;
+                        final dashboardNextPeriod = provider.dashboardApiData?.data?.data?.nextPeriodDate;
+                        final data = provider.calendarApi?.data?.data;
+
+                        // Use the old model's dedicated nextPeriod fields
+                        final calendarStart = data?.nextPeriod?.start;
+                        final calendarEnd = data?.nextPeriod?.end;
+                        
+                        // Formulate the display string (Range if possible, otherwise start date)
+                        String nextPeriodDisplay = "-";
+                        if (calendarStart != null && calendarStart.isNotEmpty && calendarStart != "-") {
+                          final start = formatDateToDayMonth(calendarStart);
+                          if (calendarEnd != null && calendarEnd.isNotEmpty && calendarEnd != "-" && calendarEnd != calendarStart) {
+                            final end = formatDateToDayMonth(calendarEnd);
+                            nextPeriodDisplay = "$start - $end";
+                          } else {
+                            nextPeriodDisplay = start;
+                          }
+                        } else if (dashboardNextPeriod != null && dashboardNextPeriod.isNotEmpty && dashboardNextPeriod != "-") {
+                          nextPeriodDisplay = formatDateToDayMonth(dashboardNextPeriod);
+                        }
+
+                        final nextPeriodStr = (calendarStart ?? dashboardNextPeriod);
+
                         bool isMissed = false;
                         if (nextPeriodStr != null && nextPeriodStr.isNotEmpty && nextPeriodStr != "-") {
                           try {
@@ -186,17 +210,17 @@ class _MentrualCycleState extends State<MentrualCycle> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                isMissed ? "Period Late" : "Next period",
+                                isMissed ? "Period Late" : "Predicted Period",
                                 style: AppFontStyle.text_13_400(
-                                  fontFamily: AppFontFamily.gilroyMedium,
-                                  color: isMissed ? Colors.red : AppColors.black,
+                                  fontFamily: AppFontFamily.gilroySemiBold,
+                                  color: isMissed ? Colors.red : AppColors.buttonClr1,
                                 ),
                               ),
                               Text(
-                                formatDateToDayMonth(nextPeriodStr ?? "-"),
-                                style: AppFontStyle.text_13_400(
-                                  fontFamily: AppFontFamily.gilroySemiBold,
-                                  color: isMissed ? Colors.red : AppColors.darkBrown,
+                                nextPeriodDisplay,
+                                style: AppFontStyle.text_14_400(
+                                  fontFamily: AppFontFamily.gilroyBold,
+                                  color: isMissed ? Colors.red : AppColors.black,
                                 ),
                               ),
                             ],

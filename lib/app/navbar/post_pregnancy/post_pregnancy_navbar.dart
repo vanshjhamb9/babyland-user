@@ -20,8 +20,17 @@ class PostPregnancyNavbarView extends StatefulWidget {
 class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xfffdfcff),
+    return WillPopScope(
+      onWillPop: () async {
+        final provider = context.read<PostPregnancyNavBarProvider>();
+        if (provider.selectedIndex != 0) {
+          provider.setSelectedIndex(0);
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xfffdfcff),
 
       body: Consumer<PostPregnancyNavBarProvider>(
         builder: (context, provider, child) {
@@ -54,9 +63,9 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
                   ],
                 ),
               ),
-                        ),
+              ),
             );
-        }
+          }
       ),
 
 
@@ -94,7 +103,7 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
           );
         },
       ),
-    );
+    ));
   }
 
   Widget _buildNavItem(String label, int index, PostPregnancyNavBarProvider provider) {

@@ -43,6 +43,10 @@ String formatDateForApi(String inputDate) {
 //fotmat === 2025-11-16
 String formatDateForApiYMD(String inputDate) {
   try {
+    if (inputDate.contains('T')) {
+      final DateTime d = DateTime.parse(inputDate);
+      return DateFormat('yyyy-MM-dd').format(d);
+    }
     // If already in required format, return directly
     if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(inputDate)) {
       return inputDate;

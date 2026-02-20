@@ -51,21 +51,13 @@ class _MyBookingsViewState extends State<MyBookingsView> {
       canPop: false,
       onPopInvoked: (didPop) {
         if (!didPop) {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            AppRoutes.profileScreen,
-            (route) => false,
-          );
+          Navigator.pop(context);
         }
       },
       child: Scaffold(
       backgroundColor: AppColors.backgroundClr,
       appBar: CustomAppBar(
-        leadingOnTap: () => Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.profileScreen,
-          (route) => false,
-        ),
+        leadingOnTap: () => Navigator.pop(context),
         isIosBackBtn: true,
         title: Text(
           "My Bookings",

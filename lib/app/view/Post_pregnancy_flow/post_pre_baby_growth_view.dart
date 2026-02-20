@@ -22,6 +22,7 @@ import '../../widgets/feeding_entry_dialog.dart';
 import '../../widgets/feeding_details_dialog.dart';
 import '../../widgets/gradientprogressBar.dart';
 import '../../common_profile_header/profile_header.dart';
+import '../../data/storage/user_local_data.dart';
 import '../../widgets/print.dart';
 
 class PostPreBabyGrowthView extends StatefulWidget {
@@ -43,9 +44,16 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> {
   }
 
   refreshData() {
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       context.read<PostpregnancyProvider>().getFeedingApi();
-      context.read<PostpregnancyProvider>().getRecoveryTaskApi();
+      final success = await context.read<PostpregnancyProvider>().getRecoveryTaskApi();
+      if (!success && mounted) {
+        // Tracker not found — clear local flag and redirect to onboarding
+        await UserLocalData.clearPostPregnancySetupComplete();
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.combinedBabyDetailScreen);
+        }
+      }
     });
   }
 

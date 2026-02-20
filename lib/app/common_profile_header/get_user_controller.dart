@@ -45,20 +45,52 @@ class GetUserProvider extends ChangeNotifier{
     }
     notifyListeners();
 
-    await repository.getUser().then((value) {
+    await repository.getUser().then((value) async {
       pt("getUser() response: success=${value.success}");
       if (value.success == true) {
         setUserData(ApiResponse.completed(value));
         pt(name: "response", "${value.message}");
         
-        final user = value.user?.user;
+        final userObj = value.user;
+        final user = userObj?.user;
         if (user != null) {
+           // Self-healing patch for backend mathematical bug caused by Strings
+           if (user.hasCorruptedTypes) {
+             pt("Found corrupted backend data types. Sending self-healing patch...");
+             try {
+                final Map<String, dynamic> cleanupData = {};
+                if (user.averagePeriodLengthDays != null) {
+                  final parsed = int.tryParse(user.averagePeriodLengthDays!);
+                  if (parsed != null) cleanupData['averagePeriodLengthDays'] = parsed;
+                }
+                if (user.cycleLengthDays != null && user.cycleLengthDays != 'null') {
+                  final parsed = int.tryParse(user.cycleLengthDays!);
+                  if (parsed != null) cleanupData['cycleLengthDays'] = parsed;
+                }
+                if (cleanupData.isNotEmpty) {
+                    await repository.onboardingCompleted(cleanupData);
+                    pt("Successfully healed backend data types.");
+                }
+             } catch(e) {
+                pt("Failed to heal data types: $e");
+             }
+           }
+
            String? cType = user.cycleType;
            pt("Syncing data. Backend cycleType: $cType");
            
            // Minimal sync for Splash screen routing
            if (cType == "pregnancy") {
               UserLocalData.saveStep("1");
+              String? conceptionDate = user.pregnancyStartDate;
+              if (conceptionDate == null && userObj?.pregnancyTracker != null) {
+                 conceptionDate = userObj!.pregnancyTracker!['pregnancyStartDate']?.toString() ??
+                                  userObj.pregnancyTracker!['conception_date']?.toString();
+              }
+              if (conceptionDate != null && conceptionDate.isNotEmpty) {
+                 UserLocalData.savePregnancySetupComplete();
+                 UserLocalData.saveConceptionDate(conceptionDate);
+              }
            } else if (cType == "post_pregnancy") {
               UserLocalData.saveStep("2");
            } else if (cType == "regular" || cType == "irregular") {
@@ -155,76 +187,8 @@ class GetUserProvider extends ChangeNotifier{
     updateProfile(ApiResponse.loading());
     notifyListeners();
 
-    String? profilePicUrl;
-
     try {
-      // 1. Upload image if present
-      if (profileImage != null) {
-        // AppPopUp.showToast(message: "Uploading image...");
-        final uploadResponseMap = await repository.uploadFile(profileImage);
-        pt("Raw Upload Response: $uploadResponseMap");
-
-        bool success = uploadResponseMap['success'] == true;
-        dynamic responseData = uploadResponseMap['data'];
-        String? message = uploadResponseMap['message']?.toString();
-
-        if (success) {
-             // Try to find the URL in various places
-             if (responseData is String) {
-               profilePicUrl = responseData;
-             } else if (responseData is Map) {
-               profilePicUrl = responseData['url'] ?? responseData['secure_url'] ?? responseData['path'] ?? responseData['fileUrl'];
-             } else {
-               // checking root
-               profilePicUrl = uploadResponseMap['url'] ?? uploadResponseMap['fileUrl'] ?? uploadResponseMap['path']; 
-             }
-
-             // Fix relative path if needed
-             if (profilePicUrl != null && !profilePicUrl!.startsWith('http')) {
-                // If it's a relative path like 'public\uploads\file.jpg' or 'public/uploads/file.jpg'
-                // We need to ensure it uses forward slashes and starts with / if needed (or not, depending on backend)
-                // Backend serves /public -> public folder.
-                // If path is 'public/uploads/file.jpg', URL should be 'baseUrl/public/uploads/file.jpg'? 
-                // Wait, app.js says: app.use('/public', express.static(... 'public'))
-                // So http://host/public/file.jpg maps to public/file.jpg?
-                // Or http://host/public/uploads/file.jpg maps to public/uploads/file.jpg?
-                // Let's assume we just need to join baseUrl and the clean path.
-                
-                String cleanPath = profilePicUrl!.replaceAll('\\', '/');
-                if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
-                
-                // If the path starts with 'public/', and the static route is also '/public', it fits.
-                // EndPoints.baseUrl usually ends with /api. We need the root host.
-                // EndPoints.baseUrl is https://api-babyland.duckdns.org/api
-                // We need https://api-babyland.duckdns.org/
-                
-                final uri = Uri.parse(EndPoints.baseUrl);
-                final rootUrl = "${uri.scheme}://${uri.host}"; // No port if standard, or include if exists
-                
-                // Construct full URL
-                // If cleanPath indicates 'public/...' then we append it to root?
-                // app.use('/public', ...) means /public route serves files.
-                profilePicUrl = "$rootUrl/$cleanPath";
-             }
-             pt("Constructed Profile Pic URL: $profilePicUrl");
-        } 
-        
-        if (success && profilePicUrl != null) {
-             // Success!
-        } else {
-          // If upload fails, just show error and return, or proceed without image?
-          // Usually better to fail fast.
-          String errorMsg = message ?? "Unknown error (Success=$success)";
-          if(success && profilePicUrl == null) errorMsg = "Upload successful but no URL found in response.";
-          
-          updateProfile(ApiResponse.error("Image upload failed: $errorMsg"));
-          AppPopUp.showToast(message: "Image upload failed: $errorMsg");
-          return; 
-        }
-      }
-
-    // 2. Prepare data for Profile Update
-    // Send conditions as-is: selected = true, unselected = false
+    // Prepare data for Profile Update
     final conditionsMap = {
       "PCOS": conditions["PCOS"] ?? false,
       "PMS": conditions["PMS"] ?? false,
@@ -236,18 +200,15 @@ class GetUserProvider extends ChangeNotifier{
 
     Map<String, dynamic> data = {
       "name": name,
-      "email": email, // Keeping email, though API might ignore/get from token
+      "email": email,
       "phone": phone,
       "weight": weight,
       "medicalHistory": medicalHistory,
-      "conditions": conditionsMap, // Send as Map (JSON)
+      "conditions": conditionsMap,
     };
 
-    if (profilePicUrl != null) {
-      data['profilePic'] = profilePicUrl; // Key from GET response is 'profilePic'
-    }
-
-      final value = await repository.updateUserProfile(data);
+      // Send profile update — repository handles multipart if image is present
+      final value = await repository.updateUserProfile(data, profileImage: profileImage);
       if (value.success == true) {
         updateProfile(ApiResponse.completed(value));
         AppPopUp.showToast(message: value.message ?? "Profile updated successfully!");

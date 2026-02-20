@@ -1,0 +1,5 @@
+Showing sdk gphone64 x86 64 logs:
+D/FlutterJNI(14177): Beginning load of flutter...
+D/FlutterJNI(14177): flutter (null) was loaded normally!
+I/flutter (14177): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+I/flutter (14177): The Dart VM service is listening on http://127.0.0.1:39039/-tlkma3hKEs=/

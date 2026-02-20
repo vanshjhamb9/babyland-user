@@ -22,8 +22,17 @@ class NavbarView extends StatefulWidget {
 class _NavbarViewState extends State<NavbarView> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xfffdfcff),
+    return WillPopScope(
+      onWillPop: () async {
+        final provider = context.read<NavBarProvider>();
+        if (provider.selectedIndex != 0) {
+          provider.setSelectedIndex(0);
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xfffdfcff),
 
       body: Consumer<NavBarProvider>(
         builder: (context, provider, child) {
@@ -56,9 +65,9 @@ class _NavbarViewState extends State<NavbarView> {
                   ],
                 ),
               ),
-                        ),
+              ),
             );
-        }
+          }
       ),
 
 
@@ -96,7 +105,7 @@ class _NavbarViewState extends State<NavbarView> {
           );
         },
       ),
-    );
+    ));
   }
 
   Widget _buildNavItem(String label, int index, NavBarProvider provider) {

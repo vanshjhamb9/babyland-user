@@ -33,7 +33,9 @@ class FetalDevelopmentView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundClr,
-      appBar: CustomAppBar(title: Text("Fetal Development",
+      appBar: CustomAppBar(
+        isNavbarTab: true,
+        title: Text("Fetal Development",
         style: AppFontStyle.text_20_400(
             color: AppColors.textClr,
             fontFamily: AppFontFamily.gilroySemiBold),),centerTitle: true,),
@@ -129,9 +131,31 @@ class FetalDevelopmentView extends StatelessWidget {
                                 }
                                 imagePath = "$baseUrl$imagePath";
                               }
+                              if (imagePath == null || imagePath.isEmpty) {
+                                return Container(
+                                  width: 200,
+                                  height: 200,
+                                  alignment: Alignment.center,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                    child: Text(
+                                      "Your baby is taking shape",
+                                      textAlign: TextAlign.center,
+                                      style: AppFontStyle.text_18_400(
+                                        color: AppColors.buttonClr1,
+                                        fontFamily: AppFontFamily.gilroySemiBold,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
                               return ClipOval(
                                 child: CustomImage(
-                                  path: imagePath ?? ImageConstants.civi,
+                                  path: imagePath,
                                   fit: BoxFit.cover,
                                   h: 200, // Matching the diameter of CircleAvatar (radius 100 * 2)
                                   w: 200,
