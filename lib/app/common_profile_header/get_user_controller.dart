@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/common_profile_header/get_user_model.dart';
+import 'package:babyland/app/data/storage/secure_storage.dart'; // Added SecureStorage
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/main.dart';
@@ -54,6 +55,12 @@ class GetUserProvider extends ChangeNotifier{
         final userObj = value.user;
         final user = userObj?.user;
         if (user != null) {
+           // ✅ Ensure User ID is saved to SecureStorage for subsequent API calls
+           if (user.sId != null && user.sId!.isNotEmpty) {
+             await SecureStorage.saveUserId(user.sId!);
+             pt("User ID synced to SecureStorage: ${user.sId}");
+           }
+
            // Self-healing patch for backend mathematical bug caused by Strings
            if (user.hasCorruptedTypes) {
              pt("Found corrupted backend data types. Sending self-healing patch...");

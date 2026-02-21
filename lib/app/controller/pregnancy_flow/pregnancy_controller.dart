@@ -45,12 +45,16 @@ class PregnancyController extends ChangeNotifier{
     
     pt("pregnancyInfo called. Date: $dateText, UserID: $userId");
 
+    // We send multiple ID fields to ensure backend captures the user identity correctly
     final data = {
+      "userId": userId,
+      "user_id": userId,
+      "user": userId,
       if(dateText.isNotEmpty) "pregnancyStartDate": formatDateForApi(dateText),
     };
 
     try {
-      // 1. Send pregnancy info
+      // 1. Send pregnancy info to create tracker
       await repository.pregnancyInfo(data).then((value) async {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
@@ -62,23 +66,25 @@ class PregnancyController extends ChangeNotifier{
           if (dateText.isNotEmpty) await UserLocalData.saveConceptionDate(dateText);
           
           // 3. Sync profile with backend (Critical for profile persistence)
-          // We update cycleType to 'pregnancy' so the profile knows the stage.
-          // Note: Ignoring error here as pregnancy info is the primary goal, but logging it.
+          // Using both stage and cycleType to ensure backend remains in Pregnancy mode
           try {
-             await repository.updateUserProfile({'cycleType': 'pregnancy'});
-             pt("Profile cycleType updated to pregnancy");
+             await repository.updateUserProfile({
+               'cycleType': 'pregnancy',
+               'stage': 'pregnancy',
+               if(dateText.isNotEmpty) 'pregnancyStartDate': formatDateForApi(dateText),
+             });
+             pt("Profile synced to pregnancy stage successfully");
           } catch (e) {
-             pt("Failed to update profile cycleType: $e");
+             pt("Failed to update profile stage: $e");
           }
 
-          // 4. Navigate
+          // 4. Navigate to Navbar
           Navigator.pushAndRemoveUntil(
             navigatorKey.currentContext!, 
             MaterialPageRoute(builder: (context) => NavbarView(flow: FlowType.pregnancy),), 
             (route) => false
           );
-        }
-        if(value.success == false) {
+        } else {
           pt("Pregnancy info failed: ${value.message}");
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");
@@ -99,24 +105,37 @@ class PregnancyController extends ChangeNotifier{
     final userId = await SecureStorage.getUserId();
     final data = {
       "userId": userId,
+      "user_id": userId,
+      "user": userId,
       "pregnancyStartDate": formatDateForApiYMD(date),
     };
 
     try {
-      await repository.pregnancyInfo(data).then((value) {
+      await repository.pregnancyInfo(data).then((value) async {
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
-          UserLocalData.saveConceptionDate(date);
-          // AppPopUp.showToast(message: value.message ?? "Date updated successfully");
-        }
-        if(value.success == false) {
+          await UserLocalData.saveConceptionDate(date);
+          
+          // Force stage to pregnancy to avoid 404 Tracker Not Found
+          try {
+            await repository.updateUserProfile({
+              'cycleType': 'pregnancy',
+              'stage': 'pregnancy',
+              'pregnancyStartDate': formatDateForApiYMD(date)
+            });
+            pt("Profile stage updated to pregnancy via updatePregnancyDate");
+          } catch (_) {}
+
+          // Fetch dashboard data
+          await getPregnancyApiData();
+        } else {
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
       },);
       notifyListeners();
     } catch (e, s) {
-      pt("Error in pregnancyInfo: $e\n$s");
+      pt("Error in updatePregnancyDate: $e\n$s");
       setPregnancyData(ApiResponse.error(e.toString()));
       notifyListeners();
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
@@ -291,6 +310,7 @@ class PregnancyController extends ChangeNotifier{
         pt(name: "response", "${value.data}");
 
       } else {
+        setAppointmentApiData(ApiResponse.error("Something went wrong!"));
       }
     } catch (e, s) {
       pt("Error in login: $e\n$s");
@@ -334,11 +354,12 @@ class PregnancyController extends ChangeNotifier{
         pt(name: "response", "${value.data}");
 
       } else {
+        setPregnancyApiData(ApiResponse.error(value.message ?? "Tracker not found"));
       }
     } catch (e, s) {
-      pt("Error in login: $e\n$s");
+      pt("Error in getPregnancyApiData: $e\n$s");
       setPregnancyApiData(ApiResponse.error(e.toString()));
-      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+      // AppPopUp.showToast(message: "Something went wrong. Please try again.");
     }finally {
       setLoadingPreg(false);
     }
@@ -379,6 +400,7 @@ class PregnancyController extends ChangeNotifier{
         pt(name: "response", "${value.data?.posts?[0].comments}");
 
       } else {
+        setCommunitiesApiData(ApiResponse.error("Something went wrong!"));
       }
     } catch (e, s) {
       pt("Error in login: $e\n$s");

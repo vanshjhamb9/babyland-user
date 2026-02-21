@@ -37,7 +37,8 @@ class User {
   User({this.id, this.name, this.email, this.role});
 
   User.fromJson(Map<String, dynamic> json) {
-    id = json['id']?.toString();
+    // Check for both 'id' and '_id' as MongoDB backends often use '_id'
+    id = (json['id'] ?? json['_id'])?.toString();
     name = json['name']?.toString();
     email = json['email']?.toString();
     role = json['role']?.toString();

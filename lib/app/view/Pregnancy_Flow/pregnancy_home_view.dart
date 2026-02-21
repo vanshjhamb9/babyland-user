@@ -1,5 +1,6 @@
 import 'package:babyland/app/navbar/pregnancy/navbar_controller.dart';
 import 'package:babyland/app/routes/app_routes.dart';
+import 'package:babyland/app/widgets/app_popup.dart'; // Added AppPopUp
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:flutter/material.dart';
@@ -36,12 +37,19 @@ class _PregnancyHomeViewState extends State<PregnancyHomeView> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final controller = Provider.of<PregnancyController>(context, listen: false);
       await controller.getPregnancyApiData();
-      // If no data returned (Tracker not found), redirect to conception date screen
-      final data = controller.pregnancyApiData?.data?.data?.data;
+      
+      // Check if data fetch failed with "Tracker not found" or similar auth-related issue
+      final response = controller.pregnancyApiData;
+      final data = response?.data?.data?.data;
+      
       if (data == null && mounted) {
-        Navigator.pushReplacement(
+        // If Tracker is not found (404), it's often due to an invalid session or missing User ID association.
+        // As requested, we redirect to Sign In to re-generate the session/userId.
+        AppPopUp.showToast(message: "Session error: Please sign in again.");
+        Navigator.pushNamedAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const PregnancyView()),
+          AppRoutes.signInView,
+          (route) => false,
         );
       }
     });
