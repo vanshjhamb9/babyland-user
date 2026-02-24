@@ -30,7 +30,7 @@ class GetUserProvider extends ChangeNotifier{
     // Check cycleType (used for logic mapping in this app)
     final cType = user.cycleType;
     if (cType == "pregnancy") return "Pregnancy";
-    if (cType == "postpregnancy") return "Post-pregnancy";
+    if (cType == "post_pregnancy") return "Post-pregnancy";
     if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") return "Pre-pregnancy";
     
     return "Onboarding";
@@ -98,9 +98,9 @@ class GetUserProvider extends ChangeNotifier{
                  UserLocalData.savePregnancySetupComplete();
                  UserLocalData.saveConceptionDate(conceptionDate);
               }
-           } else if (cType == "postpregnancy") {
+           } else if (cType == "post_pregnancy") {
               UserLocalData.saveStep("2");
-           } else if (cType == "regular" || cType == "irregular") {
+           } else if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") {
               // We don't overwrite local step if it's already set to something else,
               // to respect the user's current session until backend catches up.
            }
@@ -131,7 +131,7 @@ class GetUserProvider extends ChangeNotifier{
         step = "1";
         break;
       case 2:
-        cycleType = "postpregnancy"; // Changed from post_pregnancy to match backend enum
+        cycleType = "post_pregnancy"; 
         step = "2";
         break;
       default:

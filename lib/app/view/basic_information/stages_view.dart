@@ -73,7 +73,7 @@ class _StagesViewState extends State<StagesView> {
       final cType = backendUser.cycleType;
       int? backendIndex;
       if (cType == "pregnancy") backendIndex = 1;
-      else if (cType == "postpregnancy") backendIndex = 2;
+      else if (cType == "post_pregnancy") backendIndex = 2;
       else if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") backendIndex = 0;
       
       if (backendIndex != null) {
