@@ -27,9 +27,19 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
         );
 
         // Interactive sign-in. scopeHint is a list of scope strings (e.g. 'email', 'profile')
-        final GoogleSignInAccount googleUser = await _googleSignIn.authenticate(scopeHint: ['email']);
-
-        // if (googleUser == null) return null; // user cancelled
+        GoogleSignInAccount? googleUser;
+        try {
+          googleUser = await _googleSignIn.authenticate(scopeHint: ['email']);
+        } catch (authError) {
+          pt('Credential Manager authenticate() failed: $authError.');
+          AppPopUp.showToast(message: "Google Sign-In was canceled or no account exists on device.");
+          return null;
+        }
+        
+        if (googleUser == null) {
+          pt('Google Sign In was cancelled by the user.');
+          return null;
+        }
 
         // Get authentication tokens (note: in v7 GoogleSignInAuthentication currently has idToken only)
         final GoogleSignInAuthentication googleAuth = googleUser.authentication;
