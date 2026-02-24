@@ -42,7 +42,7 @@ void main() async{
   );
 
   try{
-    dotenv.load(fileName: "assets/.env");
+    await dotenv.load(fileName: "assets/.env");
   }catch(e){
     pt("failed to load env");
   }
