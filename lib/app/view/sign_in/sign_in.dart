@@ -186,9 +186,11 @@ class _SignInViewState extends State<SignInView> {
                                           splashColor: AppColors.transparent,
                                           highlightColor: AppColors.transparent,
                                           onTap: () {
-                                            switch(index){
-                                              case 1 :
-                                                googleSignInService.signInWithGoogle();
+                                            // 0 is Google, 1 is Apple in SignInController.icons
+                                            if (index == 0) {
+                                              googleSignInService.signInWithGoogle();
+                                            } else if (index == 1) {
+                                              // Handle Apple Sign-in if needed
                                             }
                                           },
                                           child: Container(
@@ -249,4 +251,3 @@ class _SignInViewState extends State<SignInView> {
     );
   }
 }
-
