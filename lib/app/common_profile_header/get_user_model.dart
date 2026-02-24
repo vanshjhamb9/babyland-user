@@ -58,7 +58,7 @@ class Users {
   bool? isVerified;
   String? role;
   bool? approved;
-  String? cycleType;
+  String? _cycleType; // ✅ Private backing field to enforce valid enum
   String? createdAt;
   String? updatedAt;
   String? iV;
@@ -75,30 +75,45 @@ class Users {
   String? pregnancyStartDate;
   String? stage;
 
-  Users(
-      {this.irregularCycleRangeDays,
-        this.conditions,
-        this.sId,
-        this.name,
-        this.email,
-        this.isVerified,
-        this.role,
-        this.approved,
-        this.cycleType,
-        this.createdAt,
-        this.updatedAt,
-        this.iV,
-        this.verificationCode,
-        this.verificationExpiresAt,
-        this.averagePeriodLengthDays,
-        this.cycleLengthDays,
-        this.lastPeriodStartDate,
-        this.profilePicture,
-        this.phone,
-        this.weight,
-        this.pregnancyStartDate,
-        this.stage,
-        this.medicalHistory});
+  // ✅ Getter: never return 'pregnancy' as cycleType — it's an invalid enum
+  String? get cycleType => (_cycleType == 'pregnancy') ? 'regular' : _cycleType;
+
+  // ✅ Setter: block invalid value at assignment time
+  set cycleType(String? value) {
+    if (value == 'pregnancy') {
+      _cycleType = 'regular';
+    } else {
+      _cycleType = value;
+    }
+  }
+
+  Users({
+    this.irregularCycleRangeDays,
+    this.conditions,
+    this.sId,
+    this.name,
+    this.email,
+    this.isVerified,
+    this.role,
+    this.approved,
+    String? cycleType,
+    this.createdAt,
+    this.updatedAt,
+    this.iV,
+    this.verificationCode,
+    this.verificationExpiresAt,
+    this.averagePeriodLengthDays,
+    this.cycleLengthDays,
+    this.lastPeriodStartDate,
+    this.profilePicture,
+    this.phone,
+    this.weight,
+    this.pregnancyStartDate,
+    this.stage,
+    this.medicalHistory,
+  }) {
+    this.cycleType = cycleType; // use setter to enforce validation
+  }
 
   Users.fromJson(Map<String, dynamic> json) {
     irregularCycleRangeDays = json['irregularCycleRangeDays'] != null
@@ -113,6 +128,7 @@ class Users {
     isVerified = json['isVerified'];
     role = json['role']?.toString();
     approved = json['approved'];
+    // ✅ Use setter to auto-sanitize invalid cycleType from backend
     cycleType = json['cycleType']?.toString();
     createdAt = json['createdAt']?.toString();
     updatedAt = json['updatedAt']?.toString();
@@ -129,7 +145,8 @@ class Users {
     pregnancyStartDate = json['pregnancyStartDate']?.toString();
     stage = json['stage']?.toString();
 
-    if (json['averagePeriodLengthDays'] is String || json['cycleLengthDays'] is String) {
+    if (json['averagePeriodLengthDays'] is String ||
+        json['cycleLengthDays'] is String) {
       hasCorruptedTypes = true;
     }
   }
@@ -148,6 +165,7 @@ class Users {
     data['isVerified'] = isVerified;
     data['role'] = role;
     data['approved'] = approved;
+    // ✅ Always use getter — guarantees 'pregnancy' is never serialized
     data['cycleType'] = cycleType;
     data['createdAt'] = createdAt;
     data['updatedAt'] = updatedAt;
@@ -156,7 +174,6 @@ class Users {
     data['verificationExpiresAt'] = verificationExpiresAt;
     data['averagePeriodLengthDays'] = averagePeriodLengthDays;
     data['cycleLengthDays'] = cycleLengthDays;
-    data['lastPeriodStartDate'] = lastPeriodStartDate;
     data['lastPeriodStartDate'] = lastPeriodStartDate;
     data['medicalHistory'] = medicalHistory;
     data['photo'] = profilePicture;
@@ -195,13 +212,14 @@ class Conditions {
   bool? diabetes;
   bool? hypertension;
 
-  Conditions(
-      {this.pCOS,
-        this.pMS,
-        this.endometriosis,
-        this.thyroidIssues,
-        this.diabetes,
-        this.hypertension});
+  Conditions({
+    this.pCOS,
+    this.pMS,
+    this.endometriosis,
+    this.thyroidIssues,
+    this.diabetes,
+    this.hypertension,
+  });
 
   Conditions.fromJson(Map<String, dynamic> json) {
     pCOS = json['PCOS'];

@@ -6,11 +6,9 @@ import '../../widgets/print.dart';
 import 'end_points.dart';
 
 class NetworkApiServices {
-  // ---------- SINGLETON IMPLEMENTATION ----------
   static final NetworkApiServices _instance = NetworkApiServices._internal();
   factory NetworkApiServices() => _instance;
 
-  // Private constructor
   NetworkApiServices._internal() {
     _dio = Dio(
       BaseOptions(
@@ -32,15 +30,49 @@ class NetworkApiServices {
           }
           options.headers['Accept'] = 'application/json';
 
-          // ✅ GLOBAL ENUM FIX: Intercept any payload containing 'cycleType': 'pregnancy'
-          // and reset it to 'regular' before sending to backend.
+          // ✅ GLOBAL ENUM FIX: Handle Map<String, dynamic> payload
           if (options.data is Map<String, dynamic>) {
             final data = options.data as Map<String, dynamic>;
+
+            // Fix top-level cycleType
             if (data.containsKey('cycleType') && data['cycleType'] == 'pregnancy') {
-              pt("Intercepted invalid cycleType 'pregnancy'. Correcting to 'regular'...");
+              pt("⚠️ Intercepted invalid cycleType 'pregnancy' in Map. Correcting to 'regular'...");
               data['cycleType'] = 'regular';
             }
+
+            // Fix nested cycleType in any child map
+            data.forEach((key, value) {
+              if (value is Map<String, dynamic> &&
+                  value.containsKey('cycleType') &&
+                  value['cycleType'] == 'pregnancy') {
+                pt("⚠️ Intercepted nested invalid cycleType 'pregnancy' in key '$key'. Correcting...");
+                value['cycleType'] = 'regular';
+              }
+            });
           }
+
+          // ✅ GLOBAL ENUM FIX: Handle JSON String payload
+          if (options.data is String) {
+            try {
+              final decoded = jsonDecode(options.data as String);
+              if (decoded is Map<String, dynamic>) {
+                bool fixed = false;
+                if (decoded.containsKey('cycleType') &&
+                    decoded['cycleType'] == 'pregnancy') {
+                  decoded['cycleType'] = 'regular';
+                  fixed = true;
+                  pt("⚠️ Intercepted invalid cycleType 'pregnancy' in JSON String. Correcting...");
+                }
+                if (fixed) {
+                  options.data = jsonEncode(decoded);
+                }
+              }
+            } catch (_) {}
+          }
+
+          // ✅ Debug log — shows exactly what is being sent
+          pt("➡️ REQUEST URL: ${options.baseUrl}${options.path}");
+          pt("➡️ REQUEST DATA: ${options.data}");
 
           return handler.next(options);
         },
@@ -52,11 +84,9 @@ class NetworkApiServices {
     );
   }
 
-  // ---------- VARIABLES ----------
   final String _baseUrl = EndPoints.baseUrl;
   late final Dio _dio;
 
-  // ---------- API METHODS ----------
   Future<dynamic> get(String endpoint, {Map<String, dynamic>? params}) async {
     try {
       final response = await _dio.get(endpoint, queryParameters: params);
@@ -68,7 +98,9 @@ class NetworkApiServices {
   }
 
   Future<dynamic> post(String endpoint,
-      {Object? data, Map<String, dynamic>? params, Map<String, dynamic>? headers}) async {
+      {Object? data,
+        Map<String, dynamic>? params,
+        Map<String, dynamic>? headers}) async {
     try {
       final response = await _dio.post(
         endpoint,
@@ -109,8 +141,9 @@ class NetworkApiServices {
       FormData formData = FormData();
 
       fields.forEach((key, value) {
-        // ✅ Ensure no multipart field sends 'pregnancy' as cycleType
+        // ✅ Block invalid cycleType in multipart
         if (key == 'cycleType' && value == 'pregnancy') {
+          pt("⚠️ Intercepted invalid cycleType 'pregnancy' in multipart POST. Correcting...");
           formData.fields.add(const MapEntry('cycleType', 'regular'));
         } else {
           formData.fields.add(MapEntry(key, value.toString()));
@@ -132,7 +165,7 @@ class NetworkApiServices {
       Response response = await _dio.post(url, data: formData);
       return _handleResponse(response);
     } catch (e, st) {
-      pt("Multipart error: $e\n$st");
+      pt("Multipart POST error: $e\n$st");
       rethrow;
     }
   }
@@ -143,8 +176,9 @@ class NetworkApiServices {
       FormData formData = FormData();
 
       fields.forEach((key, value) {
-        // ✅ Ensure no multipart field sends 'pregnancy' as cycleType
+        // ✅ Block invalid cycleType in multipart
         if (key == 'cycleType' && value == 'pregnancy') {
+          pt("⚠️ Intercepted invalid cycleType 'pregnancy' in multipart PUT. Correcting...");
           formData.fields.add(const MapEntry('cycleType', 'regular'));
         } else {
           formData.fields.add(MapEntry(key, value.toString()));
@@ -173,7 +207,8 @@ class NetworkApiServices {
 
   dynamic _handleResponse(Response response) {
     pt('API Response == ${response.statusCode}\n${response.data}');
-    if ([200, 201, 202, 204, 400, 401, 403, 404, 409, 422,].contains(response.statusCode)) {
+    if ([200, 201, 202, 204, 400, 401, 403, 404, 409, 422]
+        .contains(response.statusCode)) {
       return response.data;
     } else {
       throw DioException(
