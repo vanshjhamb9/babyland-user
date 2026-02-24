@@ -116,7 +116,7 @@ class _StagesViewState extends State<StagesView> {
                       // Save timestamp when user makes a selection
                       await UserLocalData.saveLastStageScreenShown();
                       
-                      // Sync with backend (updates local step and cycleType)
+                      // Sync with backend (correctly updates local step and backend stage)
                       await context.read<GetUserProvider>().updateUserStage(index);
 
                       // Update the selected stage visually
@@ -167,7 +167,6 @@ class _StagesViewState extends State<StagesView> {
                           );
 
                           // Navigate to the respective screen based on selection
-                          // Using pushNamedAndRemoveUntil to clear stack and switch mode
                           switch (index) {
                             case 0: // Pre-Pregnancy
                               Navigator.pushNamedAndRemoveUntil(

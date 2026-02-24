@@ -23,7 +23,6 @@ class NetworkApiServices {
 
     _dio.interceptors.add(
       InterceptorsWrapper(
-
         onRequest: (options, handler) async {
           String token = await SecureStorage.getToken() ?? "";
           pt("token...... $token");
@@ -32,9 +31,17 @@ class NetworkApiServices {
             options.headers['Authorization'] = "Bearer $token";
           }
           options.headers['Accept'] = 'application/json';
-          // final curl = _toCurl(options);
-          // pt('CURL 👉\n$curl');
-          // handler.next(options);
+
+          // ✅ GLOBAL ENUM FIX: Intercept any payload containing 'cycleType': 'pregnancy'
+          // and reset it to 'regular' before sending to backend.
+          if (options.data is Map<String, dynamic>) {
+            final data = options.data as Map<String, dynamic>;
+            if (data.containsKey('cycleType') && data['cycleType'] == 'pregnancy') {
+              pt("Intercepted invalid cycleType 'pregnancy'. Correcting to 'regular'...");
+              data['cycleType'] = 'regular';
+            }
+          }
+
           return handler.next(options);
         },
         onError: (DioException error, handler) {
@@ -102,7 +109,12 @@ class NetworkApiServices {
       FormData formData = FormData();
 
       fields.forEach((key, value) {
-        formData.fields.add(MapEntry(key, value.toString()));
+        // ✅ Ensure no multipart field sends 'pregnancy' as cycleType
+        if (key == 'cycleType' && value == 'pregnancy') {
+          formData.fields.add(const MapEntry('cycleType', 'regular'));
+        } else {
+          formData.fields.add(MapEntry(key, value.toString()));
+        }
       });
 
       for (var entry in files.entries) {
@@ -117,12 +129,7 @@ class NetworkApiServices {
         );
       }
 
-      pt("Uploading fields: ${formData.fields}");
-      pt("Uploading file: ${formData.files.first.key}");
-
       Response response = await _dio.post(url, data: formData);
-      pt("Multipart response: ${response.data}");
-
       return _handleResponse(response);
     } catch (e, st) {
       pt("Multipart error: $e\n$st");
@@ -136,7 +143,12 @@ class NetworkApiServices {
       FormData formData = FormData();
 
       fields.forEach((key, value) {
-        formData.fields.add(MapEntry(key, value.toString()));
+        // ✅ Ensure no multipart field sends 'pregnancy' as cycleType
+        if (key == 'cycleType' && value == 'pregnancy') {
+          formData.fields.add(const MapEntry('cycleType', 'regular'));
+        } else {
+          formData.fields.add(MapEntry(key, value.toString()));
+        }
       });
 
       for (var entry in files.entries) {
@@ -151,12 +163,7 @@ class NetworkApiServices {
         );
       }
 
-      pt("Uploading fields (PUT): ${formData.fields}");
-      if(formData.files.isNotEmpty) pt("Uploading file (PUT): ${formData.files.first.key}");
-
       Response response = await _dio.put(url, data: formData);
-      pt("Multipart PUT response: ${response.data}");
-
       return _handleResponse(response);
     } catch (e, st) {
       pt("Multipart PUT error: $e\n$st");
@@ -177,27 +184,4 @@ class NetworkApiServices {
       );
     }
   }
-
-  String _toCurl(RequestOptions options) {
-    final buffer = StringBuffer();
-
-    buffer.write('curl -X ${options.method} \\\n');
-
-    options.headers.forEach((key, value) {
-      buffer.write('  -H "$key: $value" \\\n');
-    });
-
-    if (options.data != null) {
-      final data = options.data is String
-          ? options.data
-          : jsonEncode(options.data);
-      buffer.write("  -d '$data' \\\n");
-    }
-
-    final uri = options.uri.toString();
-    buffer.write('  "$uri"');
-
-    return buffer.toString();
-  }
-
 }

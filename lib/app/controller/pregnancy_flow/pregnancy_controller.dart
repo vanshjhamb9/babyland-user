@@ -66,10 +66,11 @@ class PregnancyController extends ChangeNotifier{
           if (dateText.isNotEmpty) await UserLocalData.saveConceptionDate(dateText);
           
           // 3. Sync profile with backend (Critical for profile persistence)
-          // Using both stage and cycleType to ensure backend remains in Pregnancy mode
+          // ✅ STRICT FIX: We ONLY send 'stage' and never 'cycleType' as 'pregnancy'.
+          // Valid cycleType enums on backend are [regular, irregular].
           try {
              await repository.updateUserProfile({
-               'cycleType': 'pregnancy',
+               'cycleType': 'regular', 
                'stage': 'pregnancy',
                if(dateText.isNotEmpty) 'pregnancyStartDate': formatDateForApi(dateText),
              });
@@ -116,10 +117,10 @@ class PregnancyController extends ChangeNotifier{
           setPregnancyData(ApiResponse.completed(value));
           await UserLocalData.saveConceptionDate(date);
           
-          // Force stage to pregnancy to avoid 404 Tracker Not Found
+          // ✅ STRICT FIX: Reset cycleType to 'regular' and set stage to 'pregnancy'
           try {
             await repository.updateUserProfile({
-              'cycleType': 'pregnancy',
+              'cycleType': 'regular',
               'stage': 'pregnancy',
               'pregnancyStartDate': formatDateForApiYMD(date)
             });
@@ -175,7 +176,7 @@ class PregnancyController extends ChangeNotifier{
         mood = "";
         symptoms.clear();
         notes = "";
-      }else if(value.message == "You can only add a new daily log after 24 hours. Please wait 24 hour(s)."){
+      } else if(value.message == "You can only add a new daily log after 24 hours. Please wait 24 hour(s)."){
         setAddDailyLogsApiApiData(ApiResponse.completed(value));
         date = "";
         mood = "";
@@ -183,7 +184,7 @@ class PregnancyController extends ChangeNotifier{
         notes = "";
         AppPopUp.showToast(message: value.message ?? "");
         Navigator.pop(navigatorKey.currentContext!);
-      }else{
+      } else {
         setAddDailyLogsApiApiData(ApiResponse.error(value.message));
       }
     },).onError((error, stackTrace) {
