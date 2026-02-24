@@ -187,7 +187,7 @@ class _SignInViewState extends State<SignInView> {
                                           highlightColor: AppColors.transparent,
                                           onTap: () {
                                             switch(index){
-                                              case 1 :
+                                              case 0 :
                                                 googleSignInService.signInWithGoogle();
                                             }
                                           },

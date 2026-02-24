@@ -78,7 +78,7 @@ CreateNewAccountView({super.key});
                       highlightColor: AppColors.transparent,
                       onTap: () {
                         switch(index){
-                          case 1:
+                          case 0:
                             socialLoginService.signInWithGoogle();
                         }
                       },
