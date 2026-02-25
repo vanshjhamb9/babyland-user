@@ -1,35 +1,38 @@
-  import 'package:babyland/app/routes/app_routes.dart';
+import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
-  import 'package:babyland/app/widgets/print.dart';
-  import 'package:babyland/main.dart';
-  import 'package:firebase_auth/firebase_auth.dart';
-  import 'package:flutter/cupertino.dart';
+import 'package:babyland/app/widgets/print.dart';
+import 'package:babyland/main.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-  import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-  class SocialLoginService{
-    SocialLoginService._internal();
-    static final SocialLoginService _instance = SocialLoginService._internal();
-    factory SocialLoginService() => _instance;
+class SocialLoginService {
+  SocialLoginService._internal();
+  static final SocialLoginService _instance = SocialLoginService._internal();
+  factory SocialLoginService() => _instance;
 
-    final FirebaseAuth _auth = FirebaseAuth.instance;
-    // Use the singleton instance (v7+)
-    final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  User? _user;
+  User? get currentUser => _user;
 
-    User? _user;
-    User? get currentUser => _user;
+  Future<User?> signInWithGoogle() async {
+    // This ID MUST be the 'Web client ID' from your Google Cloud Console
+    final serverClientId = dotenv.env['SERVERClientID'] ?? "";
+    pt("Starting Google Sign-In. Server Client ID present: ${serverClientId.isNotEmpty}");
+    
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: serverClientId.isNotEmpty ? serverClientId : null,
+      );
 
-    Future<User?> signInWithGoogle() async {
-      final serverClientId = dotenv.env['SERVERClientID'] ?? "";
-      try {
-        await GoogleSignIn.instance.initialize(
-          serverClientId:  serverClientId,
-        );
+      // Sign out first to ensure the account picker is shown every time (essential for debugging)
+      await googleSignIn.signOut().catchError((_) => null);
 
         // Interactive sign-in. scopeHint is a list of scope strings (e.g. 'email', 'profile')
         GoogleSignInAccount? googleUser;
         try {
-          googleUser = await _googleSignIn.authenticate(scopeHint: ['email']);
+          googleUser = await googleSignIn.authenticate(scopeHint: ['email']);
         } catch (authError) {
           pt('Credential Manager authenticate() failed: $authError.');
           AppPopUp.showToast(message: "Google Sign-In was canceled or no account exists on device.");
@@ -39,43 +42,53 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
         if (googleUser == null) {
           pt('Google Sign In was cancelled by the user.');
           return null;
-        }
-
-        // Get authentication tokens (note: in v7 GoogleSignInAuthentication currently has idToken only)
-        final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-
-        // Create Firebase credential using idToken (accessToken may be null in v7)
-        final AuthCredential credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-          // accessToken: googleAuth.accessToken, // often null in v7
-        );
-        final UserCredential userCredential = await _auth.signInWithCredential(credential);
-
-        _user = userCredential.user;
-        pt("user ----------- $_user");
-        if(_user != null){
-          Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.stagesView);
-        }
-        return _user;
-      } catch (e) {
-        pt('Google sign-in error: $e');
-        AppPopUp.showToast(
-          message: e.toString().contains('GoogleSignInExceptionCode.canceled')
-              ? "Google sign-in Failed."
-              : e.toString(),
-          duration: const Duration(seconds: 5),
-        );
-        rethrow;
       }
-    }
 
-    Future<void> signOut() async {
-      try {
-        await _googleSignIn.signOut();
-        await _auth.signOut();
-        _user = null;
-      } catch (e) {
-        pt('Sign out error: $e');
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      pt("Google Auth success. ID Token received: ${googleAuth.idToken != null}");
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      _user = userCredential.user;
+
+      pt("Firebase Sign-In successful for: ${_user?.email}");
+
+      if (_user != null && navigatorKey.currentContext != null) {
+        Navigator.pushNamedAndRemoveUntil(
+          navigatorKey.currentContext!,
+          AppRoutes.stagesView,
+          (route) => false,
+          arguments: {"fromLoginScreen": true},
+        );
       }
+      return _user;
+    } catch (e) {
+      pt('Detailed Google Sign-In error: $e');
+      
+      String errorMsg = "Google Sign-In failed.";
+      if (e.toString().contains('ApiException: 10')) {
+        errorMsg = "Configuration Error (10): Please verify your SHA-1 and Web Client ID in Firebase.";
+      } else if (e.toString().contains('sign_in_canceled')) {
+        errorMsg = "Sign-in cancelled.";
+      }
+
+      AppPopUp.showToast(message: errorMsg, duration: const Duration(seconds: 5));
+      return null;
     }
   }
+
+  Future<void> signOut() async {
+    try {
+      await GoogleSignIn().signOut();
+      await _auth.signOut();
+      _user = null;
+    } catch (e) {
+      pt('Sign out error: $e');
+    }
+  }
+}

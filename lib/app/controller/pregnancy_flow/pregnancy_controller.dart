@@ -19,7 +19,7 @@ import 'package:intl/intl.dart';
 import 'model/addAppointment_data_model.dart';
 import 'model/postsenddatamodel.dart';
 
-class PregnancyController extends ChangeNotifier{
+class PregnancyController extends ChangeNotifier {
 
   bool isReminderEnabled = false;
 
@@ -28,7 +28,7 @@ class PregnancyController extends ChangeNotifier{
   final timerController = TextEditingController();
 
 
-//--------------------------
+  //--------------------------
   ApiResponse<PregnancyInfoModel>? _pregnancyInfoApiData = ApiResponse.completed(null);
   ApiResponse<PregnancyInfoModel>? get pregnancyInfoApiData => _pregnancyInfoApiData;
 
@@ -42,7 +42,7 @@ class PregnancyController extends ChangeNotifier{
     notifyListeners();
     final userId = await SecureStorage.getUserId();
     final dateText = dateController.text;
-    
+
     pt("pregnancyInfo called. Date: $dateText, UserID: $userId");
 
     // We send multiple ID fields to ensure backend captures the user identity correctly
@@ -50,7 +50,7 @@ class PregnancyController extends ChangeNotifier{
       "userId": userId,
       "user_id": userId,
       "user": userId,
-      if(dateText.isNotEmpty) "pregnancyStartDate": formatDateForApi(dateText),
+      if (dateText.isNotEmpty) "pregnancyStartDate": formatDateForApi(dateText),
     };
 
     try {
@@ -59,37 +59,39 @@ class PregnancyController extends ChangeNotifier{
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
           pt("Pregnancy info saved successfully: ${value.message}");
-          
+
           // 2. Ensure local data is saved
           await UserLocalData.saveStep("1"); // 1 = Pregnancy
           await UserLocalData.savePregnancySetupComplete();
           if (dateText.isNotEmpty) await UserLocalData.saveConceptionDate(dateText);
-          
+
           // 3. Sync profile with backend (Critical for profile persistence)
-          // Using both stage and cycleType to ensure backend remains in Pregnancy mode
+          // ✅ STRICT FIX: Only send 'stage'. Never send cycleType as 'pregnancy'.
+          // Valid cycleType enums on backend are [regular, irregular].
           try {
-             await repository.updateUserProfile({
-               'cycleType': 'pregnancy',
-               'stage': 'pregnancy',
-               if(dateText.isNotEmpty) 'pregnancyStartDate': formatDateForApi(dateText),
-             });
-             pt("Profile synced to pregnancy stage successfully");
+            await repository.updateUserProfile({
+              'stage': 'pregnancy',
+              if (dateText.isNotEmpty) 'pregnancyStartDate': formatDateForApi(dateText),
+            });
+            pt("Profile synced to pregnancy stage successfully");
           } catch (e) {
-             pt("Failed to update profile stage: $e");
+            pt("Failed to update profile stage: $e");
           }
 
           // 4. Navigate to Navbar
           Navigator.pushAndRemoveUntil(
-            navigatorKey.currentContext!, 
-            MaterialPageRoute(builder: (context) => NavbarView(flow: FlowType.pregnancy),), 
-            (route) => false
+            navigatorKey.currentContext!,
+            MaterialPageRoute(
+              builder: (context) => NavbarView(flow: FlowType.pregnancy),
+            ),
+                (route) => false,
           );
         } else {
           pt("Pregnancy info failed: ${value.message}");
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
-      },);
+      });
       notifyListeners();
     } catch (e, s) {
       pt("Error in pregnancyInfo: $e\n$s");
@@ -115,13 +117,12 @@ class PregnancyController extends ChangeNotifier{
         if (value.success == true) {
           setPregnancyData(ApiResponse.completed(value));
           await UserLocalData.saveConceptionDate(date);
-          
-          // Force stage to pregnancy to avoid 404 Tracker Not Found
+
+          // ✅ STRICT FIX: Only send 'stage'. Never send cycleType as 'pregnancy'.
           try {
             await repository.updateUserProfile({
-              'cycleType': 'pregnancy',
               'stage': 'pregnancy',
-              'pregnancyStartDate': formatDateForApiYMD(date)
+              'pregnancyStartDate': formatDateForApiYMD(date),
             });
             pt("Profile stage updated to pregnancy via updatePregnancyDate");
           } catch (_) {}
@@ -132,7 +133,7 @@ class PregnancyController extends ChangeNotifier{
           setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
           AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
-      },);
+      });
       notifyListeners();
     } catch (e, s) {
       pt("Error in updatePregnancyDate: $e\n$s");
@@ -152,22 +153,27 @@ class PregnancyController extends ChangeNotifier{
     _addDailyLogsApiData = response;
     notifyListeners();
   }
-  Future<void> addDailyLogsApiPregnancy({required String mood,
-    required String date, required List<String> symptoms,
-    required var stressLevel,required var anxietyLevel,required String notes,}) async {
+
+  Future<void> addDailyLogsApiPregnancy({
+    required String mood,
+    required String date,
+    required List<String> symptoms,
+    required var stressLevel,
+    required var anxietyLevel,
+    required String notes,
+  }) async {
     setAddDailyLogsApiApiData(ApiResponse.loading());
 
-    Map<String, dynamic>  data = {
+    Map<String, dynamic> data = {
       "date": formatDateForApi(date),
       "mood": mood,
       "symptoms": symptoms,
       "stressLevel": stressLevel,
       "anxietyLevel": anxietyLevel,
       "notes": notes,
-      // "sleepQuality": 4
     };
     repository.postPregnancyDataApi(data: data).then((value) {
-      if(value.success == true){
+      if (value.success == true) {
         setAddDailyLogsApiApiData(ApiResponse.completed(value));
         AppPopUp.showToast(message: value.message ?? "");
         Navigator.pop(navigatorKey.currentContext!);
@@ -175,7 +181,7 @@ class PregnancyController extends ChangeNotifier{
         mood = "";
         symptoms.clear();
         notes = "";
-      }else if(value.message == "You can only add a new daily log after 24 hours. Please wait 24 hour(s)."){
+      } else if (value.message == "You can only add a new daily log after 24 hours. Please wait 24 hour(s).") {
         setAddDailyLogsApiApiData(ApiResponse.completed(value));
         date = "";
         mood = "";
@@ -183,14 +189,13 @@ class PregnancyController extends ChangeNotifier{
         notes = "";
         AppPopUp.showToast(message: value.message ?? "");
         Navigator.pop(navigatorKey.currentContext!);
-      }else{
+      } else {
         setAddDailyLogsApiApiData(ApiResponse.error(value.message));
       }
-    },).onError((error, stackTrace) {
+    }).onError((error, stackTrace) {
       setAddDailyLogsApiApiData(ApiResponse.error(error.toString()));
       pt("err $error");
-    },);
-
+    });
   }
 
 
@@ -198,6 +203,14 @@ class PregnancyController extends ChangeNotifier{
 
   ApiResponse<AddAppointment_Data_Model>? _addAppointmentApiData = ApiResponse.completed(null);
   ApiResponse<AddAppointment_Data_Model>? get addAppointmentApiData => _addAppointmentApiData;
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  void setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
 
   void setReminderEnabled(bool value) {
     isReminderEnabled = value;
@@ -209,31 +222,17 @@ class PregnancyController extends ChangeNotifier{
     notifyListeners();
   }
 
-
   String formatApiDate(String isoDate) {
     try {
       DateTime dateTime = DateTime.parse(isoDate);
-      // Format as "Tuesday, October 15" or any desired format
       return DateFormat('EEEE, MMMM d').format(dateTime);
     } catch (e) {
-      // If parsing fails, return original string or empty
       return isoDate;
     }
   }
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
-
-  void setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-
-
   Future<void> addAppointmentApi() async {
     setLoading(true);
-
     setAddAppointmentApiData(ApiResponse.loading());
 
     final data = {
@@ -251,19 +250,14 @@ class PregnancyController extends ChangeNotifier{
 
       if (value.success == true) {
         setAddAppointmentApiData(ApiResponse.completed(value));
-
         pt(name: "response", "${value.message}");
-
         AppPopUp.showToast(message: "Appointment Booked! You will get notified.");
         if (navigatorKey.currentContext != null) {
-
-          Navigator.pop(navigatorKey.currentContext!,true);
+          Navigator.pop(navigatorKey.currentContext!, true);
         }
-
         titleController.clear();
         dateController.clear();
         timerController.clear();
-
       } else {
         setAddAppointmentApiData(ApiResponse.error(value.message ?? "Login failed"));
         AppPopUp.showToast(message: value.message ?? "Login failed");
@@ -272,14 +266,14 @@ class PregnancyController extends ChangeNotifier{
       pt("Error in login: $e\n$s");
       setAddAppointmentApiData(ApiResponse.error(e.toString()));
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
-    }finally {
+    } finally {
       setLoading(false);
     }
   }
 
 
+  ////////////// get Appointment data here////////////////
 
-////////////// get Appointment data here////////////////
   ApiResponse<Appointment_Data_Model>? _appointmentApiData = ApiResponse.completed(null);
   ApiResponse<Appointment_Data_Model>? get appointmentApiData => _appointmentApiData;
 
@@ -298,7 +292,6 @@ class PregnancyController extends ChangeNotifier{
 
   Future<void> getAppointmentApi() async {
     setLoadingData(true);
-
     setAddAppointmentApiData(ApiResponse.loading());
 
     try {
@@ -306,9 +299,7 @@ class PregnancyController extends ChangeNotifier{
 
       if (value.success == true) {
         setAppointmentApiData(ApiResponse.completed(value));
-
         pt(name: "response", "${value.data}");
-
       } else {
         setAppointmentApiData(ApiResponse.error("Something went wrong!"));
       }
@@ -316,7 +307,7 @@ class PregnancyController extends ChangeNotifier{
       pt("Error in login: $e\n$s");
       setAppointmentApiData(ApiResponse.error(e.toString()));
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
-    }finally {
+    } finally {
       setLoadingData(false);
     }
   }
@@ -342,7 +333,6 @@ class PregnancyController extends ChangeNotifier{
 
   Future<void> getPregnancyApiData() async {
     setLoadingPreg(true);
-
     setPregnancyApiData(ApiResponse.loading());
 
     try {
@@ -350,21 +340,17 @@ class PregnancyController extends ChangeNotifier{
 
       if (value.success == true) {
         setPregnancyApiData(ApiResponse.completed(value));
-
         pt(name: "response", "${value.data}");
-
       } else {
         setPregnancyApiData(ApiResponse.error(value.message ?? "Tracker not found"));
       }
     } catch (e, s) {
       pt("Error in getPregnancyApiData: $e\n$s");
       setPregnancyApiData(ApiResponse.error(e.toString()));
-      // AppPopUp.showToast(message: "Something went wrong. Please try again.");
-    }finally {
+    } finally {
       setLoadingPreg(false);
     }
   }
-
 
 
   /////////////// get communities data here /////////////
@@ -386,7 +372,7 @@ class PregnancyController extends ChangeNotifier{
   }
 
   Future<void> getCommunitiesData({bool load = true}) async {
-    if(load == true){
+    if (load == true) {
       setLoadingComm(true);
       setCommunitiesApiData(ApiResponse.loading());
     }
@@ -396,9 +382,7 @@ class PregnancyController extends ChangeNotifier{
 
       if (value.success == true) {
         setCommunitiesApiData(ApiResponse.completed(value));
-
         pt(name: "response", "${value.data?.posts?[0].comments}");
-
       } else {
         setCommunitiesApiData(ApiResponse.error("Something went wrong!"));
       }
@@ -406,7 +390,7 @@ class PregnancyController extends ChangeNotifier{
       pt("Error in login: $e\n$s");
       setCommunitiesApiData(ApiResponse.error(e.toString()));
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
-    }finally {
+    } finally {
       setLoadingComm(false);
     }
   }
@@ -417,15 +401,12 @@ class PregnancyController extends ChangeNotifier{
   ApiResponse<CommonResponseModel>? _likeApiData = ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get likeApiData => _likeApiData;
 
-
   void setLikeApiData(ApiResponse<CommonResponseModel> response) {
     _likeApiData = response;
     notifyListeners();
   }
 
-
   Future<void> lieApi({required String likeId}) async {
-
     setLikeApiData(ApiResponse.loading());
 
     try {
@@ -447,7 +428,6 @@ class PregnancyController extends ChangeNotifier{
   }
 
 
-
   ///////// post api //////////////
 
   ApiResponse<PostSendDataModel>? _postData = ApiResponse.completed(null);
@@ -455,21 +435,17 @@ class PregnancyController extends ChangeNotifier{
 
   TextEditingController msgController = TextEditingController();
 
-
   void setPostApiData(ApiResponse<PostSendDataModel> response) {
     _postData = response;
     notifyListeners();
   }
 
-
   Future<void> postCreateApi({required String msg}) async {
-
     setPostApiData(ApiResponse.loading());
 
     try {
-
-      var data ={
-        "message":msg.toString()
+      var data = {
+        "message": msg.toString(),
       };
 
       final value = await repository.postSendApi(data);
@@ -488,5 +464,4 @@ class PregnancyController extends ChangeNotifier{
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
     }
   }
-
 }

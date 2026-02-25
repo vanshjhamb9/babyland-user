@@ -3,18 +3,17 @@ import 'dart:io';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/common_profile_header/get_user_model.dart';
-import 'package:babyland/app/data/storage/secure_storage.dart'; // Added SecureStorage
+import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 
-import '../data/network/end_points.dart';
 import '../data/response/api_response.dart';
 import '../data/storage/user_local_data.dart';
 
-class GetUserProvider extends ChangeNotifier{
+class GetUserProvider extends ChangeNotifier {
   ApiResponse<GetUserModel>? _userData = ApiResponse.completed(null);
   ApiResponse<GetUserModel>? get userData => _userData;
 
@@ -26,23 +25,24 @@ class GetUserProvider extends ChangeNotifier{
   String get currentStageLabel {
     final user = _userData?.data?.user?.user;
     if (user == null) return "Unknown";
-    
-    // Check cycleType (used for logic mapping in this app)
+
+    final stage = user.stage;
+    if (stage == "pregnancy") return "Pregnancy";
+    if (stage == "postpregnancy") return "Post-pregnancy";
+
     final cType = user.cycleType;
     if (cType == "pregnancy") return "Pregnancy";
     if (cType == "post_pregnancy") return "Post-pregnancy";
     if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") return "Pre-pregnancy";
-    
     return "Onboarding";
   }
 
   Future<void> getUser() async {
     pt("getUser() called - Setting loading");
-    // Preserve existing data while loading
     if (_userData != null && _userData!.data != null) {
-       _userData = ApiResponse.loading(data: _userData!.data);
+      _userData = ApiResponse.loading(data: _userData!.data);
     } else {
-       setUserData(ApiResponse.loading());
+      setUserData(ApiResponse.loading());
     }
     notifyListeners();
 
@@ -50,38 +50,32 @@ class GetUserProvider extends ChangeNotifier{
       pt("getUser() response: success=${value.success}");
       if (value.success == true) {
         setUserData(ApiResponse.completed(value));
-        pt(name: "response", "${value.message}");
-        
+
         final userObj = value.user;
         final user = userObj?.user;
         if (user != null) {
-           // ✅ Ensure User ID is saved to SecureStorage for subsequent API calls
-           if (user.sId != null && user.sId!.isNotEmpty) {
-             await SecureStorage.saveUserId(user.sId!);
-             pt("User ID synced to SecureStorage: ${user.sId}");
-           }
+          if (user.sId != null && user.sId!.isNotEmpty) {
+            await SecureStorage.saveUserId(user.sId!);
+          }
 
-           // Self-healing patch for backend mathematical bug caused by Strings
-           if (user.hasCorruptedTypes) {
-             pt("Found corrupted backend data types. Sending self-healing patch...");
-             try {
-                final Map<String, dynamic> cleanupData = {};
-                if (user.averagePeriodLengthDays != null) {
-                  final parsed = int.tryParse(user.averagePeriodLengthDays!);
-                  if (parsed != null) cleanupData['averagePeriodLengthDays'] = parsed;
-                }
-                if (user.cycleLengthDays != null && user.cycleLengthDays != 'null') {
-                  final parsed = int.tryParse(user.cycleLengthDays!);
-                  if (parsed != null) cleanupData['cycleLengthDays'] = parsed;
-                }
-                if (cleanupData.isNotEmpty) {
-                    await repository.onboardingCompleted(cleanupData);
-                    pt("Successfully healed backend data types.");
-                }
-             } catch(e) {
-                pt("Failed to heal data types: $e");
-             }
-           }
+          // ✅ Self-healing patch for numeric strings
+          if (user.hasCorruptedTypes) {
+            try {
+              final Map<String, dynamic> cleanupData = {};
+              if (user.averagePeriodLengthDays != null) {
+                final parsed = int.tryParse(user.averagePeriodLengthDays!);
+                if (parsed != null) cleanupData['averagePeriodLengthDays'] = parsed;
+              }
+              if (user.cycleLengthDays != null &&
+                  user.cycleLengthDays != 'null') {
+                final parsed = int.tryParse(user.cycleLengthDays!);
+                if (parsed != null) cleanupData['cycleLengthDays'] = parsed;
+              }
+              if (cleanupData.isNotEmpty) {
+                await repository.onboardingCompleted(cleanupData);
+              }
+            } catch (_) {}
+          }
 
            String? cType = user.cycleType;
            pt("Syncing data. Backend cycleType: $cType");
@@ -106,56 +100,49 @@ class GetUserProvider extends ChangeNotifier{
            }
         }
       }
-      if(value.success == false) {
-        setUserData(ApiResponse.error(value.message ?? "Something went wrong!"));
+
+      if (value.success == false) {
+        setUserData(
+            ApiResponse.error(value.message ?? "Something went wrong!"));
       }
       notifyListeners();
-    },).onError((error, stackTrace) {
-      pt("Error in getUser: $error\n$stackTrace");
+    }).onError((error, stackTrace) {
+      pt("Error in getUser: $error");
       setUserData(ApiResponse.error(error.toString()));
       notifyListeners();
-    },);
+    });
   }
 
-  /// Synchronize the user's stage with the backend
   Future<bool> updateUserStage(int index) async {
-    String cycleType;
+    String stage;
     String step;
     switch (index) {
       case 0:
-        cycleType = "regular";
+        stage = "prepregnancy";
         step = "0";
         break;
       case 1:
-        cycleType = "pregnancy";
+        stage = "pregnancy";
         step = "1";
         break;
       case 2:
-        cycleType = "post_pregnancy"; 
+        stage = "postpregnancy"; // Note: cycleType in backend takes post_pregnancy, stage takes postpregnancy.
         step = "2";
         break;
       default:
         return false;
     }
 
-    pt("Syncing stage to backend: index=$index, cycleType=$cycleType");
-    
-    // 1. Update local step immediately for snappy UI
+    pt("Syncing stage to backend: index=$index, stage=$stage");
     await UserLocalData.saveStep(step);
-    
+
     try {
-      // 2. Sync with backend
-      // We update BOTH cycleType and stage to ensure backend persistence
+      // ✅ Only send 'stage'. Never send cycleType here.
+      // cycleType enum only accepts [regular, irregular].
       await repository.updateUserProfile({
-        "cycleType": cycleType,
-        "stage": cycleType // no need for ternary anymore since postpregnancy matches
+        "stage": stage,
       });
-      
-      // Also call onboardingCompleted for potential side effects if needed
-      await repository.onboardingCompleted({"cycleType": cycleType});
-      
-      pt("Backend stage sync successful");
-      // 3. Refresh profile data
+
       await getUser();
       return true;
     } catch (e) {
@@ -164,8 +151,6 @@ class GetUserProvider extends ChangeNotifier{
     }
   }
 
-  // update profile
-
   void updateUserConditions(Conditions conditions) {
     if (userData?.data?.user != null) {
       userData?.data?.user?.user?.conditions = conditions;
@@ -173,8 +158,8 @@ class GetUserProvider extends ChangeNotifier{
     }
   }
 
-
-  ApiResponse<CommonResponseModel>? _updateProfileData = ApiResponse.completed(null);
+  ApiResponse<CommonResponseModel>? _updateProfileData =
+  ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get updateProfileData => _updateProfileData;
 
   void updateProfile(ApiResponse<CommonResponseModel> response) {
@@ -195,43 +180,44 @@ class GetUserProvider extends ChangeNotifier{
     notifyListeners();
 
     try {
-    // Prepare data for Profile Update
-    final conditionsMap = {
-      "PCOS": conditions["PCOS"] ?? false,
-      "PMS": conditions["PMS"] ?? false,
-      "Endometriosis": conditions["Endometriosis"] ?? false,
-      "ThyroidIssues": conditions["Thyroid Issues"] ?? false,
-      "Diabetes": conditions["Diabetes"] ?? false,
-      "Hypertension": conditions["Hypertension"] ?? false,
-    };
+      final conditionsMap = {
+        "PCOS": conditions["PCOS"] ?? false,
+        "PMS": conditions["PMS"] ?? false,
+        "Endometriosis": conditions["Endometriosis"] ?? false,
+        "ThyroidIssues": conditions["Thyroid Issues"] ?? false,
+        "Diabetes": conditions["Diabetes"] ?? false,
+        "Hypertension": conditions["Hypertension"] ?? false,
+      };
 
-    Map<String, dynamic> data = {
-      "name": name,
-      "email": email,
-      "phone": phone,
-      "weight": weight,
-      "medicalHistory": medicalHistory,
-      "conditions": conditionsMap,
-    };
+      // ✅ Never force cycleType — backend retains existing valid value.
+      Map<String, dynamic> data = {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "weight": weight,
+        "medicalHistory": medicalHistory,
+        "conditions": conditionsMap,
+      };
 
-      // Send profile update — repository handles multipart if image is present
-      final value = await repository.updateUserProfile(data, profileImage: profileImage);
+      final value =
+      await repository.updateUserProfile(data, profileImage: profileImage);
       if (value.success == true) {
         updateProfile(ApiResponse.completed(value));
-        AppPopUp.showToast(message: value.message ?? "Profile updated successfully!");
+        AppPopUp.showToast(
+            message: value.message ?? "Profile updated successfully!");
         await getUser();
         Navigator.pop(navigatorKey.currentContext!);
       } else {
-        updateProfile(ApiResponse.error(value.message ?? "Something went wrong!"));
-        AppPopUp.showToast(message: value.message ?? "Profile updated unsuccessfully!");
+        updateProfile(
+            ApiResponse.error(value.message ?? "Something went wrong!"));
+        AppPopUp.showToast(
+            message: value.message ?? "Profile update failed!");
       }
-    } catch (e,st) {
+    } catch (e, st) {
       pt("Update Profile Error: $e $st");
       updateProfile(ApiResponse.error(e.toString()));
       AppPopUp.showToast(message: "Failed to update profile: $e");
     }
     notifyListeners();
   }
-
-
 }
