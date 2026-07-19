@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 class GeneralExceptionWidget extends StatefulWidget {
   final VoidCallback onPress;
 
-  const GeneralExceptionWidget({Key? key, required this.onPress}) : super(key: key);
+  const GeneralExceptionWidget({super.key, required this.onPress});
 
   @override
   _GeneralExceptionWidgetState createState() => _GeneralExceptionWidgetState();

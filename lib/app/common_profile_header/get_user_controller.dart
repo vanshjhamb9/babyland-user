@@ -1,14 +1,13 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/common_profile_header/get_user_model.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
+import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/main.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../data/response/api_response.dart';
 import '../data/storage/user_local_data.dart';
@@ -56,6 +55,16 @@ class GetUserProvider extends ChangeNotifier {
         if (user != null) {
           if (user.sId != null && user.sId!.isNotEmpty) {
             await SecureStorage.saveUserId(user.sId!);
+          }
+
+          final phone = user.phone?.trim();
+          if (phone != null && phone.isNotEmpty) {
+            await UserLocalData.clearNeedsPhoneProfile();
+          }
+
+          final lpd = user.lastPeriodStartDate?.trim();
+          if (lpd != null && lpd.isNotEmpty && lpd != 'null') {
+            await UserLocalData.clearNeedsBasicProfile();
           }
 
           // ✅ Self-healing patch for numeric strings
@@ -169,35 +178,54 @@ class GetUserProvider extends ChangeNotifier {
 
   Future<void> updateUserProfile({
     required String name,
-    required String email,
-    required Map<String, bool> conditions,
+    String? email,
+    Map<String, bool>? conditions,
     File? profileImage,
     String? phone,
     String? weight,
     String? medicalHistory,
+    String? age,
+    String? height,
   }) async {
     updateProfile(ApiResponse.loading());
     notifyListeners();
 
     try {
-      final conditionsMap = {
-        "PCOS": conditions["PCOS"] ?? false,
-        "PMS": conditions["PMS"] ?? false,
-        "Endometriosis": conditions["Endometriosis"] ?? false,
-        "ThyroidIssues": conditions["Thyroid Issues"] ?? false,
-        "Diabetes": conditions["Diabetes"] ?? false,
-        "Hypertension": conditions["Hypertension"] ?? false,
-      };
-
-      // ✅ Never force cycleType — backend retains existing valid value.
+      // Build payload: required fields + only non-empty optionals
       Map<String, dynamic> data = {
         "name": name,
-        "email": email,
-        "phone": phone,
-        "weight": weight,
-        "medicalHistory": medicalHistory,
-        "conditions": conditionsMap,
       };
+
+      if (email != null && email.trim().isNotEmpty) {
+        data["email"] = email.trim();
+      }
+
+      if (conditions != null) {
+        data["conditions"] = {
+          "PCOS": conditions["PCOS"] ?? false,
+          "PMS": conditions["PMS"] ?? false,
+          "Endometriosis": conditions["Endometriosis"] ?? false,
+          "ThyroidIssues": conditions["Thyroid Issues"] ?? false,
+          "Diabetes": conditions["Diabetes"] ?? false,
+          "Hypertension": conditions["Hypertension"] ?? false,
+        };
+      }
+
+      if (phone != null && phone.trim().isNotEmpty) {
+        data["phone"] = phone.trim();
+      }
+      if (weight != null && weight.trim().isNotEmpty) {
+        data["weight"] = weight.trim();
+      }
+      if (medicalHistory != null && medicalHistory.trim().isNotEmpty) {
+        data["medicalHistory"] = medicalHistory.trim();
+      }
+      if (age != null && age.trim().isNotEmpty) {
+        data["age"] = age.trim();
+      }
+      if (height != null && height.trim().isNotEmpty) {
+        data["height"] = height.trim();
+      }
 
       final value =
       await repository.updateUserProfile(data, profileImage: profileImage);
@@ -205,8 +233,22 @@ class GetUserProvider extends ChangeNotifier {
         updateProfile(ApiResponse.completed(value));
         AppPopUp.showToast(
             message: value.message ?? "Profile updated successfully!");
+        if (phone != null && phone.toString().trim().isNotEmpty) {
+          await UserLocalData.clearNeedsPhoneProfile();
+        }
         await getUser();
-        Navigator.pop(navigatorKey.currentContext!);
+        final nav = navigatorKey.currentContext;
+        if (nav != null && nav.mounted) {
+          if (Navigator.canPop(nav)) {
+            Navigator.pop(nav);
+          } else {
+            Navigator.pushNamedAndRemoveUntil(
+              nav,
+              AppRoutes.splashView,
+              (route) => false,
+            );
+          }
+        }
       } else {
         updateProfile(
             ApiResponse.error(value.message ?? "Something went wrong!"));

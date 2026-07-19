@@ -6,14 +6,14 @@ class Add_Baby_Growth_Data_Model {
 
   Add_Baby_Growth_Data_Model.fromJson(Map<String, dynamic> json) {
     success = json['success'];
-    baby = json['baby'] != null ? new Baby.fromJson(json['baby']) : null;
+    baby = json['baby'] != null ? Baby.fromJson(json['baby']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['success'] = this.success;
-    if (this.baby != null) {
-      data['baby'] = this.baby!.toJson();
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['success'] = success;
+    if (baby != null) {
+      data['baby'] = baby!.toJson();
     }
     return data;
   }
@@ -27,14 +27,14 @@ class Baby {
 
   Baby.fromJson(Map<String, dynamic> json) {
     message = json['message'];
-    photo = json['photo'] != null ? new Photo.fromJson(json['photo']) : null;
+    photo = json['photo'] != null ? Photo.fromJson(json['photo']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['message'] = this.message;
-    if (this.photo != null) {
-      data['photo'] = this.photo!.toJson();
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['message'] = message;
+    if (photo != null) {
+      data['photo'] = photo!.toJson();
     }
     return data;
   }
@@ -56,11 +56,11 @@ class Photo {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['date'] = this.date;
-    data['height'] = this.height;
-    data['weight'] = this.weight;
-    data['headCircumference'] = this.headCircumference;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['date'] = date;
+    data['height'] = height;
+    data['weight'] = weight;
+    data['headCircumference'] = headCircumference;
     return data;
   }
 }

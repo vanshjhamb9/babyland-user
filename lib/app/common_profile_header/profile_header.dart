@@ -1,8 +1,8 @@
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/constants/images.dart';
 import 'package:babyland/app/controller/ai_assistant/ai_assistant_controller.dart';
+import 'package:babyland/core/constants/app_constants.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
-import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +13,7 @@ import '../theme/font_style.dart';
 import '../widgets/container.dart';
 import '../widgets/custom_appbar.dart';
 import '../widgets/custom_image.dart';
+import '../widgets/user_avatar.dart';
 
 
 class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -45,9 +46,17 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text("${provider.userData?.data?.user?.user?.name ?? ""} 👋", style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroyMedium),),
+                    Expanded(
+                      child: Text(
+                        "${provider.userData?.data?.user?.user?.name ?? ""} 👋",
+                        style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroyMedium),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Container(
+                    Flexible(
+                      child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: _getStageColor(provider.currentStageLabel).withOpacity(0.15),
@@ -60,7 +69,10 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
                           fontFamily: AppFontFamily.gilroyMedium,
                           color: _getStageColor(provider.currentStageLabel),
                         ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
+                    ),
                     ),
                   ],
                 ),
@@ -86,7 +98,11 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
                 padding: EdgeInsets.symmetric(horizontal: 10,vertical: 3.5),
                 child: Row(
                   children: [
-                    Text("Ask AI", style: AppFontStyle.text_14_400(fontFamily: AppFontFamily.gilroyMedium),),
+                    Text(
+                      'Ask ${AppConstants.aiAssistantDisplayName}',
+                      style: AppFontStyle.text_14_400(
+                          fontFamily: AppFontFamily.gilroyMedium),
+                    ),
                     SizedBox(width: 5),
                     CustomImage(path: ImageConstants.start,scale: 4,)
                   ],
@@ -107,11 +123,12 @@ class ProfileHeader extends StatelessWidget implements PreferredSizeWidget {
                 gradient: AppColors.buttonClr,
                 radius: 100,
                 padding: EdgeInsets.all(1),
-                child: (context.read<GetUserProvider>().userData?.data?.user?.user?.profilePicture?.isEmpty ?? false) ? Icon(Icons.person)  : CustomImage(
-                  h: 40,
-                  w: 40,
-                  borderRadius: BorderRadius.circular(100),
-                  path:context.read<GetUserProvider>().userData?.data?.user?.user?.profilePicture ?? "https://i.pravatar.cc/300",),
+                child: UserAvatar(
+                  size: 40,
+                  imageUrl: context.read<GetUserProvider>().userData?.data?.user?.user?.profilePicture,
+                  name: context.read<GetUserProvider>().userData?.data?.user?.user?.name,
+                  stage: context.read<GetUserProvider>().userData?.data?.user?.user?.stage,
+                ),
               ),
             ),
             Positioned(

@@ -1,0 +1,21 @@
+// #region agent log
+// Debug session 64f774 — logs merge*Resources task graph (hypothesis H2/H4).
+def logFile = new File(rootDir.parentFile, 'debug-64f774.log')
+
+def agentLog(String hypothesisId, String location, String message, Map data) {
+    def runId = System.getenv('DEBUG_RUN_ID') ?: 'pre-fix'
+    def dataJson = data.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
+    logFile << "{\"sessionId\":\"64f774\",\"runId\":\"${runId}\",\"hypothesisId\":\"${hypothesisId}\",\"location\":\"${location}\",\"message\":\"${message}\",\"data\":{${dataJson}},\"timestamp\":${System.currentTimeMillis()}}\n"
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def mergeTasks = graph.allTasks.findAll { it.name ==~ /merge.*Resources/ }
+    agentLog('H2', 'init.gradle:taskGraph', 'merge task graph ready', [
+        mergeTaskCount: mergeTasks.size(),
+        parallel: gradle.startParameter.parallelProjectExecutionEnabled,
+        maxWorkers: gradle.startParameter.maxWorkerCount,
+        daemon: gradle.startParameter.daemon,
+        taskNames: mergeTasks.collect { "${it.project.name}:${it.name}" }.join('|').take(500)
+    ])
+}
+// #endregion

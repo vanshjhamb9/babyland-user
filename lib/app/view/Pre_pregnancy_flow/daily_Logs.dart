@@ -9,8 +9,8 @@ import 'package:babyland/app/widgets/custom_textform_field.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/app/widgets/slider_widget.dart';
 import 'package:babyland/app/widgets/validation.dart';
+import 'package:babyland/features/trackers/utils/tracker_math.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../constants/images.dart';
@@ -19,7 +19,6 @@ import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
 import '../../widgets/button.dart';
-import '../../widgets/common_select_date_textfield.dart';
 
 class DailyLogs extends StatefulWidget {
   final String? flowType;
@@ -31,12 +30,16 @@ class DailyLogs extends StatefulWidget {
 
 class _DailyLogsState extends State<DailyLogs> {
 
-
   bool? prePregnancyFlow;
   bool? pregnancyFlow;
   String? flowType;
   DateTime? selectedDate;
   TextEditingController controller = TextEditingController();
+  bool _dateInitialized = false;
+
+  static String _formatDateForDisplay(DateTime d) {
+    return "${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}";
+  }
 
   @override
   void didChangeDependencies() {
@@ -45,9 +48,22 @@ class _DailyLogsState extends State<DailyLogs> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     prePregnancyFlow = args?['prePregnancyFlow'];
     pregnancyFlow = args?['pregnancyFlow'];
-    pregnancyFlow = args?['pregnancyFlow'];
     flowType = args?['flowType'] ?? "";
-    selectedDate = args?['date'];
+    if (args?['date'] != null) {
+      selectedDate = args?['date'];
+    }
+
+    // Default to today's date and load log for that date (once)
+    if (!_dateInitialized) {
+      _dateInitialized = true;
+      selectedDate ??= DateTime.now();
+      if (controller.text.isEmpty) {
+        controller.text = _formatDateForDisplay(selectedDate!);
+        if (prePregnancyFlow == true) {
+          context.read<CycleCalenderProvider>().loadLogForDate(selectedDate!);
+        }
+      }
+    }
     pt("prePregnancyFlow $prePregnancyFlow");
     pt("pregnancyFlow $pregnancyFlow");
   }
@@ -165,10 +181,12 @@ class _DailyLogsState extends State<DailyLogs> {
                                         );
 
                                         if (pickedDate != null) {
-                                          controller.text =
-                                          "${pickedDate.day.toString().padLeft(2, '0')}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.year}";
+                                          controller.text = _formatDateForDisplay(pickedDate);
                                           selectedDate = pickedDate;
                                           setState(() {});
+                                          if (prePregnancyFlow == true) {
+                                            context.read<CycleCalenderProvider>().loadLogForDate(pickedDate);
+                                          }
                                         }
                                       },
                                     )),
@@ -339,6 +357,57 @@ class _DailyLogsState extends State<DailyLogs> {
                         ),
                         SizedBox(height: 18,),
                         AppContainer(
+                          radius: 8,
+                          color: AppColors.white,
+                          padding: EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.bedtime_outlined, size: 22, color: AppColors.black),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        "Sleep Quality",
+                                        style: AppFontStyle.text_15_400(fontFamily: AppFontFamily.gilroyMedium),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        "${provider.sleepQualityLevel.toStringAsFixed(0)}/5",
+                                        style: AppFontStyle.text_13_400(fontFamily: AppFontFamily.gilroyRegular),
+                                      ),
+                                    ],
+                                  )
+                                ],
+                              ),
+                              CustomSlider(
+                                value: provider.sleepQualityLevel,
+                                onChanged: (value) {
+                                  setState(() {
+                                    provider.sleepQualityLevel = value;
+                                  });
+                                },
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("Poor",style: AppFontStyle.text_11_400(fontFamily:
+                                  AppFontFamily.gilroyRegular,color: AppColors.textLightClr),),
+                                  Text("Great",style: AppFontStyle.text_11_400(fontFamily:
+                                  AppFontFamily.gilroyRegular,color: AppColors.textLightClr),),
+                                ],
+                              )
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 18,),
+                        AppContainer(
                           height: 175,
                           radius: 8,
                           color: AppColors.white,
@@ -398,25 +467,28 @@ class _DailyLogsState extends State<DailyLogs> {
 
                     provider.addDailyLogsMentural(date: selectedDate);
 
-                  }else if(pregnancyFlow == true){
-                    pregnancyController.addDailyLogsApiPregnancy(
-                        mood: provider.selectedMood ?? "",
-                        date: controller.text.toString(),
-                        symptoms: provider.selectedSymptoms
-                            .map((e) => e.toLowerCase()).toList(),
-                        stressLevel: provider.stressLevel.toStringAsFixed(0),
-                        notes:provider.otherController.text,
-                        anxietyLevel: provider.anxietyLevel.toStringAsFixed(0)
-                    );
-                  } else {
+                  } else if (flowType == 'postPregnancy') {
                     postProvider.postpartumsLogsAddApi(
                       mood: provider.selectedMood ?? "",
                       date: controller.text.toString(),
                       symptoms: provider.selectedSymptoms
                           .map((e) => e.toLowerCase()).toList(),
                       stressLevel: provider.stressLevel.toStringAsFixed(0),
+                      sleepQuality: provider.sleepQualityLevel.toInt(),
                       notes:provider.otherController.text,
                       anxietyLevel: provider.anxietyLevel.toStringAsFixed(0)
+                    );
+                  } else {
+                    // Pregnancy stage (default when not pre/postpartum).
+                    pregnancyController.addDailyLogsApiPregnancy(
+                        mood: provider.selectedMood ?? "",
+                        date: controller.text.toString(),
+                        symptoms: provider.selectedSymptoms
+                            .map((e) => e.toLowerCase()).toList(),
+                        stressLevel: provider.stressLevel.toStringAsFixed(0),
+                        sleepQuality: provider.sleepQualityLevel.toInt(),
+                        notes:provider.otherController.text,
+                        anxietyLevel: provider.anxietyLevel.toStringAsFixed(0)
                     );
                   }}
                 },
@@ -460,38 +532,14 @@ class _DailyLogsState extends State<DailyLogs> {
           SizedBox(height: 14,),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              EmojiList(
-                path: ImageConstants.great,
-                text: "Great",
-                isSelected: provider.selectedMood == "Great",
-                onTap: () => provider.selectMood("Great"),
-              ),
-              EmojiList(
-                path: ImageConstants.good,
-                text: "Good",
-                isSelected: provider.selectedMood == "Good",
-                onTap: () => provider.selectMood("Good"),
-              ),
-              EmojiList(
-                path: ImageConstants.okay,
-                text: "Okay",
-                isSelected: provider.selectedMood == "Okay",
-                onTap: () => provider.selectMood("Okay"),
-              ),
-              EmojiList(
-                path: ImageConstants.low,
-                text: "Low",
-                isSelected: provider.selectedMood == "Low",
-                onTap: () => provider.selectMood("Low"),
-              ),
-              EmojiList(
-                path: ImageConstants.sad,
-                text: "Sad",
-                isSelected: provider.selectedMood == "Sad",
-                onTap: () => provider.selectMood("Sad"),
-              ),
-            ],
+            children: TrackerMath.moodMap.values.map((o) {
+              return EmojiList(
+                path: o.iconPath,
+                text: o.label,
+                isSelected: provider.selectedMood == o.label,
+                onTap: () => provider.selectMood(o.label),
+              );
+            }).toList(),
           ),
         ],
       ),

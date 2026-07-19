@@ -1,9 +1,7 @@
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/custom_textform_field.dart';
-import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:babyland/app/widgets/switch_btn.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,7 +13,6 @@ import '../../theme/font_style.dart';
 import '../../widgets/CustomTimerFormField.dart';
 import '../../widgets/button.dart';
 import '../../widgets/common_select_date_textfield.dart';
-import '../../widgets/custom_image.dart';
 import '../../widgets/validation.dart';
 
 class AddReminderView extends StatefulWidget {
@@ -47,7 +44,6 @@ class _AddReminderViewState extends State<AddReminderView> {
               body: AppContainer(
                 color: AppColors.backgroundClr,
                 gradient: AppColors.backGroundColor,
-                height: mediaQueryH(context),
                 child: SingleChildScrollView(
                   physics: AlwaysScrollableScrollPhysics(),
                   child: Padding(
@@ -124,7 +120,7 @@ class _AddReminderViewState extends State<AddReminderView> {
                           ],
                         ),
 
-                        SizedBox(height: 200,),
+                        const SizedBox(height: 24),
 
                       ],
                     ),

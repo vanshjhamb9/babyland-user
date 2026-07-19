@@ -1,49 +1,50 @@
 {
   "project_info": {
-    "project_number": "717083152425",
-    "project_id": "babyland-6cbcb",
-    "storage_bucket": "babyland-6cbcb.firebasestorage.app"
+    "project_number": "240228974389",
+    "project_id": "thebabyland-6db6d",
+    "storage_bucket": "thebabyland-6db6d.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:717083152425:android:dfcc2ef60b8c445f8d4c38",
+        "mobilesdk_app_id": "1:240228974389:android:68e3b0eaf2de15d702967c",
         "android_client_info": {
-          "package_name": "com.babyland"
+          "package_name": "com.thebabyland"
         }
       },
       "oauth_client": [
         {
-          "client_id": "717083152425-i9efhd8ol2vr4tca7si77qcl03e4iubo.apps.googleusercontent.com",
+          "client_id": "240228974389-71a08uqa4675lguidl9ca8nrf6sa51j0.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.babyland",
-            "certificate_hash": "3893cc07d8c44a33c9456d584b3ca79fcd1dc9c8"
+            "package_name": "com.thebabyland",
+            "certificate_hash": "447015d9c2e077b82a788aed5e70d2899d682fba"
           }
         },
         {
-          "client_id": "717083152425-hv5c9k2viia080sppgpag338k2m1oe6h.apps.googleusercontent.com",
+          "client_id": "240228974389-p56h0gfk15ajj6qmgediesifrnu129v9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thebabyland",
+            "certificate_hash": "2b570cf03613e3253d54bb6f36c88081fa095213"
+          }
+        },
+        {
+          "client_id": "240228974389-sphplrara017o8u7b46i9eamgdh7ev3h.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyAtZ0VddYFwGmHLf3dzx5RuWlWP6v7bB2U"
+          "current_key": "AIzaSyDdepgOWXZqL0r04QMH96ka-cIieEqqZ8c"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "717083152425-4i83ounsdgeiktkvn4il89bibki8jgmi.apps.googleusercontent.com",
+              "client_id": "240228974389-sphplrara017o8u7b46i9eamgdh7ev3h.apps.googleusercontent.com",
               "client_type": 3
-            },
-            {
-              "client_id": "717083152425-a8tkaa3911a2g39to9jtk7o8j5t3q98t.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.babyland"
-              }
             }
           ]
         }

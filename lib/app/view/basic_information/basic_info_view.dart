@@ -1,7 +1,6 @@
 import 'package:babyland/app/constants/images.dart';
 import 'package:babyland/app/controller/basic_information/basic_information_provider.dart';
 import 'package:babyland/app/data/response/status.dart';
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
@@ -12,14 +11,12 @@ import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/custom_days_picker.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/custom_textform_field.dart';
-import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:babyland/app/widgets/switch_btn.dart';
 import 'package:babyland/app/widgets/validation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/storage/secure_storage.dart';
 
 class BasicInfoView extends StatelessWidget {
   BasicInfoView({super.key});

@@ -2,14 +2,11 @@ import 'dart:async';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/constants/images.dart';
-import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/button.dart';
 import 'package:babyland/app/widgets/container.dart';
-import 'package:babyland/app/widgets/validation.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -21,6 +18,7 @@ import '../../widgets/print.dart';
 import 'model/availableslotdatamodel.dart';
 import 'model/booking_add_model.dart';
 import 'model/doctor_data_model.dart';
+import 'model/live_slots_model.dart';
 
 class ExpertConsultationProvider extends ChangeNotifier {
   final searchController = TextEditingController();
@@ -36,7 +34,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
   // Combined filtered list (specialty + search)
   List<Doctor>? _combinedFilteredDoctors = [];
 
-  List<Doctor>? get filteredDoctors => _combinedFilteredDoctors?.isNotEmpty == true
+  List<Doctor>? get filteredDoctors =>
+      _combinedFilteredDoctors?.isNotEmpty == true
       ? _combinedFilteredDoctors
       : (_searchQuery.isEmpty && _filteredBySpecialty == null)
       ? _allDoctors
@@ -58,12 +57,11 @@ class ExpertConsultationProvider extends ChangeNotifier {
   void pickDate(DateTime date) {
     pt(date.toString());
     selectedDate = date;
-    // DOC-01/DOC-02: auto-load real available slots for the selected date + doctor
+    // DOC-01/DOC-02: auto-load real available slots for the selected date + doctor.
+    // Routes via the endpoint-agnostic dispatcher so flipping the live-slots
+    // flag also covers the doctor profile screen.
     if (selectedDoctorId.isNotEmpty) {
-      getAvailableSlotApiData(
-        doctorId: selectedDoctorId,
-        date: date,
-      );
+      getSlotsForDoctor(doctorId: selectedDoctorId, date: date);
     }
     notifyListeners();
   }
@@ -73,12 +71,7 @@ class ExpertConsultationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<String> timeSlots = [
-    "09:00 AM",
-    "09:30 AM",
-    "10:00 AM",
-    "10:30 AM",
-  ];
+  List<String> timeSlots = ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM"];
 
   int _selectedIndex = -1;
   int get selectedIndex => _selectedIndex;
@@ -130,7 +123,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
     _searchQuery = '';
 
     // Apply specialty filter
-    if (index == 1) { // Today filter
+    if (index == 1) {
+      // Today filter
       _applyTodayFilter();
     } else {
       // Reset to all doctors
@@ -221,7 +215,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
 
     if (_searchQuery.isEmpty) {
       // If no search query, use the specialty filtered list or all doctors
-      _combinedFilteredDoctors = _filteredBySpecialty ?? List.from(_allDoctors!);
+      _combinedFilteredDoctors =
+          _filteredBySpecialty ?? List.from(_allDoctors!);
     } else {
       // Apply search on the current list
       final searchQuery = _searchQuery.toLowerCase().trim();
@@ -229,7 +224,8 @@ class ExpertConsultationProvider extends ChangeNotifier {
       _combinedFilteredDoctors = sourceList.where((doctor) {
         final name = doctor.name?.toLowerCase() ?? '';
         final specialization = (doctor.doctorDetails?.speciality ?? [])
-            .join(' ').toLowerCase();
+            .join(' ')
+            .toLowerCase();
         final qualifications = doctor.email?.toLowerCase() ?? '';
 
         return name.contains(searchQuery) ||
@@ -305,45 +301,28 @@ class ExpertConsultationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addBookingApi({required String date, required String time}) async {
-    setLoadingDoc(true);
-    addBookingData(ApiResponse.loading());
-    final docId = await UserLocalData.getDoctorId();
-    Map<String, dynamic> data = {
-      "doctorId": selectedDoctorId == "" ? docId : selectedDoctorId,
-      "date": extractOnlyDate(date),
-      "time": time,
-      "consultationFee": 500,
-      "currency": "INR",
-      "paymentMethod": "COD"
-    };
-    pt("data>>>>>>>>>> $data");
-    try {
-      final value = await repository.bookingAdd(data);
-      if (value.success == true) {
-        addBookingData(ApiResponse.completed(value));
-        showBookingSuccessDialog(navigatorKey.currentContext!,name: capitalizeFirstLetter(value.data?.doctorId?.name ??""));
-        AppPopUp.showToast(
-            message: value.message ?? "Something went wrong",
-            lineColor: AppColors.red
-        );
-      } else {
-        AppPopUp.showToast(
-            message: value.message ?? "Something went wrong",
-            lineColor: AppColors.red
-        );
-        addBookingData(ApiResponse.error(value.message ?? "failed"));
-      }
-    } catch (e) {
-      addBookingData(ApiResponse.error(e.toString()));
-    } finally {
-      setLoadingDoc(false);
-    }
+  /// Deprecated for patient checkout: consultations must lock a slot server-side
+  /// (`/v1/patient/consultations/slot-lock`) before PSP — direct COD booking skips safety guarantees.
+  @Deprecated(
+    'Patient app uses ConsultationCheckoutController + projection polling instead',
+  )
+  Future<void> addBookingApi({
+    required String date,
+    required String time,
+  }) async {
+    const message =
+        'Legacy bookingAdd is disabled. Use slot lock + PhonePe projection polling.';
+    pt('[CONSULTATION_LOCK] $message');
+    addBookingData(ApiResponse.error(message));
+    AppPopUp.showToast(message: message, lineColor: AppColors.red);
   }
- ///================================================cancel booking
+
+  ///================================================cancel booking
   String? selectedBookingId;
 
-  ApiResponse<CommonResponseModel>? _cancelBooking = ApiResponse.completed(null);
+  ApiResponse<CommonResponseModel>? _cancelBooking = ApiResponse.completed(
+    null,
+  );
   ApiResponse<CommonResponseModel>? get cancelBooking => _cancelBooking;
 
   // int _selectedIndex = (-1);
@@ -362,13 +341,13 @@ class ExpertConsultationProvider extends ChangeNotifier {
       if (value.success == true) {
         cancelBookingData(ApiResponse.completed(value));
         AppPopUp.showToast(
-            message: value.message ?? "Something went wrong",
-            lineColor: AppColors.red
+          message: value.message ?? "Something went wrong",
+          lineColor: AppColors.red,
         );
       } else {
         AppPopUp.showToast(
-            message: value.message ?? "Something went wrong",
-            lineColor: AppColors.red
+          message: value.message ?? "Something went wrong",
+          lineColor: AppColors.red,
         );
         cancelBookingData(ApiResponse.error(value.message ?? "failed"));
       }
@@ -396,7 +375,10 @@ class ExpertConsultationProvider extends ChangeNotifier {
     return dateTimeString;
   }
 
-  Future<void> showBookingSuccessDialog(BuildContext context,{required String name}) {
+  Future<void> showBookingSuccessDialog(
+    BuildContext context, {
+    required String name,
+  }) {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -421,15 +403,19 @@ class ExpertConsultationProvider extends ChangeNotifier {
                       padding: EdgeInsets.all(8),
                       radius: 100,
                       color: AppColors.green.withAlpha(180),
-                      child: Icon(Icons.check_circle, color: Colors.white, size: 30),
+                      child: Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     "Booking Successful",
                     style: AppFontStyle.text_20_600(
-                        color: AppColors.textClr,
-                        fontFamily: AppFontFamily.gilroySemiBold
+                      color: AppColors.textClr,
+                      fontFamily: AppFontFamily.gilroySemiBold,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -437,22 +423,22 @@ class ExpertConsultationProvider extends ChangeNotifier {
                     TextSpan(
                       text: "Your appointment booking completed.\n",
                       style: AppFontStyle.text_13_400(
-                          color: AppColors.textLightClr,
-                          fontFamily: AppFontFamily.gilroyMedium
+                        color: AppColors.textLightClr,
+                        fontFamily: AppFontFamily.gilroyMedium,
                       ),
                       children: [
                         TextSpan(
-                          text: name ?? "",
+                          text: name,
                           style: AppFontStyle.text_15_600(
-                              color: AppColors.textClr,
-                              fontFamily: AppFontFamily.gilroyMedium
+                            color: AppColors.textClr,
+                            fontFamily: AppFontFamily.gilroyMedium,
                           ),
                         ),
                         TextSpan(
                           text: " will message you soon.",
                           style: AppFontStyle.text_13_400(
-                              color: AppColors.textLightClr,
-                              fontFamily: AppFontFamily.gilroyMedium
+                            color: AppColors.textLightClr,
+                            fontFamily: AppFontFamily.gilroyMedium,
                           ),
                         ),
                       ],
@@ -466,15 +452,14 @@ class ExpertConsultationProvider extends ChangeNotifier {
                       Navigator.pushNamed(context, AppRoutes.myBookingsView);
                     },
                     borderRadius: 8,
-                    gradient: LinearGradient(colors: [
-                      Colors.grey.shade300,
-                      Colors.grey.shade300
-                    ]),
+                    gradient: LinearGradient(
+                      colors: [Colors.grey.shade300, Colors.grey.shade300],
+                    ),
                     child: Text(
                       "Done",
                       style: AppFontStyle.text_16_600(
-                          fontFamily: AppFontFamily.gilroySemiBold,
-                          color: AppColors.textClr
+                        fontFamily: AppFontFamily.gilroySemiBold,
+                        color: AppColors.textClr,
                       ),
                     ),
                   ),
@@ -488,21 +473,21 @@ class ExpertConsultationProvider extends ChangeNotifier {
   }
 
   String getDayName(DateTime date) {
-    final formatter = DateFormat('EEEE');  // Monday (full) या 'EEE' for Mon
+    final formatter = DateFormat('EEEE'); // Monday (full) या 'EEE' for Mon
     return formatter.format(date);
   }
-
 
   String formatDateMMMMddyyyy(DateTime date) {
-    final formatter = DateFormat('MMMM dd, yyyy');  // March 14, 2022
+    final formatter = DateFormat('MMMM dd, yyyy'); // March 14, 2022
     return formatter.format(date);
   }
-
 
   /// get available slot data here
 
-  ApiResponse<AvailableSlotDataModel>? _getAvailableSlot = ApiResponse.completed(null);
-  ApiResponse<AvailableSlotDataModel>? get getAvailableSlot => _getAvailableSlot;
+  ApiResponse<AvailableSlotDataModel>? _getAvailableSlot =
+      ApiResponse.completed(null);
+  ApiResponse<AvailableSlotDataModel>? get getAvailableSlot =>
+      _getAvailableSlot;
 
   /// Set API data and apply current search filter
   void setAvailableSlotData(ApiResponse<AvailableSlotDataModel> response) {
@@ -510,16 +495,13 @@ class ExpertConsultationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-
   Future<void> getAvailableSlotApiData({
     required String doctorId,
     DateTime? date,
   }) async {
     setAvailableSlotData(ApiResponse.loading());
 
-    Map<String, dynamic> data = {
-      if (date != null) "date": formatDate(date),
-    };
+    Map<String, dynamic> data = {if (date != null) "date": formatDate(date)};
 
     pt("getAvailableSlotApiData doctorId=$doctorId date=$data");
 
@@ -536,7 +518,66 @@ class ExpertConsultationProvider extends ChangeNotifier {
     }
   }
 
+  // ─── Live-slots (Section B §8) ─────────────────────────────────────────
+  //
+  // Parallel state slot. The new endpoint emits richer per-slot data
+  // (AVAILABLE | HELD | BOOKED | PAST + `until` countdown + UTC `slotStart`).
+  // Default callers stay on the legacy `/available-slots`; flip
+  // [useLiveSlotsEndpoint] to opt in.
 
+  /// Build-time feature flag. Default `false` keeps the legacy endpoint live
+  /// until QA validates the new live-slots grid end-to-end.
+  static const bool useLiveSlotsEndpoint = bool.fromEnvironment(
+    'USE_LIVE_SLOTS_ENDPOINT',
+    defaultValue: false,
+  );
+
+  ApiResponse<LiveSlotsResponse>? _liveSlots = ApiResponse.completed(null);
+  ApiResponse<LiveSlotsResponse>? get liveSlots => _liveSlots;
+
+  void setLiveSlots(ApiResponse<LiveSlotsResponse> response) {
+    _liveSlots = response;
+    notifyListeners();
+  }
+
+  Future<void> getLiveSlotsApiData({
+    required String doctorId,
+    DateTime? date,
+    bool includePast = false,
+  }) async {
+    setLiveSlots(ApiResponse.loading());
+
+    final params = <String, dynamic>{
+      if (date != null) 'date': formatDate(date),
+      'includePast': includePast.toString(),
+    };
+
+    pt('getLiveSlotsApiData doctorId=$doctorId params=$params');
+
+    try {
+      final value = await repository.getDoctorLiveSlots(doctorId, params);
+      if (value.success) {
+        setLiveSlots(ApiResponse.completed(value));
+      } else {
+        setLiveSlots(ApiResponse.error('failed'));
+      }
+    } catch (e) {
+      setLiveSlots(ApiResponse.error(e.toString()));
+    }
+  }
+
+  /// Endpoint-agnostic dispatcher. Routes to `/live-slots` when the feature
+  /// flag is on, otherwise hits the legacy `/available-slots`. Call sites
+  /// can swap from `getAvailableSlotApiData` to this without UI rewrites
+  /// — but the two state slots are separate, so they should read whichever
+  /// matches the dispatcher's target.
+  Future<void> getSlotsForDoctor({
+    required String doctorId,
+    DateTime? date,
+  }) {
+    if (useLiveSlotsEndpoint) {
+      return getLiveSlotsApiData(doctorId: doctorId, date: date);
+    }
+    return getAvailableSlotApiData(doctorId: doctorId, date: date);
+  }
 }
-
-

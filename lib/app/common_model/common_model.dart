@@ -2,15 +2,26 @@ class CommonResponseModel {
   bool? success;
   String? message;
   String? token;
+  String? refreshToken;
   dynamic data;
 
-  CommonResponseModel({this.success, this.message, this.data});
+  CommonResponseModel({this.success, this.message, this.token, this.refreshToken, this.data});
 
   CommonResponseModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     message = json['message']?.toString();
-    token = json['token']?.toString();
-    data = json['data'];
+    
+    // Check both `token` and `authToken` keys
+    token = (json['token'] ?? json['authToken'])?.toString();
+    
+    refreshToken = json['refreshToken']?.toString();
+    data = json['data'] ?? json['user'];
+
+    // Some controllers return refreshToken both at top-level and inside `data`.
+    if (refreshToken == null || refreshToken!.isEmpty) {
+      final dataMap = data is Map ? data as Map<String, dynamic> : null;
+      refreshToken = dataMap?['refreshToken']?.toString();
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -18,6 +29,7 @@ class CommonResponseModel {
     data['success'] = success;
     data['message'] = message;
     data['token'] = token;
+    data['refreshToken'] = refreshToken;
     return data;
   }
 }

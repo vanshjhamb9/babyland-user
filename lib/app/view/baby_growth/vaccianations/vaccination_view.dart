@@ -15,7 +15,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../widgets/general_exception.dart';
 
 class VaccinationView extends StatelessWidget {
-  VaccinationView({super.key});
+  const VaccinationView({super.key});
 
   @override
   Widget build(BuildContext context) {

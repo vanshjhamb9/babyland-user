@@ -1,6 +1,7 @@
-import 'package:babyland/app/agora/video_call_controller.dart';
-import 'package:babyland/app/agora/video_call_screen.dart';
+import 'dart:async';
+
 import 'package:babyland/app/constants/images.dart';
+import 'package:babyland/features/patient_consultation/consultation_booking_detail_view.dart';
 import 'package:babyland/app/controller/experts_consultation/booking/booking_controller.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
@@ -13,11 +14,14 @@ import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/custom_no_data_found.dart';
 import 'package:babyland/app/widgets/texttield_title.dart';
 import 'package:babyland/app/widgets/validation.dart';
-import 'package:flutter/material.dart';
-import 'package:googleapis/accesscontextmanager/v1.dart';
-import 'package:googleapis/apigeeregistry/v1.dart';
-import 'package:provider/provider.dart';
-
+import 'package:babyland/app/view/subscription_unlock_plans/controller/subscription_controller.dart';
+import 'package:babyland/app/widgets/stale_sync_banner.dart';
+import 'package:babyland/core/consultation/booking_lifecycle.dart';
+import 'package:babyland/core/consultation/consultation_join_guard.dart';
+import 'package:babyland/features/patient_consultation/widgets/consultation_countdown_row.dart';
+import 'package:babyland/core/runtime/app_state_reconciliation_coordinator.dart';
+import 'package:babyland/core/sync/consultation_sync_service.dart';
+import 'package:babyland/core/sync/polling_consultation_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -34,12 +38,37 @@ class MyBookingsView extends StatefulWidget {
 }
 
 class _MyBookingsViewState extends State<MyBookingsView> {
+  StreamSubscription<ConsultationSyncReason>? _syncSub;
+  PollingConsultationSyncService? _sync;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BookingController>().getBookingApi();
+      final booking = context.read<BookingController>();
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['forceRefresh'] == true) {
+        unawaited(booking.getBookingApi());
+        Future<void>.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) unawaited(booking.getBookingApi());
+        });
+      } else {
+        booking.getBookingApi();
+      }
+      _sync = context.read<PollingConsultationSyncService>();
+      _sync!.startBookingPolling();
+      _syncSub = _sync!.invalidations.listen((_) {
+        if (!mounted) return;
+        booking.getBookingApi();
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    _sync?.stopBookingPolling();
+    super.dispose();
   }
 
   @override
@@ -73,6 +102,19 @@ class _MyBookingsViewState extends State<MyBookingsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Consumer2<AppStateReconciliationCoordinator, SubscriptionProvider>(
+              builder: (context, coord, sub, _) {
+                final show =
+                    coord.isReconciling || sub.isEntitlementSnapshotStale;
+                if (!show) return const SizedBox.shrink();
+                return Column(
+                  children: [
+                    const StaleSyncBanner(),
+                    const SizedBox(height: 10),
+                  ],
+                );
+              },
+            ),
             // Tabs
             AppContainer(
               gradient: AppColors.backGroundColor,
@@ -143,6 +185,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final booking = bookings[index];
+        final phase = bookingLifecycleFromBooking(booking);
         return Card(
           elevation: 0,
           surfaceTintColor: Colors.transparent,
@@ -172,6 +215,16 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                     color: AppColors.textClr,
                   ),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  bookingLifecycleLabel(phase),
+                  style: AppFontStyle.text_13_600(
+                    fontFamily: AppFontFamily.gilroyMedium,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ConsultationCountdownRow(booking: booking),
                 const SizedBox(height: 10),
                 
                 // Doctor Info Row
@@ -199,17 +252,27 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                                 ),
                               ),
                               const Spacer(),
-                              InkWell(
-                                onTap: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (context) => VideoCallScreen()));
-                                },
-                                child: const Icon(Icons.video_camera_back_outlined),
-                              ),
+                              if (phase == BookingLifecyclePhase.readyToJoin)
+                                TextButton(
+                                  onPressed: () => ConsultationJoinGuard.maybeOpenVideo(
+                                        context: context,
+                                        booking: booking,
+                                      ),
+                                  child: Text(
+                                    'Join',
+                                    style: AppFontStyle.text_14_600(
+                                      fontFamily: AppFontFamily.gilroyMedium,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            "Specialty",
+                            booking.doctorId?.specialization?.trim().isNotEmpty == true
+                                ? booking.doctorId!.specialization!
+                                : 'Specialty',
                             style: AppFontStyle.text_13_400(
                               fontFamily: AppFontFamily.gilroyRegular,
                               color: AppColors.textClr,
@@ -245,6 +308,29 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                   ],
                 ),
                 const SizedBox(height: 14),
+                if (phase == BookingLifecyclePhase.readyToJoin) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: Button(
+                      borderRadius: 12,
+                      height: 46,
+                      onTap: () => ConsultationJoinGuard.maybeOpenVideo(
+                            context: context,
+                            booking: booking,
+                          ),
+                      child: Center(
+                        child: Text(
+                          'Join consultation',
+                          style: AppFontStyle.text_16_500(
+                            fontFamily: AppFontFamily.gilroySemiBold,
+                            color: AppColors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // Button Row Logic based on Tab
                 Row(
@@ -326,23 +412,28 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                         padding: EdgeInsets.zero,
                         height: 44,
                         onTap: () {
-                            // If Upcoming (0) -> View Details
-                            // If Past (1) -> Book Again
-                            // If Cancelled (2) -> Book Again
-                            if (selectedTabIndex == 0) {
-                                Navigator.pushNamed(context, AppRoutes.doctorProfileView,arguments: {
-                                  "doctorId" : booking.doctorId ?? "",
-                                });
-                            } else {
-                                // Book Again logic -> Go to profile
-                                Navigator.pushNamed(context, AppRoutes.doctorProfileView,arguments: {
-                                  "doctorId" : booking.doctorId ?? "",
-                                });
-                            }
+                          if (selectedTabIndex == 0) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    ConsultationBookingDetailView(booking: booking),
+                              ),
+                            );
+                            return;
+                          }
+                          final doctorIdStr = booking.doctorId?.id ?? "";
+                          if (doctorIdStr.isEmpty) return;
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.doctorProfileView,
+                            arguments: {'doctorId': doctorIdStr},
+                          );
                         },
                         child: Center(
                           child: Text(
-                            selectedTabIndex == 0 ? "View Details" : "Book Again",
+                            selectedTabIndex == 0
+                                ? 'View details'
+                                : 'Book again',
                             style: AppFontStyle.text_16_500(
                               fontFamily: AppFontFamily.gilroySemiBold,
                               color: AppColors.white,

@@ -8,13 +8,13 @@ class AddAppointment_Data_Model {
   AddAppointment_Data_Model.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     message = json['message'];
-    data = json['data'] != null ? new Data.fromJson(json['data']) : null;
+    data = json['data'] != null ? Data.fromJson(json['data']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['success'] = this.success;
-    data['message'] = this.message;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['success'] = success;
+    data['message'] = message;
     if (this.data != null) {
       data['data'] = this.data!.toJson();
     }
@@ -40,12 +40,12 @@ class Data {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['title'] = this.title;
-    data['date'] = this.date;
-    data['time'] = this.time;
-    data['reminder'] = this.reminder;
-    data['notes'] = this.notes;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['title'] = title;
+    data['date'] = date;
+    data['time'] = time;
+    data['reminder'] = reminder;
+    data['notes'] = notes;
     return data;
   }
 }

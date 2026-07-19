@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../constants/images.dart';
-import '../../controller/pregnancy_flow/pregnancy_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';

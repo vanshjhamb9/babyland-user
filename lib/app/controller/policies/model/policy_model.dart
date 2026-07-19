@@ -8,7 +8,7 @@ class PolicyModel {
   PolicyModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     message = json['message']?.toString();
-    data = json['data'] != null ? new Data.fromJson(json['data']) : null;
+    data = json['data'] != null ? Data.fromJson(json['data']) : null;
   }
 
   Map<String, dynamic> toJson() {

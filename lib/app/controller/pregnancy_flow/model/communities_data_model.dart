@@ -8,7 +8,11 @@ class Communities_Data_Model {
   Communities_Data_Model.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     message = json['message'];
-    data = json['data'] != null ? CommunitiesData.fromJson(json['data']) : null;
+    if (json['data'] is List) {
+      data = CommunitiesData(posts: (json['data'] as List).map((v) => PostData.fromJson(v)).toList());
+    } else if (json['data'] != null) {
+      data = CommunitiesData.fromJson(json['data']);
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -34,9 +38,13 @@ class CommunitiesData {
     page = json['page'];
     limit = json['limit'];
     total = json['total'];
+    posts = <PostData>[];
     if (json['data'] != null) {
-      posts = <PostData>[];
       json['data'].forEach((v) {
+        posts!.add(PostData.fromJson(v));
+      });
+    } else if (json['posts'] != null) {
+      json['posts'].forEach((v) {
         posts!.add(PostData.fromJson(v));
       });
     }
@@ -71,6 +79,7 @@ class PostData {
     this.userId,
     this.message,
     this.hashtags,
+    this.comments,
     this.likes,
     this.commentsCount,
     this.createdAt,
@@ -88,7 +97,7 @@ class PostData {
     createdAt = json['createdAt'];
     updatedAt = json['updatedAt'];
     iV = json['__v'];
-    comments: (json['comments'] as List<dynamic>?)
+    comments = (json['comments'] as List<dynamic>?)
         ?.map((e) => CommentModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
@@ -104,7 +113,7 @@ class PostData {
       dataMap['hashtags'] = hashtags;
     }
     if (comments != null) {
-      dataMap['hashtags'] = comments;
+      dataMap['comments'] = comments!.map((e) => e.toJson()).toList();
     }
     dataMap['likes'] = likes;
     dataMap['commentsCount'] = commentsCount;
@@ -144,9 +153,19 @@ class CommentModel {
 
   factory CommentModel.fromJson(Map<String, dynamic> json) {
     return CommentModel(
-      userId: json['userId'] as String?,
-      comment: json['comment'] as String?,
-      id: json['_id'] as String?,
-      createdAt: json['createdAt'] as String?,
+      userId: json['userId']?.toString(),
+      comment: json['comment']?.toString(),
+      id: json['_id']?.toString(),
+      createdAt: json['createdAt']?.toString(),
     );
-  }}
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'comment': comment,
+      '_id': id,
+      'createdAt': createdAt,
+    };
+  }
+}

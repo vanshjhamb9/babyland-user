@@ -1,4 +1,4 @@
-import 'package:babyland/app/constants/flow.dart';
+import 'package:babyland/core/constants/app_constants.dart';
 import 'package:babyland/app/navbar/post_pregnancy/post_pregnancy_navbar_controller.dart';
 import 'package:babyland/app/navbar/pregnancy/navbar_controller.dart';
 import 'package:babyland/app/routes/app_routes.dart';
@@ -13,7 +13,7 @@ import '../../theme/font_style.dart';
 import '../../widgets/button.dart';
 
 class SaveLogView extends StatefulWidget {
-  SaveLogView({super.key});
+  const SaveLogView({super.key});
 
   @override
   State<SaveLogView> createState() => _SaveLogViewState();
@@ -96,7 +96,7 @@ class _SaveLogViewState extends State<SaveLogView> {
                        },
                        height: height * 0.07,
                        child: Text(
-                         "View AI Insights",
+                         "View ${AppConstants.aiAssistantDisplayName} Insights",
                          style: AppFontStyle.text_15_400(
                            fontFamily: AppFontFamily.gilroyBold,
                            color: AppColors.white,

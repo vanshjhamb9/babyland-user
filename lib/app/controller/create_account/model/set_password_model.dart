@@ -8,13 +8,13 @@ class SetPasswordModel {
   SetPasswordModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     message = json['message'];
-    data = json['data'] != null ? new Data.fromJson(json['data']) : null;
+    data = json['data'] != null ? Data.fromJson(json['data']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['success'] = this.success;
-    data['message'] = this.message;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['success'] = success;
+    data['message'] = message;
     if (this.data != null) {
       data['data'] = this.data!.toJson();
     }
@@ -26,24 +26,27 @@ class Data {
   String? email;
   String? id;
   String? authToken;
+  String? refreshToken;
   User? user;
 
-  Data({this.email, this.id, this.authToken, this.user});
+  Data({this.email, this.id, this.authToken, this.refreshToken, this.user});
 
   Data.fromJson(Map<String, dynamic> json) {
     email = json['email'];
     id = json['id'];
     authToken = json['authToken'];
-    user = json['user'] != null ? new User.fromJson(json['user']) : null;
+    refreshToken = json['refreshToken']?.toString();
+    user = json['user'] != null ? User.fromJson(json['user']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['email'] = this.email;
-    data['id'] = this.id;
-    data['authToken'] = this.authToken;
-    if (this.user != null) {
-      data['user'] = this.user!.toJson();
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['email'] = email;
+    data['id'] = id;
+    data['authToken'] = authToken;
+    data['refreshToken'] = refreshToken;
+    if (user != null) {
+      data['user'] = user!.toJson();
     }
     return data;
   }
@@ -79,7 +82,7 @@ class User {
 
   User.fromJson(Map<String, dynamic> json) {
     conditions = json['conditions'] != null
-        ? new Conditions.fromJson(json['conditions'])
+        ? Conditions.fromJson(json['conditions'])
         : null;
     sId = json['_id'];
     name = json['name'];
@@ -95,21 +98,21 @@ class User {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    if (this.conditions != null) {
-      data['conditions'] = this.conditions!.toJson();
+    final Map<String, dynamic> data = <String, dynamic>{};
+    if (conditions != null) {
+      data['conditions'] = conditions!.toJson();
     }
-    data['_id'] = this.sId;
-    data['name'] = this.name;
-    data['email'] = this.email;
-    data['isVerified'] = this.isVerified;
-    data['role'] = this.role;
-    data['approved'] = this.approved;
-    data['cycleType'] = this.cycleType;
-    data['createdAt'] = this.createdAt;
-    data['updatedAt'] = this.updatedAt;
-    data['__v'] = this.iV;
-    data['password'] = this.password;
+    data['_id'] = sId;
+    data['name'] = name;
+    data['email'] = email;
+    data['isVerified'] = isVerified;
+    data['role'] = role;
+    data['approved'] = approved;
+    data['cycleType'] = cycleType;
+    data['createdAt'] = createdAt;
+    data['updatedAt'] = updatedAt;
+    data['__v'] = iV;
+    data['password'] = password;
     return data;
   }
 }
@@ -140,13 +143,13 @@ class Conditions {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['PCOS'] = this.pCOS;
-    data['PMS'] = this.pMS;
-    data['Endometriosis'] = this.endometriosis;
-    data['ThyroidIssues'] = this.thyroidIssues;
-    data['Diabetes'] = this.diabetes;
-    data['Hypertension'] = this.hypertension;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['PCOS'] = pCOS;
+    data['PMS'] = pMS;
+    data['Endometriosis'] = endometriosis;
+    data['ThyroidIssues'] = thyroidIssues;
+    data['Diabetes'] = diabetes;
+    data['Hypertension'] = hypertension;
     return data;
   }
 }

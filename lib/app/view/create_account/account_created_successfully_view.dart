@@ -60,9 +60,9 @@ class AccountCreatedSuccessfullyView extends StatelessWidget {
         child: Button(
           height: 58,
           onTap: (){
-            Navigator.pushReplacementNamed(context, AppRoutes.basicInfoView,);
+            Navigator.pushReplacementNamed(context, AppRoutes.basicProfileView,);
           },
-          text:"Add Basic Info",
+          text:"Add Basic Profile",
         ),
       ),
     );

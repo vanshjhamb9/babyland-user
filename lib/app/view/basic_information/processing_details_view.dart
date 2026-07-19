@@ -4,11 +4,9 @@ import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/circular_indicator.dart';
 import 'package:babyland/app/widgets/container.dart';
-import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/storage/user_local_data.dart';
-import '../../widgets/print.dart';
 
 class ProcessingDetailsView extends StatefulWidget {
   const ProcessingDetailsView({super.key});

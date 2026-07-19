@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
 import '../../../main.dart';
+import '../../data/storage/user_local_data.dart';
 import '../../routes/app_routes.dart';
 import 'model/onboarding_completed_model.dart';
 
@@ -131,6 +132,7 @@ class BasicInformationProvider extends ChangeNotifier{
       final value = await repository.onboardingCompleted(data);
       if (value.success == true) {
         setOnboardingData(ApiResponse.completed(value));
+        await UserLocalData.setNeedsBasicProfile(false);
         Navigator.of(navigatorKey.currentContext!).pushNamedAndRemoveUntil(
           AppRoutes.stagesView,
               (Route<dynamic> route) => false,

@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAtZ0VddYFwGmHLf3dzx5RuWlWP6v7bB2U',
-    appId: '1:717083152425:android:dfcc2ef60b8c445f8d4c38',
-    messagingSenderId: '717083152425',
-    projectId: 'babyland-6cbcb',
-    storageBucket: 'babyland-6cbcb.firebasestorage.app',
+    apiKey: 'AIzaSyDdepgOWXZqL0r04QMH96ka-cIieEqqZ8c',
+    appId: '1:240228974389:android:68e3b0eaf2de15d702967c',
+    messagingSenderId: '240228974389',
+    projectId: 'thebabyland-6db6d',
+    storageBucket: 'thebabyland-6db6d.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBBr5AreZb615EC7JS5zagbYWTEhytF9CA',
-    appId: '1:717083152425:ios:b58d70c88297fc478d4c38',
-    messagingSenderId: '717083152425',
-    projectId: 'babyland-6cbcb',
-    storageBucket: 'babyland-6cbcb.firebasestorage.app',
-    iosBundleId: 'com.example.babyland',
+    apiKey: 'AIzaSyD94UmjfGsJlhUnIK2aaSohEMBP70pexD0',
+    appId: '1:240228974389:ios:c31a03551c6dc9a502967c',
+    messagingSenderId: '240228974389',
+    projectId: 'thebabyland-6db6d',
+    storageBucket: 'thebabyland-6db6d.firebasestorage.app',
+    iosBundleId: 'com.thebabyland',
   );
 }

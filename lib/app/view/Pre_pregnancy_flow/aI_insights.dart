@@ -1,22 +1,23 @@
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
-import 'package:babyland/app/controller/pre_pregenancy_flow/cycle_celender_controller/cycle_celender_controller.dart';
-import 'package:babyland/app/data/response/status.dart';
+import 'package:babyland/app/constants/images.dart';
+import 'package:babyland/core/constants/app_constants.dart';
+import 'package:babyland/app/controller/pre_pregenancy_flow/model/mentural_ai_insights_model.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/container.dart';
-import 'package:babyland/app/controller/pre_pregenancy_flow/model/mentural_ai_insights_model.dart';
-import 'package:babyland/app/widgets/custom_no_data_found.dart';
+import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/general_exception.dart';
+import 'package:babyland/features/ai_insights/controllers/dynamic_ai_insights_controller.dart';
+import 'package:babyland/features/ai_insights/widgets/dynamic_insight_card.dart';
+import 'package:babyland/features/ai_insights/widgets/dynamic_insight_category_chips.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../constants/images.dart';
+
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
 import '../../widgets/custom_appbar.dart';
-import '../../widgets/custom_image.dart';
 
-/// 🔹 Reusable shimmer box for loading effect
 Widget shimmerBox({
   double? width,
   double? height,
@@ -49,10 +50,27 @@ class _AiInsightsState extends State<AiInsights> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<CycleCalenderProvider>();
-      provider.dashboardData();
-      provider.aiInsightsApi("nutrition");
+      if (!mounted) return;
+      final c = context.read<DynamicAiInsightsController>();
+      c.setPregnancyWeekResolver(() {
+        if (!context.mounted) return null;
+        return _pregnancyWeekForInsightsQuery(context);
+      });
+      c.onScreenOpened();
     });
+  }
+
+  /// Optional `week` query 1–42 for GET /api/v1/ai/insights (server defaults if omitted).
+  int? _pregnancyWeekForInsightsQuery(BuildContext context) {
+    final wrap = context.read<GetUserProvider>().userData?.data?.user;
+    if (wrap == null) return null;
+    final rawMap = wrap.pregnancyTracker;
+    if (rawMap is! Map) return null;
+    final m = Map<String, dynamic>.from(rawMap as Map);
+    final raw = m['pregnancy_week'] ?? m['pregnancyWeek'];
+    final w = int.tryParse(raw?.toString() ?? '');
+    if (w == null || w < 1 || w > 42) return null;
+    return w;
   }
 
   @override
@@ -64,7 +82,7 @@ class _AiInsightsState extends State<AiInsights> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              widget.title ?? "AI Insights",
+              widget.title ?? '${AppConstants.aiAssistantDisplayName} Insights',
               style: AppFontStyle.text_20_400(
                 color: AppColors.textClr,
                 fontFamily: AppFontFamily.gilroySemiBold,
@@ -75,23 +93,17 @@ class _AiInsightsState extends State<AiInsights> {
           ],
         ),
       ),
-      body: Consumer<CycleCalenderProvider>(
-        builder: (context, provider, _) {
-          final status = provider.menturalAiInsights?.status;
-
-          switch (status) {
-            case ApiStatus.LOADING:
-              return _buildShimmerLoading();
-
-            case ApiStatus.ERROR:
-              return GeneralExceptionWidget(onPress: ()=> provider.aiInsightsApi("nutrition"),);
-
-            case ApiStatus.COMPLETED:
-              return _buildMainContent(context, provider);
-
-            default:
-              return const SizedBox.shrink();
+      body: Consumer<DynamicAiInsightsController>(
+        builder: (context, ctrl, _) {
+          if (ctrl.isLoading && ctrl.entries.isEmpty) {
+            return _buildShimmerLoading();
           }
+
+          if (ctrl.error != null && ctrl.entries.isEmpty) {
+            return GeneralExceptionWidget(onPress: () => ctrl.refresh());
+          }
+
+          return _buildMainContent(context, ctrl);
         },
       ),
       floatingActionButton: InkWell(
@@ -110,7 +122,7 @@ class _AiInsightsState extends State<AiInsights> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    "Ask AI",
+                    'Ask ${AppConstants.aiAssistantDisplayName}',
                     style: AppFontStyle.text_14_400(
                       color: AppColors.black,
                       fontFamily: AppFontFamily.gilroyMedium,
@@ -128,7 +140,6 @@ class _AiInsightsState extends State<AiInsights> {
     );
   }
 
-  /// 🔹 Shimmer loading state
   Widget _buildShimmerLoading() {
     return AppContainer(
       color: AppColors.backgroundClr,
@@ -148,31 +159,99 @@ class _AiInsightsState extends State<AiInsights> {
     );
   }
 
-  /// 🔹 Main content with greeting + insights
   Widget _buildMainContent(
-      BuildContext context, CycleCalenderProvider provider) {
+    BuildContext context,
+    DynamicAiInsightsController ctrl,
+  ) {
     return AppContainer(
       color: AppColors.backgroundClr,
       gradient: AppColors.backGroundColor,
       child: RefreshIndicator(
-        onRefresh: () => provider.aiInsightsApi("nutrition"),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              const SizedBox(height: 25),
-              _buildGreetingCard(),
-              const SizedBox(height: 20),
-              _buildTabSection(provider),
-            ],
-          ),
+        onRefresh: () => ctrl.refresh(),
+        color: AppColors.buttonClr1,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: _buildGreetingCard()),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(
+              child: DynamicInsightCategoryChips(
+                selected: ctrl.selectedCategory,
+                onSelected: ctrl.selectCategory,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            if (ctrl.isLoading && ctrl.entries.isNotEmpty)
+              const SliverToBoxAdapter(
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: AppColors.buttonClr1,
+                  backgroundColor: AppColors.greyLight,
+                ),
+              ),
+            if (!ctrl.isLoading && ctrl.entries.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 32,
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline_rounded,
+                        size: 48,
+                        color: AppColors.textLightClr.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No insights yet',
+                        textAlign: TextAlign.center,
+                        style: AppFontStyle.text_16_600(
+                          fontFamily: AppFontFamily.gilroySemiBold,
+                          color: AppColors.textClr,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'We couldn\'t load tips for this category. Pull to refresh or try again later.',
+                        textAlign: TextAlign.center,
+                        style: AppFontStyle.text_13_400(
+                          fontFamily: AppFontFamily.gilroyRegular,
+                          color: AppColors.textLightClr,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (ctrl.entries.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      ...ctrl.entries.map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DynamicInsightCard(entry: e),
+                        ),
+                      ),
+                      if (ctrl.quickTip != null) ...[
+                        _quickTipCard(ctrl.quickTip!),
+                        const SizedBox(height: 100),
+                      ] else
+                        const SizedBox(height: 80),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  /// 🔹 Greeting Card
   Widget _buildGreetingCard() {
     return AppContainer(
       height: 114,
@@ -185,13 +264,10 @@ class _AiInsightsState extends State<AiInsights> {
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                radius: 20,
-                // backgroundImage: AssetImage(ImageConstants.girl),
-              ),
+              const CircleAvatar(radius: 20),
               const SizedBox(width: 10),
               Consumer<GetUserProvider>(
-                builder: (context,provider,_) {
+                builder: (context, provider, _) {
                   return Expanded(
                     child: RichText(
                       maxLines: 2,
@@ -202,14 +278,15 @@ class _AiInsightsState extends State<AiInsights> {
                         ),
                         children: [
                           TextSpan(
-                            text: "Hi ${provider.userData?.data?.user?.user?.name ?? ""}",
+                            text:
+                                "Hi ${provider.userData?.data?.user?.user?.name ?? ""}",
                             style: AppFontStyle.text_15_400(
                               fontFamily: AppFontFamily.gilroySemiBold,
                             ),
                           ),
                           TextSpan(
                             text:
-                            ", here's what's best for you to stay Healthy & Fit.",
+                                ", here's what's best for you to stay Healthy & Fit.",
                             style: AppFontStyle.text_15_400(
                               fontFamily: AppFontFamily.gilroyRegular,
                             ),
@@ -218,19 +295,22 @@ class _AiInsightsState extends State<AiInsights> {
                       ),
                     ),
                   );
-                }
+                },
               ),
             ],
           ),
           const SizedBox(height: 22),
           Row(
             children: [
-              Icon(Icons.error_outline,
-                  color: AppColors.textLightClr, size: 20),
+              Icon(
+                Icons.error_outline,
+                color: AppColors.textLightClr,
+                size: 20,
+              ),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  "Tips are based on your Menstrual cycle & daily logs.",
+                  "Tips are based on your cycle, daily logs, and selected category.",
                   style: AppFontStyle.text_11_400(
                     fontFamily: AppFontFamily.gilroyRegular,
                   ),
@@ -243,85 +323,20 @@ class _AiInsightsState extends State<AiInsights> {
     );
   }
 
-  Widget _buildTabSection(CycleCalenderProvider provider) {
-    final status = provider.menturalAiInsights?.status;
-    final dataExit = provider.menturalAiInsights?.data?.dataexit;
-    final insights = dataExit?.items ?? [];
-    final quickTip = dataExit?.quickTip;
-
-
-    /// 🔥 Show shimmer when loading
-
-    if(provider.menturalAiInsights?.status == ApiStatus.LOADING){
-      return _tabSectionShimmer();
-    }
-
-    if (insights.isEmpty) {
-      return CustomNoDataFound(isClr: false,heightBox: SizedBox(height: 0),);
-    }
-    
-    // Since we only get one category at a time (e.g. nutrition), we don't need tabs for separate types anymore
-    // Or we can just use the category name as a single tab
-    final category = dataExit?.category ?? "General";
-    
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(40),
-          topRight: Radius.circular(40),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-             Padding(
-               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-               child: Text(
-                 category[0].toUpperCase() + category.substring(1), // Capitalize
-                 style: AppFontStyle.text_18_400(
-                   fontFamily: AppFontFamily.gilroySemiBold,
-                 ),
-               ),
-             ),
-
-            SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _insightList(insights),
-                        const SizedBox(height: 20),
-                        if (quickTip != null)
-                          quickTips(quickTip),
-                        const SizedBox(height: 100),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-    );
-  }
-
-  AppContainer quickTips(QuickTip tip) {
+  Widget _quickTipCard(QuickTip tip) {
     return AppContainer(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.zero,
       radius: 8,
       border: Border.all(color: AppColors.borderColor),
       color: AppColors.white,
-      padding: const EdgeInsets.symmetric(
-          horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CustomImage(
-                path: ImageConstants.bulb,
-                scale: 5,
-              ),
+              CustomImage(path: ImageConstants.bulb, scale: 5),
               const SizedBox(width: 10),
               Text(
                 "Quick Tip",
@@ -334,239 +349,22 @@ class _AiInsightsState extends State<AiInsights> {
           const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-             children: [
-               if (tip.emoji != null) ...[
-                 Text(tip.emoji!, style: const TextStyle(fontSize: 20)),
-                 const SizedBox(width: 8),
-               ],
-               Expanded(
-                 child: Text(
+            children: [
+              if (tip.emoji != null) ...[
+                Text(tip.emoji!, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
                   tip.text ?? "",
-                  maxLines: 5,
+                  maxLines: 8,
                   style: AppFontStyle.text_12_400(
                     color: AppColors.textLightClr,
                     fontFamily: AppFontFamily.gilroyMedium,
                   ),
-                           ),
-               ),
-             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  Widget aiInsightShimmer() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(40),
-          topRight: Radius.circular(40),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-
-            /// 🔹 Fake Tab Bar Shimmer
-            SizedBox(
-              height: 45,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: 4,
-                separatorBuilder: (_, __) => SizedBox(width: 12),
-                itemBuilder: (_, __) => Container(
-                  width: 90,
-                  height: 35,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 20),
-
-            /// 🔹 Fake Insight Cards
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: 5,
-                separatorBuilder: (_, __) => SizedBox(height: 12),
-                itemBuilder: (_, __) => Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  Widget _tabSectionShimmer() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(40),
-          topRight: Radius.circular(40),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// 🔹 Shimmer Tabs
-            SizedBox(
-              height: 45,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: 4,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (_, __) => Container(
-                  width: 90,
-                  height: 35,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            /// 🔹 Shimmer Insight List
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: 5,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, __) => Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 🔹 Different image for each card + All tab support
-  Widget _insightList(List<InsightItem> items) {
-    // 🔹 Use 3 repeating images
-    final List<String> images = [
-      ImageConstants.Frame,
-      ImageConstants.cup,
-      ImageConstants.fish,
-    ];
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      itemCount: items.length,
-      itemBuilder: (_, index) {
-        final item = items[index];
-        final imagePath = images[index % images.length]; // 🔹 Repeat images cyclically
-
-        return NutritionCard(
-          imagePath: imagePath,
-          title: item.title ?? 'Insight',
-          description: item.description ?? '',
-          emoji: item.emoji,
-        );
-      },
-    );
-  }
-
-  /// 🔹 Reusable tab text
-  Widget textCard(String title) {
-    return Text(
-      title,
-      style: AppFontStyle.text_14_400(
-        fontFamily: AppFontFamily.gilroySemiBold,
-      ),
-    );
-  }
-}
-
-/// 🔹 Reusable Card for Insight Items
-class NutritionCard extends StatelessWidget {
-  final String imagePath;
-  final String title;
-  final String description;
-  final String? emoji;
-
-  const NutritionCard({
-    super.key,
-    required this.imagePath,
-    required this.title,
-    required this.description,
-    this.emoji,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-               if(emoji != null) ...[
-                 Text(emoji!, style: TextStyle(fontSize: 24)),
-                 SizedBox(width: 8,),
-               ],
-               if(emoji == null)
-              CustomImage(path: imagePath, scale: 4),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: AppFontStyle.text_15_400(
-              fontFamily: AppFontFamily.gilroySemiBold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            description,
-            maxLines: 5,
-            style: AppFontStyle.text_13_400(
-              color: AppColors.lightGrey,
-              fontFamily: AppFontFamily.gilroyMedium,
-            ),
           ),
         ],
       ),

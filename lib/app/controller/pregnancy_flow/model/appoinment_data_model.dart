@@ -9,14 +9,14 @@ class Appointment_Data_Model {
     if (json['data'] != null) {
       data = <Data>[];
       json['data'].forEach((v) {
-        data!.add(new Data.fromJson(v));
+        data!.add(Data.fromJson(v));
       });
     }
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['success'] = this.success;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['success'] = success;
     if (this.data != null) {
       data['data'] = this.data!.map((v) => v.toJson()).toList();
     }
@@ -44,13 +44,13 @@ class Data {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['title'] = this.title;
-    data['date'] = this.date;
-    data['time'] = this.time;
-    data['reminder'] = this.reminder;
-    data['notes'] = this.notes;
-    data['_id'] = this.sId;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['title'] = title;
+    data['date'] = date;
+    data['time'] = time;
+    data['reminder'] = reminder;
+    data['notes'] = notes;
+    data['_id'] = sId;
     return data;
   }
 }

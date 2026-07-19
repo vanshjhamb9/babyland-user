@@ -27,6 +27,7 @@ class Data {
   String? mood;
   String? stressLevel;
   String? anxietyLevel;
+  int? sleepQuality;
   List<String>? symptoms;
 
   Data(
@@ -34,6 +35,7 @@ class Data {
         this.mood,
         this.stressLevel,
         this.anxietyLevel,
+        this.sleepQuality,
         this.symptoms});
 
   Data.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class Data {
     mood = json['mood']?.toString();
     stressLevel = json['stressLevel']?.toString();
     anxietyLevel = json['anxietyLevel']?.toString();
+    sleepQuality = (json['sleepQuality'] as num?)?.toInt();
     symptoms = json['symptoms'] != null ? List<String>.from(json['symptoms']) : null;
   }
 
@@ -50,6 +53,7 @@ class Data {
     data['mood'] = mood;
     data['stressLevel'] = stressLevel;
     data['anxietyLevel'] = anxietyLevel;
+    if (sleepQuality != null) data['sleepQuality'] = sleepQuality;
     data['symptoms'] = symptoms;
     return data;
   }

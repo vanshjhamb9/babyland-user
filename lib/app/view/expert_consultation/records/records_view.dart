@@ -9,7 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/response/status.dart';
-import '../../../routes/app_routes.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/font_family.dart';
 import '../../../theme/font_style.dart';

@@ -19,11 +19,24 @@ class DoctorDataModel {
     this.data,
   });
 
-  factory DoctorDataModel.fromJson(Map<String, dynamic> json) => DoctorDataModel(
-    success: json["success"],
-    message: json["message"],
-    data: json["data"] == null ? [] : List<Doctor>.from(json["data"]!.map((x) => Doctor.fromJson(x))),  // ✅ Doctor.fromJson
-  );
+  factory DoctorDataModel.fromJson(Map<String, dynamic> json) {
+    List<Doctor>? list;
+    if (json["data"] != null) {
+      if (json["data"] is List) {
+        list = List<Doctor>.from((json["data"] as List).map((x) => Doctor.fromJson(x as Map<String, dynamic>)));
+      } else if (json["data"] is Map<String, dynamic>) {
+        final inner = json["data"] as Map<String, dynamic>;
+        if (inner["data"] is List) {
+          list = List<Doctor>.from((inner["data"] as List).map((x) => Doctor.fromJson(x as Map<String, dynamic>)));
+        }
+      }
+    }
+    return DoctorDataModel(
+      success: json["success"],
+      message: json["message"],
+      data: list ?? [],
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     "success": success,
@@ -97,7 +110,8 @@ class DoctorDetails {
   int? consultationFee;
   List<WeeklySlot>? weeklySlots;  // Doctor के time slots
   List<dynamic>? speciality;
-  int? totalAvgRating;
+  /// API returns decimal (e.g. 4.8); use num? to avoid parse/type errors.
+  num? totalAvgRating;
   int? totalReviewCount;
 
   DoctorDetails({
@@ -109,14 +123,47 @@ class DoctorDetails {
     this.totalReviewCount,
   });
 
-  factory DoctorDetails.fromJson(Map<String, dynamic> json) => DoctorDetails(
-    languages: json["languages"] == null ? [] : List<String>.from(json["languages"]!.map((x) => x)),
-    consultationFee: json["consultationFee"],
-    weeklySlots: json["weeklySlots"] == null ? [] : List<WeeklySlot>.from(json["weeklySlots"]!.map((x) => WeeklySlot.fromJson(x))),
-    speciality: json["speciality"] == null ? [] : List<dynamic>.from(json["speciality"]!.map((x) => x)),
-    totalAvgRating: json["totalAvgRating"],
-    totalReviewCount: json["totalReviewCount"],
-  );
+  factory DoctorDetails.fromJson(Map<String, dynamic> json) {
+    num? avg;
+    if (json["totalAvgRating"] != null) {
+      final v = json["totalAvgRating"];
+      if (v is num) {
+        avg = v;
+      } else if (v is String) {
+        avg = num.tryParse(v);
+      }
+    }
+    int? reviewCount;
+    if (json["totalReviewCount"] != null) {
+      final v = json["totalReviewCount"];
+      if (v is int) {
+        reviewCount = v;
+      } else if (v is num) {
+        reviewCount = v.toInt();
+      } else if (v is String) {
+        reviewCount = int.tryParse(v);
+      }
+    }
+    int? fee;
+    if (json["consultationFee"] != null) {
+      final v = json["consultationFee"];
+      if (v is int) {
+        fee = v;
+      } else if (v is num) {
+        fee = v.toInt();
+      } else if (v is String) {
+        fee = int.tryParse(v);
+      }
+    }
+    return DoctorDetails(
+      languages: json["languages"] == null ? [] : List<String>.from(json["languages"]!.map((x) => x)),
+      consultationFee: fee,
+      weeklySlots: json["weeklySlots"] == null ? [] : List<WeeklySlot>.from(json["weeklySlots"]!.map((x) => WeeklySlot.fromJson(x))),
+      speciality: json["speciality"] == null ? [] : List<dynamic>.from(json["speciality"]!.map((x) => x)),
+      totalAvgRating: avg,
+      totalReviewCount: reviewCount,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     "languages": languages == null ? [] : List<dynamic>.from(languages!.map((x) => x)),

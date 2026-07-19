@@ -1,6 +1,5 @@
 import 'package:babyland/app/controller/forgot_password/forgot_pass_controller.dart';
 import 'package:babyland/app/data/response/status.dart';
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
@@ -9,12 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
-import '../../widgets/app_popup.dart';
 import '../../widgets/pinput.dart';
 import '../../widgets/validation.dart';
 
 class ForgotPasswordOtpVerifyView extends StatelessWidget {
-  ForgotPasswordOtpVerifyView({super.key});
+  const ForgotPasswordOtpVerifyView({super.key});
 
 
   @override
@@ -54,6 +52,19 @@ class ForgotPasswordOtpVerifyView extends StatelessWidget {
                           ),
                         ),
                         SizedBox(height: 32),
+
+                        if (controller.otpApiData?.status == ApiStatus.ERROR)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              controller.otpApiData?.message ??
+                                  'Verification failed. Please try again.',
+                              style: AppFontStyle.text_14_400(
+                                color: AppColors.red,
+                                fontFamily: AppFontFamily.gilroyMedium,
+                              ),
+                            ),
+                          ),
 
                         /// ---- PIN PUT ----
                         CommonPinput(

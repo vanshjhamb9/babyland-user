@@ -1,10 +1,10 @@
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
+import 'package:babyland/app/widgets/subscription_dialog.dart';
 import 'package:flutter/cupertino.dart';
 import '../../../main.dart';
 import 'model/ai_chat_model.dart';
@@ -211,8 +211,9 @@ class AiAssistantProvider extends ChangeNotifier {
         pt(name: "response", "${value.message}");
       }
       if (value.success == false) {
-        AppPopUp.showToast(message: value.message ?? "");
         setCrateRoomData(ApiResponse.error(value.message ?? "Something went wrong!"));
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+        if (!handled) AppPopUp.showToast(message: value.message ?? "");
       }
       notifyListeners();
     }).onError((error, stackTrace) {
@@ -255,7 +256,8 @@ class AiAssistantProvider extends ChangeNotifier {
         });
       }
       if (value.success == false) {
-        AppPopUp.showToast(message: value.message ?? "");
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+        if (!handled) AppPopUp.showToast(message: value.message ?? "");
       }
       notifyListeners();
     }).onError((error, stackTrace) {
@@ -328,7 +330,8 @@ class AiAssistantProvider extends ChangeNotifier {
         });      }
       if (value.success == false) {
         setCreateAIChat(ApiResponse.error(value.message));
-        AppPopUp.showToast(message: value.message ?? "");
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+        if (!handled) AppPopUp.showToast(message: value.message ?? "");
       }
       notifyListeners();
     }).onError((error, stackTrace) {

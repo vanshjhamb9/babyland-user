@@ -10,6 +10,7 @@ import '../../routes/app_routes.dart';
 import '../../widgets/app_popup.dart';
 import '../../widgets/print.dart';
 import '../create_account/model/set_password_model.dart';
+import 'package:babyland/core/di/service_locator.dart';
 
 class ForgotPassController extends ChangeNotifier{
   final formKey = GlobalKey<FormState>();
@@ -52,7 +53,13 @@ class ForgotPassController extends ChangeNotifier{
         setForgotApiData(ApiResponse.completed(value));
         pt("response data here ${value.data?.code}");
 
-        AppPopUp.showToast(message: "${value.message} : ${value.data?.code}"?? "Email otp send successful",duration :  Duration(seconds: 10),);
+        final otpHint = value.data?.code != null
+            ? ' Code: ${value.data!.code}'
+            : '';
+        AppPopUp.showToast(
+          message: '${value.message ?? 'OTP sent'}$otpHint',
+          duration: const Duration(seconds: 6),
+        );
 
         if (navigatorKey.currentContext != null) {
           Navigator.pushNamed(navigatorKey.currentContext!
@@ -96,13 +103,19 @@ class ForgotPassController extends ChangeNotifier{
     notifyListeners();
   }
 
-  Future<void> otpVerification()async{
+  Future<void> otpVerification() async {
+    final code = otpController.text.trim();
+    if (code.length < 4) {
+      AppPopUp.showToast(message: 'Please enter the complete OTP code.');
+      return;
+    }
+
     setOtpRequestApiData(ApiResponse.loading());
     notifyListeners();
 
     Map<String, String> data = {
-      "email": emailController.text,
-      "code": otpController.text,
+      "email": emailController.text.trim(),
+      "code": code,
     };
     try{
       await repository.otpVerification(data).then((value) {
@@ -115,18 +128,24 @@ class ForgotPassController extends ChangeNotifier{
           // Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.signInView, (route) => false);
           Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.createNewPasswordView);
         }else{
-          setOtpRequestApiData(ApiResponse.error(value.message));
+          setOtpRequestApiData(
+            ApiResponse.error(value.message ?? 'Invalid or expired code'),
+          );
           pt(name: "response error","${value.message}");
-          AppPopUp.showToast(message: value.message ?? "");
+          AppPopUp.showToast(
+            message: value.message ?? 'Invalid or expired code',
+          );
         }
         notifyListeners();
 
       },);
-    }catch(e,s){
+    } catch (e, s) {
       pt("Error request varification $e $s ");
       setOtpRequestApiData(ApiResponse.error(e.toString()));
+      AppPopUp.showToast(
+        message: 'Verification failed. Check the code and try again.',
+      );
       notifyListeners();
-
     }
   }
 
@@ -190,6 +209,12 @@ class ForgotPassController extends ChangeNotifier{
               Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!,AppRoutes.signInView,(route) => false);
             }
           },);
+
+          final newRefreshToken = _setPasswordApiData?.data?.data?.refreshToken ?? '';
+          if (newRefreshToken.isNotEmpty) {
+            await SecureStorage.saveRefreshToken(newRefreshToken);
+            await sl.authService.saveRefreshToken(newRefreshToken);
+          }
           // pageController.nextPage(duration: Duration(milliseconds: 300), curve: Curves.easeIn);
         }else{
           setPasswordRequestApiData(ApiResponse.error(value.message));

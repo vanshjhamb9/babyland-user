@@ -12,12 +12,12 @@ class SubCustomContainer extends StatelessWidget {
   final bool borderValue;
 
   const SubCustomContainer({
-    Key? key,
+    super.key,
     required this.title,
     required this.price,
     this.isMostPopular = false,
     this.borderValue = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

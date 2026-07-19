@@ -2,27 +2,84 @@ class MenturalAiInsightsModel {
   bool? success;
   String? source;
   DataExit? dataexit;
+  String? message;
+  String? errorCode;
 
-  MenturalAiInsightsModel({this.success, this.source, this.dataexit});
+  MenturalAiInsightsModel({
+    this.success,
+    this.source,
+    this.dataexit,
+    this.message,
+    this.errorCode,
+  });
+
+  /// User-facing text for toasts when [success] is not true.
+  String get displayMessage {
+    if (message != null && message!.trim().isNotEmpty) return message!.trim();
+    switch (errorCode) {
+      case 'NO_SUBSCRIPTION':
+        return 'This feature requires an active subscription.';
+      case 'FEATURE_NOT_INCLUDED':
+        return 'Your plan does not include this feature.';
+      default:
+        return 'Something went wrong!';
+    }
+  }
+
+  bool get isSubscriptionError =>
+      errorCode == 'NO_SUBSCRIPTION' ||
+      errorCode == 'FEATURE_NOT_INCLUDED' ||
+      rootRequiresSubscription == true ||
+      rootRequiresUpgrade == true;
+
+  bool? rootRequiresSubscription;
+  bool? rootRequiresUpgrade;
 
   MenturalAiInsightsModel.fromJson(Map<String, dynamic> json) {
-    if (json['data'] != null && json['data'] is Map<String, dynamic>) {
-       final dataObj = json['data'];
-       success = dataObj['success'] ?? json['success'];
-       source = dataObj['source'] ?? json['source'];
-       // The user's curl payload showed dataexit inside data: { success: true, dataexit: {...} }
-       dataexit = dataObj['dataexit'] != null ? DataExit.fromJson(dataObj['dataexit']) : null;
-    } else {
-       success = json['success'];
-       source = json['source'];
-       dataexit = json['dataexit'] != null ? DataExit.fromJson(json['dataexit']) : null;
+    final root = _asMap(json);
+    if (root == null) return;
+
+    message = root['message']?.toString();
+    final err = _asMap(root['error']);
+    if (err != null) {
+      errorCode = err['code']?.toString();
+      message ??= err['message']?.toString();
     }
+    rootRequiresSubscription = root['requiresSubscription'] == true;
+    rootRequiresUpgrade = root['requiresUpgrade'] == true;
+
+    final nested = _asMap(root['data']);
+    if (nested != null) {
+      success = nested['success'] ?? root['success'];
+      source = nested['source']?.toString() ?? root['source']?.toString();
+      dataexit = _parseDataExit(nested['dataexit'] ?? root['dataexit']);
+    } else {
+      success = root['success'];
+      source = root['source']?.toString();
+      dataexit = _parseDataExit(root['dataexit']);
+    }
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static DataExit? _parseDataExit(dynamic value) {
+    final map = _asMap(value);
+    if (map == null) return null;
+    return DataExit.fromJson(map);
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['success'] = success;
     data['source'] = source;
+    data['message'] = message;
+    if (errorCode != null) {
+      data['error'] = {'code': errorCode};
+    }
     if (dataexit != null) {
       data['dataexit'] = dataexit!.toJson();
     }
@@ -57,15 +114,15 @@ class DataExit {
     userId = json['userId'];
     week = json['week'];
     category = json['category'];
-    if (json['items'] != null) {
+    if (json['items'] is List) {
       items = <InsightItem>[];
-      json['items'].forEach((v) {
-        items!.add(InsightItem.fromJson(v));
-      });
+      for (final v in json['items'] as List) {
+        final map = MenturalAiInsightsModel._asMap(v);
+        if (map != null) items!.add(InsightItem.fromJson(map));
+      }
     }
-    quickTip = json['quick_tip'] != null
-        ? QuickTip.fromJson(json['quick_tip'])
-        : null;
+    final tipMap = MenturalAiInsightsModel._asMap(json['quick_tip']);
+    quickTip = tipMap != null ? QuickTip.fromJson(tipMap) : null;
     createdAt = json['createdAt'];
     updatedAt = json['updatedAt'];
     iV = json['__v'];

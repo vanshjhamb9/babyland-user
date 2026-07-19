@@ -4,10 +4,9 @@ import 'package:babyland/app/view/Pre_pregnancy_flow/aI_insights.dart';
 import 'package:babyland/app/view/Pregnancy_Flow/community_view.dart';
 import 'package:babyland/app/view/Pregnancy_Flow/fetal_development_view.dart';
 import 'package:babyland/app/view/Pregnancy_Flow/pregnancy_home_view.dart';
-import 'package:babyland/app/view/Pregnancy_Flow/pregnancy_view.dart';
 import 'package:babyland/app/view/profile_screen/profile_screen.dart';
-import 'package:babyland/app/view/subscription_unlock_plans/pregnancy/pregnancy_sub_screen.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:babyland/app/view/shop/shop_screen.dart';
 
 class NavBarProvider extends ChangeNotifier{
 
@@ -24,6 +23,7 @@ class NavBarProvider extends ChangeNotifier{
     'Tracker',
     'Insights',
     'Community',
+    'Shop',
     'Profile'
   ];
 
@@ -35,6 +35,7 @@ class NavBarProvider extends ChangeNotifier{
     // const FetalDevelopmentView(),
     const AiInsights(),
      CommunityView(backButton: false,),
+    const ShopScreen(),
     ProfileScreen(stage: Stages.PREGRANCY),
   ];
 

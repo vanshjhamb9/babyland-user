@@ -1,12 +1,14 @@
+import 'package:babyland/app/controller/post_pregenancy/post_pregenancy_controller.dart';
 import 'package:babyland/app/navbar/post_pregnancy/post_pregnancy_navbar_controller.dart';
+import 'package:babyland/features/post_pregnancy/state/postpartum_dashboard_notifier.dart';
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
-import 'package:babyland/app/navbar/pregnancy/navbar_controller.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
+import 'package:babyland/app/widgets/user_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,14 +42,30 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
 
       floatingActionButton: Consumer<PostPregnancyNavBarProvider>(
           builder: (context, provider, child) {
-            return  provider.selectedIndex != 0 ? SizedBox.shrink() :
-            InkWell(
-              onTap:()=> Navigator.pushNamed(context, AppRoutes.dailyLogs,
-              arguments: {
-                "prePregnancyFlow" : false,
-                "flowType" : "postPregnancy",
-              }
-              ),
+            return provider.selectedIndex != 0
+                ? const SizedBox.shrink()
+                : InkWell(
+              onTap: () async {
+                await Navigator.pushNamed(
+                  context,
+                  AppRoutes.dailyLogs,
+                  arguments: {
+                    'prePregnancyFlow': false,
+                    'flowType': 'postPregnancy',
+                  },
+                );
+                if (!context.mounted) return;
+                final pp = context.read<PostpregnancyProvider>();
+                await Future.wait([
+                  pp.getDashboardLogsApi(),
+                  pp.getRecoveryTaskApi(),
+                ]);
+                await context.read<PostpartumDashboardNotifier>().refresh(
+                  recoveryTask: pp.getRecoveryApiData?.data,
+                  dashboardLogs: pp.dashboardLogsApiData?.data,
+                  force: true,
+                );
+              },
               child: Padding(
               padding: const EdgeInsets.only(bottom: 14.0),
               child: AppContainer(
@@ -91,10 +109,10 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildNavItem( "Home", 0, provider),
-                    _buildNavItem( "Tracker", 1, provider),
-                    _buildNavItem("Insights", 2, provider),
-                    _buildNavItem("Community", 3, provider),
+                    _buildNavItem("Home", 0, provider),
+                    _buildNavItem("Insights", 1, provider),
+                    _buildNavItem("Community", 2, provider),
+                    _buildShopItem(3, provider),
                     _buildProfileItem(4, provider),
                   ],
                 ),
@@ -146,11 +164,12 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
             gradient: AppColors.buttonClr,
             radius: 100,
             padding: EdgeInsets.all(1),
-            child: CustomImage(
-              h: 26,
-              w: 26,
-              borderRadius: BorderRadius.circular(100),
-              path: "https://i.pravatar.cc/300",),
+            child: UserAvatar(
+              size: 26,
+              imageUrl: context.read<GetUserProvider>().userData?.data?.user?.user?.profilePicture,
+              name: context.read<GetUserProvider>().userData?.data?.user?.user?.name,
+              stage: context.read<GetUserProvider>().userData?.data?.user?.user?.stage,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -158,6 +177,36 @@ class _PostPregnancyNavbarViewState extends State<PostPregnancyNavbarView> {
               style: AppFontStyle.text_12_400(
                   fontFamily:isSelected? AppFontFamily.gilroySemiBold : AppFontFamily.gilroyMedium,
                   color:isSelected ? AppColors.textClr : AppColors.textLightClr)
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopItem(int index, PostPregnancyNavBarProvider provider) {
+    final isSelected = provider.selectedIndex == index;
+    return InkWell(
+      splashColor: AppColors.transparent,
+      highlightColor: AppColors.transparent,
+      onTap: () => provider.setSelectedIndex(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.shopping_bag_rounded,
+            size: 22,
+            color: isSelected ? AppColors.buttonClr1 : AppColors.textLightClr,
+          ),
+          const SizedBox(height: 5),
+          Text(
+            "Shop",
+            style: AppFontStyle.text_12_400(
+              fontFamily: isSelected
+                  ? AppFontFamily.gilroySemiBold
+                  : AppFontFamily.gilroyMedium,
+              color: isSelected ? AppColors.textClr : AppColors.textLightClr,
+            ),
           ),
         ],
       ),

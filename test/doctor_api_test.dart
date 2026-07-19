@@ -11,12 +11,13 @@
 ///   - Login itself
 ///   - GET /bookings/upcoming  (patient bookings)
 ///   - GET /bookings/past      (patient bookings)
+library;
 
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
-const String baseUrl = 'https://baby-land-node-servers.onrender.com/api';
+const String baseUrl = 'http://164.52.197.176/api';
 
 // Patient credentials from nim@nim.com / 12345678
 const String patientEmail    = 'nim@nim.com';

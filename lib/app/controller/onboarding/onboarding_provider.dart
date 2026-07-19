@@ -1,4 +1,5 @@
 import 'package:babyland/app/constants/images.dart';
+import 'package:babyland/core/constants/app_constants.dart';
 import 'package:flutter/cupertino.dart';
 
 class OnboardingProvider extends ChangeNotifier{
@@ -29,7 +30,7 @@ class OnboardingProvider extends ChangeNotifier{
       "image": ImageConstants.onboarding_2,
     },
     {
-      "title": "Your AI Wellness Companion",
+      "title": "${AppConstants.aiAssistantDisplayName} — your wellness companion",
       "description": "Personalized care and guidance for you and your baby’s journey.",
       "image": ImageConstants.onboarding_3
     },{

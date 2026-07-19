@@ -39,6 +39,7 @@ class CustomTextFormField extends StatelessWidget {
     this.minLines,
     this.errorStyle,
     this.borderColor, this.labelText, this.labelStyle,
+    this.onFieldSubmitted,
   });
 
   final Alignment? alignment;
@@ -97,6 +98,7 @@ class CustomTextFormField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final TextStyle? errorStyle;
   final Color? borderColor;
+  final ValueChanged<String>? onFieldSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +118,7 @@ class CustomTextFormField extends StatelessWidget {
       onTap: onTap,
       onTapOutside:  onTapOutside ?? (event)=> FocusManager.instance.primaryFocus?.unfocus(),
       onChanged: onChanged,
+      onFieldSubmitted: onFieldSubmitted,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       enabled: enabled ?? true,
       controller: controller,

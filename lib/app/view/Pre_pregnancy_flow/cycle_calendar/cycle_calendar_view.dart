@@ -5,24 +5,42 @@ import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
-import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:flutter/material.dart';
-import 'package:googleapis/cloudsearch/v1.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:babyland/app/routes/app_routes.dart';
-import 'package:babyland/app/widgets/app_popup.dart';
-import 'package:babyland/app/widgets/validation.dart';
-
 class CycleCalendarView extends StatefulWidget {
   const CycleCalendarView({super.key});
+
+  static final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
   @override
   State<CycleCalendarView> createState() => _CycleCalendarViewState();
 }
 
-class _CycleCalendarViewState extends State<CycleCalendarView> {
+class _CycleCalendarViewState extends State<CycleCalendarView> with RouteAware {
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      CycleCalendarView.routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    CycleCalendarView.routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    final p = context.read<CycleCalenderProvider>();
+    p.cycleCalender(year: p.focusedDay.year, month: p.focusedDay.month);
+  }
 
   @override
   void initState() {
@@ -59,9 +77,10 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
 
           return RefreshIndicator(
             onRefresh: () {
-              final now = DateTime.now();
               return provider.cycleCalender(
-                  year: now.year, month: now.month);
+                year: provider.focusedDay.year,
+                month: provider.focusedDay.month,
+              );
             },
             child: SingleChildScrollView(
               physics: AlwaysScrollableScrollPhysics(),
@@ -84,34 +103,34 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
                       children: [
                         Builder(
                           builder: (context) {
-                            final data = provider.calendarApi?.data?.data;
-
-                            // Use the old model's dedicated fields
-                            final nextPeriodStart = data?.nextPeriod?.start;
-                            final nextPeriodEnd = data?.nextPeriod?.end;
-                            final fertileWindow = data?.nextFertileWindow;
-                            final nextOvulation = data?.nextOvulation;
+                            // Use the same month-scoped lists as the calendar grid
+                            // (not API nextPeriod/nextOvulation, which stay on "next" cycle).
+                            final predictedRange =
+                                provider.monthSummaryPredictedPeriodRange;
+                            final fertileRange =
+                                provider.monthSummaryFertileWindowRange;
+                            final ovulationDay =
+                                provider.monthSummaryOvulationDay;
 
                             return Column(
                               children: [
-                                if (nextPeriodStart != null && nextPeriodStart.isNotEmpty)
+                                if (predictedRange != null &&
+                                    predictedRange.isNotEmpty)
                                   buildRow(
                                     title: "Next Period:",
-                                    date: (nextPeriodEnd != null && nextPeriodEnd.isNotEmpty && nextPeriodEnd != nextPeriodStart) 
-                                        ? "${formatDateToDayMonth(nextPeriodStart)} - ${formatDateToDayMonth(nextPeriodEnd)}"
-                                        : formatDateToDayMonth(nextPeriodStart),
+                                    date: predictedRange,
                                   ),
-                                if (fertileWindow != null && fertileWindow.isNotEmpty)
+                                if (fertileRange != null &&
+                                    fertileRange.isNotEmpty)
                                   buildRow(
                                     title: "Fertile window:",
-                                    date: fertileWindow.length >= 2
-                                        ? "${formatDateToDayMonth(fertileWindow.first)} - ${formatDateToDayMonth(fertileWindow.last)}"
-                                        : formatDateToDayMonth(fertileWindow.first),
+                                    date: fertileRange,
                                   ),
-                                if (nextOvulation != null && nextOvulation.isNotEmpty)
+                                if (ovulationDay != null &&
+                                    ovulationDay.isNotEmpty)
                                   buildRow(
                                     title: "Ovulation day:",
-                                    date: formatDateToDayMonth(nextOvulation),
+                                    date: ovulationDay,
                                   ),
                                 SizedBox(height: 8),
                               ],
@@ -475,7 +494,7 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
   Widget buildRow({required String title, required String date}) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
     child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
@@ -484,11 +503,17 @@ class _CycleCalendarViewState extends State<CycleCalendarView> {
             fontFamily: AppFontFamily.gilroyMedium,
           ),
         ),
-        Text(
-          date,
-          style: AppFontStyle.text_14_400(
-            color: AppColors.textClr,
-            fontFamily: AppFontFamily.gilroyMedium,
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            date,
+            textAlign: TextAlign.end,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppFontStyle.text_14_400(
+              color: AppColors.textClr,
+              fontFamily: AppFontFamily.gilroyMedium,
+            ),
           ),
         ),
       ],

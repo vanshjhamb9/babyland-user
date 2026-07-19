@@ -12,10 +12,13 @@ import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/custom_textform_field.dart';
+import 'package:babyland/app/widgets/user_avatar.dart';
 import 'package:babyland/app/widgets/sizedbox.dart';
+import 'package:babyland/core/constants/app_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/text.dart';
+import '../../../features/ai_assistant/widgets/ira_avatar.dart';
 
 class AiAssistantView extends StatefulWidget {
   const AiAssistantView({super.key});
@@ -26,7 +29,7 @@ class AiAssistantView extends StatefulWidget {
 
 class _AiAssistantViewState extends State<AiAssistantView> {
   final List<String> chatsList = [
-    "Hello! I’m your personal AI Heath Assistent.",
+    "Hello! I’m ${AppConstants.aiAssistantDisplayName}, your personal health assistant.",
     "When is my next period expected?",
     "Why is my cycle late this month?",
     "Is it normal to feel bloated before my period?",
@@ -106,41 +109,10 @@ class _AiAssistantViewState extends State<AiAssistantView> {
                               itemBuilder: (context, index) {
                                 final chat = provider.chatList[index];
                                 final isAssistant = chat.aiMessage != null;
-                                return Padding(
-                                  padding: EdgeInsets.fromLTRB(isAssistant ? 50 : 20, 8, 14, 8),
-                                  child: Align(
-                                    alignment: isAssistant ? Alignment.centerLeft : Alignment.centerRight,
-                                    child: IntrinsicWidth(
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          AppContainer(
-                                            borderColor: isAssistant ? AppColors.borderColor : AppColors.transparent,
-                                            radius: 8,
-                                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                                            gradient: isAssistant
-                                                ? AppColors.whiteGradientClr
-                                                : AppColors.backGroundColor,
-                                            // child: Text(
-                                            //   isAssistant ? chat.aiMessage ?? "" : chat.userMessage ?? "",
-                                            //   maxLines: 100,
-                                            //   style: AppFontStyle.text_14_400(
-                                            //       fontFamily: AppFontFamily.gilroyMedium),
-                                            // ),
-                                            child: SafeMarkdownFormatter.format(
-                                              isAssistant ? chat.aiMessage ?? "" : chat.userMessage ?? "",
-                                              // isAssistant,
-                                            ),
-                                          ),
-                                          if (isAssistant)
-                                            Positioned(
-                                                left: -32,
-                                                child: CustomImage(path: ImageConstants.starSvg))
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
+                                if (isAssistant) {
+                                  return _buildAssistantMessage(chat.aiMessage ?? "");
+                                }
+                                return _buildUserMessage(chat.userMessage ?? "");
                               },
                             ),
                           ),
@@ -178,23 +150,6 @@ class _AiAssistantViewState extends State<AiAssistantView> {
                                     ),
                                   ),
                                 ],
-                              ),
-                            )
-                              : provider.isVoiceChat ? Center(
-                              child: InkWell(
-                                splashColor: AppColors.transparent,
-                                highlightColor: AppColors.transparent,
-                                onTap: () {
-
-                                  provider.setVoiceChat(true);
-                                  // provider.setMicOn(false);
-                                },
-                                child: AppContainer(
-                                  radius: 100,
-                                  padding: const EdgeInsets.all(18),
-                                  color: AppColors.white,
-                                  child: CustomImage(path: ImageConstants.micIcon),
-                                ),
                               ),
                             ) : Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -285,8 +240,10 @@ class _AiAssistantViewState extends State<AiAssistantView> {
                 );
               }
             ),
-            Text("Ask me anything.......",
-              style: AppFontStyle.text_26_400(fontFamily: AppFontFamily.gilroyMedium),
+            Text(
+              "Ask ${AppConstants.aiAssistantDisplayName} anything...",
+              style: AppFontStyle.text_26_400(
+                  fontFamily: AppFontFamily.gilroyMedium),
             ),
             SizedBox(height: 20),
             ListView.separated(
@@ -332,7 +289,7 @@ class _AiAssistantViewState extends State<AiAssistantView> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            "Ask Health AI",
+            AppConstants.aiAssistantDisplayName,
             style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroyMedium),
           ),
           const SizedBox(width: 6),
@@ -350,11 +307,11 @@ class _AiAssistantViewState extends State<AiAssistantView> {
               gradient: AppColors.buttonClr,
               radius: 100,
               padding: const EdgeInsets.all(1),
-              child: CustomImage(
-                h: 40,
-                w: 40,
-                borderRadius: BorderRadius.circular(100),
-                path: "https://i.pravatar.cc/300",
+              child: UserAvatar(
+                size: 40,
+                imageUrl: context.read<GetUserProvider>().userData?.data?.user?.user?.profilePicture,
+                name: context.read<GetUserProvider>().userData?.data?.user?.user?.name,
+                stage: context.read<GetUserProvider>().userData?.data?.user?.user?.stage,
               ),
             ),
             Consumer<GetUserProvider>(
@@ -415,6 +372,64 @@ class _AiAssistantViewState extends State<AiAssistantView> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssistantMessage(String content) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 60, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 40, bottom: 4),
+            child: Text(
+              'IRA',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textLightClr.withOpacity(0.7),
+                fontFamily: AppFontFamily.gilroySemiBold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const IraAvatar(size: 32),
+              const SizedBox(width: 8),
+              Flexible(
+                child: AppContainer(
+                  borderColor: AppColors.borderColor,
+                  radius: 8,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  gradient: AppColors.whiteGradientClr,
+                  child: SafeMarkdownFormatter.format(content),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserMessage(String content) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 8, 16, 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: IntrinsicWidth(
+          child: AppContainer(
+            borderColor: AppColors.transparent,
+            radius: 8,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            gradient: AppColors.backGroundColor,
+            child: SafeMarkdownFormatter.format(content),
+          ),
         ),
       ),
     );
@@ -560,7 +575,7 @@ class SafeMarkdownFormatter {
 
   // Remove duplicate disclaimer from the end of text
   static String _removeDuplicateDisclaimer(String text) {
-    final disclaimerText = '*Disclaimer: I am an AI assistant. This information is for educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or another qualified health provider with any questions you may have regarding a medical condition.*';
+    final disclaimerText = '*Disclaimer: I am ${AppConstants.aiAssistantDisplayName}. This information is for educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or another qualified health provider with any questions you may have regarding a medical condition.*';
 
     // Check if text ends with disclaimer
     if (text.trim().endsWith(disclaimerText.trim())) {

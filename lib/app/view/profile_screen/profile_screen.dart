@@ -1,4 +1,6 @@
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
+import 'package:babyland/app/services/user_preference/user_preference.dart';
+import 'package:babyland/core/di/service_locator.dart';
 import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/data/storage/user_local_data.dart';
@@ -12,9 +14,11 @@ import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/data/network/end_points.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
+import 'package:babyland/core/auth/app_google_sign_in.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../groups/saved_posts_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Stages? stage;
@@ -31,6 +35,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadCurrentStage();
+  }
+
+  Future<void> _openSubscription(BuildContext context) async {
+    Navigator.pushNamed(context, AppRoutes.subscriptionScreen);
   }
 
   Future<void> _loadCurrentStage() async {
@@ -120,7 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: AppColors.black.withOpacity(0.05),
+              color: AppColors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -136,25 +144,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: profilePic != null && profilePic.isNotEmpty
                     ? CustomImage(
                         path: profilePic,
-                        w: 70, 
+                        w: 70,
                         h: 70,
                         fit: BoxFit.cover,
                         errorWidget: (context, url, error) => Center(
-                          child: Text(provider.userData?.data?.user?.user?.name?[0] ?? "",
+                          child: Text(
+                            provider.userData?.data?.user?.user?.name?[0] ?? '',
                             style: AppFontStyle.text_40_600(
                               color: AppColors.black,
                               fontFamily: AppFontFamily.gilroyRegular,
                             ),
-                          )
+                          ),
                         ),
                       )
                     : Center(
-                        child: Text(provider.userData?.data?.user?.user?.name?[0] ?? "",
+                        child: Text(
+                          provider.userData?.data?.user?.user?.name?[0] ?? '',
                           style: AppFontStyle.text_40_600(
                             color: AppColors.black,
                             fontFamily: AppFontFamily.gilroyRegular,
                           ),
-                        )  ?? const Icon(Icons.person, size: 38, color: Colors.white),
+                        ),
                       ),
               ),
             ),
@@ -193,23 +203,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ---------------- MENU TILES ----------------
   Widget buildTiles() {
-    List<String> titles = [
+    const titles = [
       "Stage",
       "Subscription",
+      "Saved Posts",
+      "Shop Products",
+      "About Us",
       "Doctors",
       "My Booking",
       "Terms of Service",
       "Privacy Policy",
       "Refund Policy",
       "Shipping Policy",
-      "Log Out"
+      "Log Out",
     ];
 
-    List<IconData> icons = [
+    const icons = [
       Icons.flag_rounded,
       Icons.card_membership,
+      Icons.bookmarks_rounded,
+      Icons.shopping_bag_rounded,
+      Icons.info_outline_rounded,
       Icons.local_hospital,
-      Icons.save,
+      Icons.event_available_rounded,
       Icons.description_rounded,
       Icons.privacy_tip_rounded,
       Icons.receipt_long_rounded,
@@ -266,9 +282,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 18),
-            onTap: () {
+            onTap: () async {
               if (index == 0) {
-                // Stage - Open formatted for update and reload on return
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -280,31 +295,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ).then((_) {
                   _loadCurrentStage();
                 });
-              } else if (index == 1) { // Subscription
-                switch(widget.stage!) {
-                  case Stages.PREPREGRANCY:
-                    Navigator.pushNamed(context, AppRoutes.prePreSubscriptionView);
-                    break;
-                  case Stages.PREGRANCY:
-                    Navigator.pushNamed(context, AppRoutes.preSubscriptionView);
-                    break;
-                  case Stages.POSTPREGRANCY:
-                    Navigator.pushNamed(context, AppRoutes.postPreSubscriptionView);
-                    break;
-                }
-              } else if (index == 2) { // Doctors
+              } else if (index == 1) {
+                await _openSubscription(context);
+              } else if (index == 2) {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPostsScreen()));
+              } else if (index == 3) {
+                Navigator.pushNamed(context, AppRoutes.shopScreen);
+              } else if (index == 4) {
+                Navigator.pushNamed(context, AppRoutes.aboutUsView);
+              } else if (index == 5) {
                 Navigator.pushNamed(context, AppRoutes.allDoctorView);
-              } else if (index == 3) { // My Booking
+              } else if (index == 6) {
                 Navigator.pushNamed(context, AppRoutes.myBookingsView);
-              } else if (index == 4) { // Terms
+              } else if (index == 7) {
                 Navigator.pushNamed(context, AppRoutes.termOfServicesScreen);
-              } else if (index == 5) { // Privacy
+              } else if (index == 8) {
                 Navigator.pushNamed(context, AppRoutes.privacyPolicy);
-              } else if (index == 6) { // Refund
+              } else if (index == 9) {
                 Navigator.pushNamed(context, AppRoutes.refundPolicyScreen);
-              } else if (index == 7) { // Shipping
+              } else if (index == 10) {
                 Navigator.pushNamed(context, AppRoutes.shippingPolicyScreen);
-              } else if (index == 8) { // Logout
+              } else if (index == 11) {
                 showLogoutDialog();
               }
             },
@@ -379,9 +390,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Button(
                           text: "Yes",
                           onTap: ()async {
-                            await UserLocalData.clearAllLocalData();
                             await SecureStorage.clearAll();
-                            Navigator.pushNamedAndRemoveUntil(navigatorKey.currentContext!, AppRoutes.signInView, (route) => false);
+                            await UserLocalData.clearAllLocalData();
+                            await UserPreference.saveSavedCommunityPostIds([]);
+                            try {
+                              await AppGoogleSignIn.signOut();
+                            } catch (_) {}
+                            await sl.authService.logout();
+                            if (!context.mounted) return;
+                            Navigator.pushNamedAndRemoveUntil(
+                              navigatorKey.currentContext!,
+                              AppRoutes.signInView,
+                              (route) => false,
+                            );
                           },
                         )
                     ),

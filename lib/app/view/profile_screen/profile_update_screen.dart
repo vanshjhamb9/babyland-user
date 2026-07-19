@@ -8,7 +8,6 @@ import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
-import 'package:babyland/app/widgets/button.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/custom_textform_field.dart';
@@ -32,6 +31,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   late TextEditingController emailController;
   late TextEditingController phoneController;
   late TextEditingController weightController;
+  late TextEditingController ageController;
+  late TextEditingController heightController;
   late TextEditingController medicalHistoryController;
   
   // Pregnancy specific
@@ -66,6 +67,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     emailController = TextEditingController(text: user?.user?.email ?? "");
     phoneController = TextEditingController(text: user?.user?.phone ?? "");
     weightController = TextEditingController(text: user?.user?.weight ?? "");
+    ageController = TextEditingController(text: user?.user?.age ?? "");
+    heightController = TextEditingController(text: user?.user?.height ?? "");
     medicalHistoryController = TextEditingController(text: user?.user?.medicalHistory ?? "");
     
     // Initialize stage specific controllers
@@ -172,6 +175,20 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       return;
     }
 
+    final phone = phoneController.text.trim();
+    if (phone.isEmpty || !isValidPhone(phone, isRequired: true)) {
+      AppPopUp.showToast(
+        message: "Please enter a valid phone number (8–15 digits).",
+      );
+      return;
+    }
+
+    final email = emailController.text.trim();
+    if (email.isNotEmpty && !isValidEmail(email)) {
+      AppPopUp.showToast(message: "Please enter a valid email address.");
+      return;
+    }
+
     // Send conditions normally: selected = true, unselected = false
     final condData = {
       "PCOS": conditions["PCOS"] ?? false,
@@ -187,8 +204,10 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       await provider.updateUserProfile(
         name: name,
         email: emailController.text.toString().trim(),
-        phone: phoneController.text.toString().trim(),
+        phone: phone,
         weight: weightController.text.toString().trim(),
+        age: ageController.text.toString().trim(),
+        height: heightController.text.toString().trim(),
         conditions: condData,
         profileImage: profileImage,
       );
@@ -211,6 +230,25 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     } catch (e) {
       AppPopUp.showToast(message: "Failed to update profile: $e");
     }
+  }
+
+  /// Offline-safe placeholder (avoids external avatar URLs that fail DNS).
+  Widget _nameInitialAvatar(String? name, {double size = 100}) {
+    final n = (name ?? 'User').trim();
+    final letter = n.isNotEmpty ? n[0].toUpperCase() : '?';
+    return Container(
+      width: size,
+      height: size,
+      color: AppColors.greyStroke,
+      alignment: Alignment.center,
+      child: Text(
+        letter,
+        style: AppFontStyle.text_24_400(
+          color: AppColors.black,
+          fontFamily: AppFontFamily.gilroyMedium,
+        ).copyWith(fontSize: size * 0.32),
+      ),
+    );
   }
 
   Widget buildConditionBox(String title, bool isSelected) {
@@ -342,22 +380,15 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                                             profilePic = "$rootUrl/$cleanPath";
                                          }
                                          return CustomImage(
-                                            path: profilePic!,
+                                            path: profilePic,
                                             w: 100,
                                             h: 100,
                                             fit: BoxFit.cover,
-                                            errorWidget: (context, url, _) => Image.network(
-                                                "https://ui-avatars.com/api/?name=${user?.user?.name ?? 'User'}",
-                                                fit: BoxFit.cover,
-                                            ),
+                                            errorWidget: (context, url, _) =>
+                                                _nameInitialAvatar(user?.user?.name),
                                          );
                                       } else {
-                                         return Image.network(
-                                            "https://ui-avatars.com/api/?name=${user?.user?.name ?? 'User'}",
-                                            fit: BoxFit.cover,
-                                            width: 100,
-                                            height: 100,
-                                         );
+                                         return _nameInitialAvatar(user?.user?.name);
                                       }
                                     }
                                   }
@@ -439,6 +470,36 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                       icon: Icons.favorite_rounded,
                       iconColor: Color(0xFFE91E63), // Pink/Red
                       children: [
+                        Text("Age", style: AppFontStyle.text_14_400(color: AppColors.textLightClr)),
+                        const SizedBox(height: 8),
+                        CustomTextFormField(
+                          controller: ageController,
+                          hintText: "Enter your age",
+                          textInputType: TextInputType.number,
+                          borderColor: AppColors.grey.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(12),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        const SizedBox(height: 16),
+
+                        Text("Height", style: AppFontStyle.text_14_400(color: AppColors.textLightClr)),
+                        const SizedBox(height: 8),
+                        CustomTextFormField(
+                          controller: heightController,
+                          hintText: "Enter height in cm",
+                          textInputType: TextInputType.number,
+                          borderColor: AppColors.grey.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(12),
+                          filled: true,
+                          fillColor: Colors.white,
+                          suffix: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            child: Text("cm", style: AppFontStyle.text_14_400(color: AppColors.textClr)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
                         Text("Current Weight", style: AppFontStyle.text_14_400(color: AppColors.textLightClr)),
                         const SizedBox(height: 8),
                          CustomTextFormField(

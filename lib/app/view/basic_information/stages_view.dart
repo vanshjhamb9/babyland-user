@@ -6,8 +6,8 @@ import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
-import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/print.dart';
+import 'package:babyland/app/widgets/stage_accordion_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -17,34 +17,65 @@ class StagesView extends StatefulWidget {
   final bool? fromProfile;
   final bool? isUpdateFlow;
 
-  const StagesView({
-    super.key,
-    this.fromProfile,
-    this.isUpdateFlow,
-  });
+  const StagesView({super.key, this.fromProfile, this.isUpdateFlow});
 
   @override
   State<StagesView> createState() => _StagesViewState();
 }
 
 class _StagesViewState extends State<StagesView> {
-  final List<Map<String,String>> stagesList = [
-    {"title":"Pre-Pregnancy","image":ImageConstants.prePregnancy1},
-    {"title":"Pregnancy","image":ImageConstants.pregnancy},
-    {"title":"Post-Pregnancy","image":ImageConstants.postPregnancy},
-  ];
+  late final List<StageAccordionData> _stages;
 
   bool fromLoginScreen = false;
   late bool back;
   int? selectedStageIndex;
+  int? expandedIndex;
 
   @override
   void initState() {
     super.initState();
+    _stages = [
+      StageAccordionData(
+        title: 'Pre-Pregnancy',
+        compactImagePadding: true,
+        imagePath: ImageConstants.prePregnancy1,
+        description:
+            'Track your cycle, ovulation, and daily wellness while you plan for a baby.',
+        features: const [
+          'Cycle and period calendar with predictions',
+          'Daily logs for symptoms and mood',
+          'Tips tailored to your pre-conception journey',
+        ],
+      ),
+      StageAccordionData(
+        title: 'Pregnancy',
+        imagePath: ImageConstants.pregnancy,
+        description:
+            'Follow each week of pregnancy with guidance, reminders, and health insights.',
+        features: const [
+          'Week-by-week development and milestones',
+          'Appointments and reminders in one place',
+          'Community and expert content for every trimester',
+        ],
+      ),
+      StageAccordionData(
+        title: 'Post-Pregnancy',
+        imagePath: ImageConstants.postPregnancy,
+        description:
+            'Support recovery, baby growth, and routines after your little one arrives.',
+        features: const [
+          'Baby growth tracking and development notes',
+          'Postpartum wellness and scheduling tools',
+          'Resources for feeding, sleep, and care',
+        ],
+      ),
+    ];
+
     back = widget.fromProfile ?? false;
     _loadSelectedStage();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null && args.containsKey('fromLoginScreen')) {
         setState(() {
           fromLoginScreen = args['fromLoginScreen'] ?? false;
@@ -54,35 +85,227 @@ class _StagesViewState extends State<StagesView> {
       pt("fromLoginScreen--------------->>>> $fromLoginScreen");
       pt("back--------------->>>> $back");
       pt("fromprofile--------------->>>> ${widget.fromProfile}");
-    },);
+
+      if (!await UserLocalData.needsBasicProfile()) return;
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Complete your profile'),
+          content: const Text(
+            'Add your cycle and health details so guidance and the assistant can use your information.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  AppRoutes.basicInfoView,
+                  (route) => false,
+                );
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Future<void> _loadSelectedStage() async {
-    // 1. Start with local storage
+    final userProvider = context.read<GetUserProvider>();
     final step = await UserLocalData.getStep();
+    if (!mounted) return;
     if (step != null && step.isNotEmpty) {
       setState(() {
         selectedStageIndex = int.tryParse(step);
       });
     }
-    
-    // 2. Immediately prefer fresh backend data if available in the provider
-    final userProvider = context.read<GetUserProvider>();
+
     final backendUser = userProvider.userData?.data?.user?.user;
     if (backendUser != null) {
       final cType = backendUser.cycleType;
       int? backendIndex;
-      if (cType == "pregnancy") backendIndex = 1;
-      else if (cType == "post_pregnancy") backendIndex = 2;
-      else if (cType == "regular" || cType == "irregular" || cType == "prepregnancy") backendIndex = 0;
-      
+      if (cType == "pregnancy") {
+        backendIndex = 1;
+      } else if (cType == "post_pregnancy") {
+        backendIndex = 2;
+      } else if (cType == "regular" ||
+          cType == "irregular" ||
+          cType == "prepregnancy") {
+        backendIndex = 0;
+      }
+
+      if (backendIndex == null) {
+        final stageField = backendUser.stage?.toLowerCase() ?? '';
+        if (stageField.contains('post')) {
+          backendIndex = 2;
+        } else if (stageField.contains('preg') && !stageField.contains('pre')) {
+          backendIndex = 1;
+        } else if (stageField.contains('pre')) {
+          backendIndex = 0;
+        }
+      }
+
       if (backendIndex != null) {
         setState(() {
           selectedStageIndex = backendIndex;
+          expandedIndex = backendIndex;
         });
         pt("StagesView initialized from backend state: $backendIndex ($cType)");
       }
     }
+  }
+
+  /// Always show all stage cards on this screen so users can compare and switch.
+  bool get _showAllStageOptions => true;
+
+  List<int> get _visibleStageIndices {
+    if (_showAllStageOptions) {
+      return List.generate(_stages.length, (i) => i);
+    }
+    return [selectedStageIndex!];
+  }
+
+  void _onHeaderTap(int index) {
+    setState(() {
+      if (expandedIndex == index) {
+        expandedIndex = null;
+      } else {
+        expandedIndex = index;
+        selectedStageIndex = index;
+      }
+    });
+  }
+
+  Future<void> _confirmStageSelection(int index) async {
+    final userProvider = context.read<GetUserProvider>();
+    await UserLocalData.saveLastStageScreenShown();
+    if (!mounted) return;
+    await userProvider.updateUserStage(index);
+
+    if (!mounted) return;
+    setState(() {
+      selectedStageIndex = index;
+    });
+
+    if (fromLoginScreen) {
+      switch (index) {
+        case 0:
+          Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
+          break;
+        case 1:
+          {
+            final user = context.read<GetUserProvider>().userData?.data?.user;
+            String? concDate = user?.user?.pregnancyStartDate;
+            if (concDate == null && user?.pregnancyTracker != null) {
+              concDate =
+                  user?.pregnancyTracker!['pregnancyStartDate']?.toString() ??
+                  user?.pregnancyTracker!['conception_date']?.toString();
+            }
+            if (concDate != null && concDate.isNotEmpty) {
+              Navigator.pushNamed(context, AppRoutes.navbarView);
+            } else {
+              Navigator.pushNamed(context, AppRoutes.pregnancyView);
+            }
+          }
+          break;
+        case 2:
+          Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
+          break;
+      }
+      return;
+    }
+
+    if (widget.fromProfile == true) {
+      if (widget.isUpdateFlow == true) {
+        await UserLocalData.saveStep(index.toString());
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Stage updated successfully!'),
+            backgroundColor: AppColors.buttonClr1,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.navbarPrePregancyView,
+              (route) => false,
+            );
+            break;
+          case 1:
+            {
+              final user = userProvider.userData?.data?.user;
+              String? concDate = user?.user?.pregnancyStartDate;
+              if (concDate == null && user?.pregnancyTracker != null) {
+                concDate =
+                    user?.pregnancyTracker!['pregnancyStartDate']?.toString() ??
+                    user?.pregnancyTracker!['conception_date']?.toString();
+              }
+              if (concDate != null && concDate.isNotEmpty) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.navbarView,
+                  (route) => false,
+                );
+              } else {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.pregnancyView,
+                  (route) => false,
+                );
+              }
+            }
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.combinedBabyDetailScreen,
+              (route) => false,
+            );
+            break;
+        }
+        return;
+      }
+
+      switch (index) {
+        case 0:
+          Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
+          break;
+        case 1:
+          {
+            final user = userProvider.userData?.data?.user;
+            String? concDate = user?.user?.pregnancyStartDate;
+            if (concDate == null && user?.pregnancyTracker != null) {
+              concDate =
+                  user?.pregnancyTracker!['pregnancyStartDate']?.toString() ??
+                  user?.pregnancyTracker!['conception_date']?.toString();
+            }
+            if (concDate != null && concDate.isNotEmpty) {
+              Navigator.pushNamed(context, AppRoutes.navbarView);
+            } else {
+              Navigator.pushNamed(context, AppRoutes.pregnancyView);
+            }
+          }
+          break;
+        case 2:
+          Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
+          break;
+      }
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.processingDetailsView,
+      arguments: {"index": index},
+    );
   }
 
   @override
@@ -103,210 +326,30 @@ class _StagesViewState extends State<StagesView> {
               ),
               backgroundClr: AppColors.transparent,
             ),
-            ListView.separated(
-              physics: NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemBuilder: (context, index) {
-                final isSelected = selectedStageIndex == index;
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(left: 14, right: 14, bottom: 24),
+                itemCount: _visibleStageIndices.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 15),
+                itemBuilder: (context, listIndex) {
+                  final index = _visibleStageIndices[listIndex];
+                  final data = _stages[index];
+                  final isExpanded =
+                      expandedIndex == index || _visibleStageIndices.length == 1;
+                  final isSelected = selectedStageIndex == index;
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: GestureDetector(
-                    onTap: () async {
-                      // Save timestamp when user makes a selection
-                      await UserLocalData.saveLastStageScreenShown();
-                      
-                      // Sync with backend (correctly updates local step and backend stage)
-                      await context.read<GetUserProvider>().updateUserStage(index);
-
-                      // Update the selected stage visually
-                      setState(() {
-                        selectedStageIndex = index;
-                      });
-
-                      if (fromLoginScreen) {
-                        switch (index) {
-                          case 0: // Pre-Pregnancy
-                            Navigator.pushNamed(context, AppRoutes.navbarPrePregancyView);
-                            break;
-
-                          case 1: // Pregnancy
-                            {
-                              final user = context.read<GetUserProvider>().userData?.data?.user;
-                              String? concDate = user?.user?.pregnancyStartDate;
-                              if (concDate == null && user?.pregnancyTracker != null) {
-                                concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ?? user?.pregnancyTracker!['conception_date']?.toString();
-                              }
-                              if (concDate != null && concDate.isNotEmpty) {
-                                Navigator.pushNamed(context, AppRoutes.navbarView);
-                              } else {
-                                Navigator.pushNamed(context, AppRoutes.pregnancyView);
-                              }
-                            }
-                            break;
-
-                          case 2: // Post-Pregnancy
-                            Navigator.pushNamed(context, AppRoutes.combinedBabyDetailScreen);
-                            break;
-                        }
-                      }
-
-                      else if (widget.fromProfile == true) {
-                        // Check if this is an update flow
-                        if (widget.isUpdateFlow == true) {
-                          // Update local data
-                          await UserLocalData.saveStep(index.toString());
-
-                          // Show a snackbar to confirm update
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Stage updated successfully!'),
-                              backgroundColor: AppColors.buttonClr1,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-
-                          // Navigate to the respective screen based on selection
-                          switch (index) {
-                            case 0: // Pre-Pregnancy
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                AppRoutes.navbarPrePregancyView,
-                                    (route) => false,
-                              );
-                              break;
-
-                            case 1: // Pregnancy
-                              {
-                                final user = context.read<GetUserProvider>().userData?.data?.user;
-                                String? concDate = user?.user?.pregnancyStartDate;
-                                if (concDate == null && user?.pregnancyTracker != null) {
-                                  concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ?? user?.pregnancyTracker!['conception_date']?.toString();
-                                }
-                                if (concDate != null && concDate.isNotEmpty) {
-                                  Navigator.pushNamedAndRemoveUntil(
-                                    context,
-                                    AppRoutes.navbarView,
-                                        (route) => false,
-                                  );
-                                } else {
-                                  Navigator.pushNamedAndRemoveUntil(
-                                    context,
-                                    AppRoutes.pregnancyView,
-                                        (route) => false,
-                                  );
-                                }
-                              }
-                              break;
-
-                            case 2: // Post-Pregnancy
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                AppRoutes.combinedBabyDetailScreen,
-                                    (route) => false,
-                              );
-                              break;
-                          }
-                        } else {
-                          // Original flow - navigate and remove all routes
-                          switch (index) {
-                            case 0: // Pre-Pregnancy
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.navbarPrePregancyView,
-                              );
-                              break;
-
-                            case 1: // Pregnancy
-                              {
-                                final user = context.read<GetUserProvider>().userData?.data?.user;
-                                String? concDate = user?.user?.pregnancyStartDate;
-                                if (concDate == null && user?.pregnancyTracker != null) {
-                                  concDate = user?.pregnancyTracker!['pregnancyStartDate']?.toString() ?? user?.pregnancyTracker!['conception_date']?.toString();
-                                }
-                                if (concDate != null && concDate.isNotEmpty) {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.navbarView,
-                                  );
-                                } else {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.pregnancyView,
-                                  );
-                                }
-                              }
-                              break;
-
-                            case 2: // Post-Pregnancy
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.combinedBabyDetailScreen,
-                              );
-                              break;
-                          }
-                        }
-                      }
-
-                      else {
-                        // Default flow → Send index to next screen
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.processingDetailsView,
-                          arguments: {"index": index},
-                        );
-                      }
-                    },
-                    child: Container(
-                        height: 105,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.buttonClr1.withOpacity(0.1)
-                              : AppColors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppColors.buttonClr1
-                                : AppColors.borderColor,
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Padding(
-                              padding: index == 0
-                                  ? EdgeInsets.symmetric(vertical: 16, horizontal: 8)
-                                  : EdgeInsets.symmetric(vertical: 8.0),
-                              child: CustomImage(path: stagesList[index]['image'] ?? ""),
-                            ),
-                            Text(
-                              stagesList[index]['title'] ?? "",
-                              style: AppFontStyle.text_15_400(
-                                  color: isSelected
-                                      ? AppColors.buttonClr1
-                                      : AppColors.textClr,
-                                  fontFamily: AppFontFamily.gilroySemiBold
-                              ),
-                            ),
-                            Spacer(),
-                            Icon(
-                              isSelected
-                                  ? Icons.check_circle
-                                  : Icons.arrow_forward_ios,
-                              size: isSelected ? 24 : 16,
-                              color: isSelected
-                                  ? AppColors.buttonClr1
-                                  : AppColors.textClr,
-                            ),
-                            SizedBox(width: 16),
-                          ],
-                        )
-                    ),
-                  ),
-                );
-              },
-              separatorBuilder: (context, index) => SizedBox(height: 15),
-              itemCount: stagesList.length,
+                  return StageAccordionCard(
+                    data: data,
+                    isExpanded: isExpanded,
+                    isSelected: isSelected,
+                    onHeaderTap: _showAllStageOptions
+                        ? () => _onHeaderTap(index)
+                        : () {},
+                    onNext: () => _confirmStageSelection(index),
+                    showNextButton: _showAllStageOptions || isSelected,
+                  );
+                },
+              ),
             ),
           ],
         ),

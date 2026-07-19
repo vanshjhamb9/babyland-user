@@ -417,27 +417,29 @@
 //   }
 // }
 
+import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/controller/pregnancy_flow/pregnancy_controller.dart';
-import 'package:babyland/app/widgets/print.dart';
+import 'package:babyland/app/data/response/status.dart';
+import 'package:babyland/app/services/user_preference/user_preference.dart';
 import 'package:flutter/material.dart';
+import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
-import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/widgets/custom_textform_field.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../constants/images.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
-import '../../widgets/app_popup.dart';
+import '../../widgets/community_post_card_widget.dart';
+import '../groups/group_list_view.dart';
 import '../../widgets/container.dart';
 
 class CommunityView extends StatefulWidget {
 
-  bool backButton;
-  CommunityView({super.key,this.backButton=true});
+  final bool backButton;
+  const CommunityView({super.key, this.backButton = true});
 
   @override
   State<CommunityView> createState() => _CommunityViewState();
@@ -448,10 +450,12 @@ class _CommunityViewState extends State<CommunityView> {
   bool _isSearching = false;
   List<dynamic> _filteredPosts = [];
   List<dynamic> _allPosts = [];
+  late Set<String> _savedPostIds;
 
   @override
   void initState() {
     super.initState();
+    _savedPostIds = UserPreference.getSavedCommunityPostIds().toSet();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<PregnancyController>();
       provider.getCommunitiesData();
@@ -497,10 +501,55 @@ class _CommunityViewState extends State<CommunityView> {
     });
   }
 
+  /// True if the current user's id appears in the post's [likes] list from API.
+  bool _isLikedByMe(dynamic post, String? myUserId) {
+    if (myUserId == null || myUserId.isEmpty) return false;
+    final likes = post?.likes as List?;
+    if (likes == null || likes.isEmpty) return false;
+    for (final e in likes) {
+      if (e == myUserId) return true;
+      if (e is Map) {
+        final id = e['_id']?.toString() ?? e['userId']?.toString();
+        if (id == myUserId) return true;
+      }
+    }
+    return false;
+  }
+
+  List<dynamic> _getSavedPosts() {
+    return _allPosts.where((p) {
+      final id = p?.sId?.toString();
+      return id != null && id.isNotEmpty && _savedPostIds.contains(id);
+    }).toList();
+  }
+
+  void _toggleSave(String? postId) {
+    if (postId == null || postId.isEmpty) return;
+    final wasSaved = _savedPostIds.contains(postId);
+    setState(() {
+      if (wasSaved) {
+        _savedPostIds.remove(postId);
+      } else {
+        _savedPostIds.add(postId);
+      }
+    });
+    UserPreference.saveSavedCommunityPostIds(_savedPostIds.toList());
+    AppPopUp.showToast(
+      message: wasSaved ? 'Removed from saved' : 'Saved',
+    );
+  }
+
+  bool _isSaved(String? postId) =>
+      postId != null && postId.isNotEmpty && _savedPostIds.contains(postId);
+
+  // Removed `_communityPostCard` and `_openCommentSheet` since they use the shared Widget format now.
+
   @override
   Widget build(BuildContext context) {
 
     final provider = context.watch<PregnancyController>();
+    final userProvider = context.watch<GetUserProvider>();
+    final myUserId = userProvider.userData?.data?.user?.user?.sId;
 
     if (provider.isLoadingComm) {
       return Scaffold(
@@ -509,7 +558,7 @@ class _CommunityViewState extends State<CommunityView> {
       );
     }
 
-    if (provider.communitiesApiData?.status == false) {
+    if (provider.communitiesApiData?.status == ApiStatus.ERROR) {
       return Scaffold(
         appBar: _buildAppBar(),
         body: SizedBox(
@@ -601,7 +650,7 @@ class _CommunityViewState extends State<CommunityView> {
                         tabs: [
                           Tab(
                             child: Text(
-                              "All",
+                              "Posts",
                               style: AppFontStyle.text_16_400(
                                 fontFamily: AppFontFamily.gilroySemiBold,
                                 color: AppColors.black,
@@ -610,7 +659,7 @@ class _CommunityViewState extends State<CommunityView> {
                           ),
                           Tab(
                             child: Text(
-                              "For you",
+                              "Groups",
                               style: AppFontStyle.text_16_400(
                                 fontFamily: AppFontFamily.gilroyMedium,
                                 color: AppColors.textLightClr,
@@ -635,11 +684,10 @@ class _CommunityViewState extends State<CommunityView> {
                       Expanded(
                         child: TabBarView(
                           children: [
-                            // Tab 1: All
+                            // Tab 1: Posts
                             RefreshIndicator(
                               onRefresh: () async {
                                 await provider.getCommunitiesData();
-                                // After refresh, update the search if active
                                 if (_searchController.text.isNotEmpty) {
                                   _onSearchChanged();
                                 }
@@ -651,133 +699,27 @@ class _CommunityViewState extends State<CommunityView> {
                                 itemCount: displayPosts.length,
                                 itemBuilder: (_, index) {
                                   final post = displayPosts[index];
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                    child: AppContainer(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 25,
-                                                backgroundImage: AssetImage(
-                                                    'assets/images/girl.png') as ImageProvider,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Column(
-                                                crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    post?.userId?.name ?? "",
-                                                    style:
-                                                    AppFontStyle.text_18_400(
-                                                      fontFamily: AppFontFamily
-                                                          .gilroySemiBold,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    "@${post?.userId?.name ?? ""}",
-                                                    style:
-                                                    AppFontStyle.text_16_400(
-                                                      fontFamily: AppFontFamily
-                                                          .gilroyRegular,
-                                                      color:
-                                                      AppColors.textLightClr,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            post?.message ??"",
-                                            maxLines: 5,
-                                            style: AppFontStyle.text_14_400(
-                                              fontFamily:
-                                              AppFontFamily.gilroyMedium,
-                                            ),
-                                          ),
-                                          if (post?.hashtags != null && post!.hashtags!.isNotEmpty)...[
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              post.hashtags!.join(" ") ?? "",
-                                              style: AppFontStyle.text_14_400(
-                                                fontFamily: AppFontFamily.gilroyMedium,
-                                              ),
-                                            )],
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-
-                                              InkWell(
-                                                  onTap: (){
-                                                    pt("this is id here ${post?.sId}");
-                                                    provider.lieApi(likeId:post?.sId );
-                                                  },
-                                                  child: const Icon(Icons.favorite_border)),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                post?.likes?.length.toString() ?? "0",
-                                                style: AppFontStyle.text_14_400(
-                                                  fontFamily:
-                                                  AppFontFamily.gilroyMedium,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(
-                                                  Icons.chat_bubble_outline),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                post?.commentsCount?.toString() ?? "0",
-                                                style: AppFontStyle.text_14_400(
-                                                  fontFamily:
-                                                  AppFontFamily.gilroyMedium,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              CustomImage(
-                                                path: "assets/images/save.png",
-                                                scale: 4,
-                                                color: AppColors.black,
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Text(
-                                            post?.createdAt != null ? formatDate(post?.createdAt ?? "") : "",
-                                            style: AppFontStyle.text_14_400(
-                                              fontFamily:
-                                              AppFontFamily.gilroyMedium,
-                                              color: AppColors.textLightClr,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  return CommunityPostCardWidget(
+                                    post: post,
+                                    myUserId: myUserId,
+                                    isLikedByMe: _isLikedByMe(post, myUserId),
+                                    isSavedByMe: _isSaved(post?.sId),
+                                    onLikeTap: () {
+                                      provider.lieApi(likeId: post?.sId);
+                                    },
+                                    onCommentTap: () {
+                                      _openCommentSheetLocal(provider, post);
+                                    },
+                                    onSaveTap: () {
+                                      _toggleSave(post?.sId);
+                                    },
                                   );
                                 },
                               ),
                             ),
 
-                            // Tab 2: For you (with search)
-                            RefreshIndicator(
-                              onRefresh: () async {
-                                await provider.getCommunitiesData();
-                                // After refresh, update the search if active
-                                if (_searchController.text.isNotEmpty) {
-                                  _onSearchChanged();
-                                }
-                              },
-                              child: _isSearching && _filteredPosts.isEmpty
-                                  ? _buildNoSearchResults()
-                                  : _buildForYouTab(displayPosts),
-                            ),
+                            // Tab 2: Groups
+                            const GroupListView(),
                           ],
                         ),
                       ),
@@ -819,7 +761,7 @@ class _CommunityViewState extends State<CommunityView> {
           Icon(
             Icons.search_off,
             size: 64,
-            color: AppColors.textLightClr.withOpacity(0.5),
+            color: AppColors.textLightClr.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
@@ -845,130 +787,66 @@ class _CommunityViewState extends State<CommunityView> {
     );
   }
 
-  Widget _buildForYouTab(List<dynamic> displayPosts) {
-    // You can implement your own logic for "For You" posts here
-    // For now, it shows all posts when searching, or a placeholder
-    if (_isSearching) {
-      return ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: displayPosts.length,
-        itemBuilder: (_, index) {
-          final post = displayPosts[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: AppContainer(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 25,
-                        backgroundImage: AssetImage(
-                            'assets/images/girl.png') as ImageProvider,
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            post?.userId?.name ?? "",
-                            style: AppFontStyle.text_18_400(
-                              fontFamily: AppFontFamily.gilroySemiBold,
-                            ),
-                          ),
-                          Text(
-                            "@${post?.userId?.name ?? ""}",
-                            style: AppFontStyle.text_16_400(
-                              fontFamily: AppFontFamily.gilroyRegular,
-                              color: AppColors.textLightClr,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    post?.message ?? "",
-                    maxLines: 5,
-                    style: AppFontStyle.text_14_400(
-                      fontFamily: AppFontFamily.gilroyMedium,
-                    ),
-                  ),
-                  if (post?.hashtags != null && post!.hashtags!.isNotEmpty)...[
-                    const SizedBox(height: 8),
-                    Text(
-                      post.hashtags!.join(" ") ?? "",
-                      style: AppFontStyle.text_14_400(
-                        fontFamily: AppFontFamily.gilroyMedium,
-                      ),
-                    )],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.favorite_border),
-                      const SizedBox(width: 4),
-                      Text(
-                        post?.likes?.length.toString() ?? "0",
-                        style: AppFontStyle.text_14_400(
-                          fontFamily: AppFontFamily.gilroyMedium,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.chat_bubble_outline),
-                      const SizedBox(width: 4),
-                      Text(
-                        post?.commentsCount?.toString() ?? "0",
-                        style: AppFontStyle.text_14_400(
-                          fontFamily: AppFontFamily.gilroyMedium,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      CustomImage(
-                        path: "assets/images/save.png",
-                        scale: 4,
-                        color: AppColors.black,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    post?.createdAt != null ? formatDate(post?.createdAt ?? "") : "",
-                    style: AppFontStyle.text_14_400(
-                      fontFamily: AppFontFamily.gilroyMedium,
-                      color: AppColors.textLightClr,
-                    ),
-                  ),
-                ],
+  Future<void> _openCommentSheetLocal(
+    PregnancyController provider,
+    dynamic post,
+  ) async {
+    final postId = post?.sId?.toString();
+    if (postId == null || postId.isEmpty) return;
+    final textCtrl = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Add a comment',
+                style: AppFontStyle.text_18_400(
+                  fontFamily: AppFontFamily.gilroySemiBold,
+                ),
               ),
-            ),
-          );
-        },
-      );
-    } else {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.group,
-              size: 64,
-              color: AppColors.textLightClr.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              "Personalized posts coming soon!",
-              style: AppFontStyle.text_16_400(
-                fontFamily: AppFontFamily.gilroyMedium,
-                color: AppColors.textLightClr,
+              const SizedBox(height: 12),
+              TextField(
+                controller: textCtrl,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Share your thoughts…',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    }
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  final msg = textCtrl.text;
+                  Navigator.pop(ctx);
+                  await provider.addCommunityComment(
+                    postId: postId,
+                    comment: msg,
+                  );
+                },
+                child: const Text('Post comment'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    textCtrl.dispose();
   }
 
   PreferredSizeWidget _buildAppBar() {

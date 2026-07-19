@@ -70,7 +70,7 @@ class BabyGrowthProvider extends ChangeNotifier{
     },);
   }
   // //--
-  ApiResponse<CommonResponseModel>? _addBabyGrowthDataForPage = ApiResponse.completed(null);
+  final ApiResponse<CommonResponseModel> _addBabyGrowthDataForPage = ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get addBabyGrowthDataForPage => _addBabyGrowthDataForPage;
 
   // void setBabyGrowthDataPage(ApiResponse<CommonResponseModel> response) {
@@ -120,13 +120,9 @@ class BabyGrowthProvider extends ChangeNotifier{
     setBabyGrowthApiData(ApiResponse.loading());
     notifyListeners();
     await repository.babygrowthsDetails().then((value) {
-      if (value.success == true) {
-        setBabyGrowthApiData(ApiResponse.completed(value));
-        pt(name: "response", "${value.success}");
-      }
-      if(value.success == false) {
-        // setBabyGrowthApiData(ApiResponse.error(value.message ?? "Something went wrong!"));
-      }
+      // Set completed so we show content or empty state; only use error on throw
+      setBabyGrowthApiData(ApiResponse.completed(value));
+      pt(name: "response", "${value.success}");
       notifyListeners();
     },).onError((error, stackTrace) {
       pt("Error in pregnancyInfo: $error\n$stackTrace");

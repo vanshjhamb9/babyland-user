@@ -1,1 +1,30 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"babyland-6cbcb","appId":"1:717083152425:android:dfcc2ef60b8c445f8d4c38","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"babyland-6cbcb","configurations":{"android":"1:717083152425:android:dfcc2ef60b8c445f8d4c38","ios":"1:717083152425:ios:b58d70c88297fc478d4c38"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "thebabyland-6db6d",
+          "appId": "1:240228974389:android:68e3b0eaf2de15d702967c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "thebabyland-6db6d",
+          "appId": "1:240228974389:ios:c31a03551c6dc9a502967c",
+          "fileOutput": "ios/Runner/GoogleService-Info.plist",
+          "uploadDebugSymbols": true
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "thebabyland-6db6d",
+          "configurations": {
+            "android": "1:240228974389:android:68e3b0eaf2de15d702967c",
+            "ios": "1:240228974389:ios:c31a03551c6dc9a502967c"
+          }
+        }
+      }
+    }
+  }
+}

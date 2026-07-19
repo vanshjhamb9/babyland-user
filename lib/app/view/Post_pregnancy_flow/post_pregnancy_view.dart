@@ -1,4 +1,3 @@
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,12 +6,9 @@ import '../../controller/post_pregenancy/post_pregenancy_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
-import '../../widgets/button.dart';
 import '../../widgets/common_select_date_textfield.dart';
 import '../../widgets/container.dart';
-import '../../widgets/custom_appbar.dart';
 import '../../widgets/custom_image.dart';
-import '../../widgets/custom_textform_field.dart';
 
 class PostPregnancyView extends StatelessWidget {
   const PostPregnancyView({super.key});

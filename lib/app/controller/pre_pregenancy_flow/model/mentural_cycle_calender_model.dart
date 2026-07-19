@@ -59,7 +59,7 @@ class Data {
         ? NextPeriod.fromJson(json['nextPeriod'])
         : null;
     nextOvulation = json['nextOvulation']?.toString();
-    nextFertileWindow = json['nextFertileWindow'] != null ? json['nextFertileWindow'].cast<String>() : null;
+    nextFertileWindow = json['nextFertileWindow']?.cast<String>();
   }
 
   Map<String, dynamic> toJson() {

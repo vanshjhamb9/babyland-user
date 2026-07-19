@@ -24,13 +24,13 @@ class AddMildStones {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['message'] = this.message;
-    data['success'] = this.success;
-    data['date'] = this.date;
-    data['title'] = this.title;
-    data['photo'] = this.photo;
-    data['note'] = this.note;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['message'] = message;
+    data['success'] = success;
+    data['date'] = date;
+    data['title'] = title;
+    data['photo'] = photo;
+    data['note'] = note;
     return data;
   }
 }

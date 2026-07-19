@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local / generated
+ai/node_modules/
+*.hprof
+android/build/
+_tmp_flutter_android_template/
+analysis_output.txt
+test1.txt
+test2.txt

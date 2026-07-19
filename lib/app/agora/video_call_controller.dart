@@ -1,14 +1,16 @@
+import 'package:babyland/core/consultation/agora_rtc_session_dto.dart';
+import 'package:babyland/core/consultation/patient_consultation_rtc_repository.dart';
+import 'package:babyland/core/environment/app_environment.dart';
+import 'package:babyland/core/observability/app_audit_log.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:math' as math;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import '../common_model/common_model.dart';
+ 
 import '../data/response/api_response.dart';
 import '../widgets/app_popup.dart';
 import 'agora.dart';
@@ -66,6 +68,18 @@ class VideoCallProvider with ChangeNotifier {
   String get error => _error;
   String? token;
 
+  AgoraRtcSessionDto? _activeBackendSession;
+  AgoraRtcSessionDto? get activeBackendSession => _activeBackendSession;
+
+  Timer? _tokenExpiryTimer;
+  bool _channelBusy = false;
+
+  final PatientConsultationRtcRepository _rtcRepository =
+      PatientConsultationRtcRepository();
+
+  bool _sessionJoinInFlight = false;
+  Completer<void>? _joinChannelCompleter;
+  RtcEngineEventHandler? _registeredEventHandler;
 
   ApiResponse<TokenGeneratorModel>? _apiData = ApiResponse.completed(null);
   ApiResponse<TokenGeneratorModel>? get apiData => _apiData;
@@ -152,6 +166,170 @@ class VideoCallProvider with ChangeNotifier {
   }
 */
 
+  /// Authoritative join path — all Agora credentials come from [dto] (backend).
+  Future<void> joinConsultationWithBackendRtc({
+    required BuildContext context,
+    required AgoraRtcSessionDto dto,
+  }) async {
+    if (_channelBusy) return;
+    if (dto.isExpired || dto.expiresTooSoon) {
+      AppAuditLog.instance.log(
+        'token_expired',
+        component: 'VideoCallProvider',
+        consultationId: dto.consultationId,
+      );
+      throw StateError('Video session link expired. Refresh and try again.');
+    }
+
+    _channelBusy = true;
+    _sessionJoinInFlight = true;
+    _isLoading = true;
+    _error = '';
+    _sessionId = dto.sessionId;
+    notifyListeners();
+
+    AppAuditLog.instance.log(
+      'join_attempt',
+      component: 'VideoCallProvider',
+      consultationId: dto.consultationId,
+      traceId: dto.sessionId,
+    );
+
+    try {
+      await _requestPermissions();
+      _activeBackendSession = dto;
+      final agoraAppId = _resolveAgoraAppId(dto);
+
+      await _prepareEngineForJoin(context, agoraAppId: agoraAppId);
+
+      await joinChannel(
+        channelName: dto.channelName,
+        uid: dto.uid.toString(),
+        numericUid: dto.uid,
+        token: dto.token,
+      );
+
+      _scheduleTokenRenewal(dto.consultationId);
+
+      AppAuditLog.instance.log(
+        'join_success',
+        component: 'VideoCallProvider',
+        consultationId: dto.consultationId,
+        traceId: dto.sessionId,
+      );
+    } catch (e, st) {
+      log('joinConsultationWithBackendRtc failed: $e\n$st');
+      _error = e.toString();
+      AppAuditLog.instance.log(
+        'join_failure',
+        component: 'VideoCallProvider',
+        consultationId: dto.consultationId,
+        outcome: e.toString(),
+      );
+      if (context.mounted) {
+        AppPopUp.showToast(
+          message: 'Failed to start video call. Refresh and try again.',
+        );
+      }
+      rethrow;
+    } finally {
+      _channelBusy = false;
+      _sessionJoinInFlight = false;
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  String _resolveAgoraAppId(AgoraRtcSessionDto dto) {
+    final fromBackend = dto.appId?.trim();
+    if (fromBackend != null && fromBackend.isNotEmpty) return fromBackend;
+    final fromEnv = AppEnvironment.agoraAppIdFromEnv;
+    if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+    AppAuditLog.instance.log(
+      'join_failure',
+      component: 'VideoCallProvider',
+      consultationId: dto.consultationId,
+      reason: 'agora_app_id_unresolved',
+    );
+    throw StateError(
+      'Video is not configured: server did not return appId and '
+      'AGORA_APP_ID is not set for this build.',
+    );
+  }
+
+  void _scheduleTokenRenewal(String consultationId) {
+    _tokenExpiryTimer?.cancel();
+    final exp = _activeBackendSession?.expiresAt;
+    if (exp == null) return;
+    final untilMs = exp.difference(DateTime.now().toUtc()).inMilliseconds;
+    final delayMs = math.max(untilMs - 45000, 20000);
+    AppAuditLog.instance.log(
+      'token_renew_scheduled',
+      component: 'VideoCallProvider',
+      consultationId: consultationId,
+      reason: '${delayMs}ms',
+    );
+    _tokenExpiryTimer = Timer(Duration(milliseconds: delayMs), () async {
+      try {
+        await _renewBackendToken(consultationId);
+        _scheduleTokenRenewal(consultationId);
+      } catch (e) {
+        AppAuditLog.instance.log(
+          'token_expired',
+          component: 'VideoCallProvider',
+          consultationId: consultationId,
+          outcome: e.toString(),
+        );
+      }
+    });
+  }
+
+  Future<void> _renewBackendToken(String consultationId) async {
+    final fresh =
+        await _rtcRepository.fetchPatientRtcToken(consultationId: consultationId);
+    final active = _activeBackendSession;
+    if (active == null || active.consultationId != fresh.consultationId) {
+      AppAuditLog.instance.log(
+        'channel_mismatch',
+        component: 'VideoCallProvider',
+        consultationId: consultationId,
+        reason: 'token_refresh_consultation_mismatch',
+      );
+      throw StateError('Token refresh mismatched consultation');
+    }
+    if (active.channelName != fresh.channelName) {
+      AppAuditLog.instance.log(
+        'channel_mismatch',
+        component: 'VideoCallProvider',
+        consultationId: consultationId,
+        reason: active.channelName,
+        outcome: fresh.channelName,
+      );
+      throw StateError('Token refresh channel mismatch');
+    }
+    _activeBackendSession = fresh;
+    token = fresh.token;
+    try {
+      await _engine.renewToken(_cleanToken(fresh.token));
+    } catch (_) {
+      if (_isJoined) await _engine.leaveChannel();
+      await joinChannel(
+        channelName: fresh.channelName,
+        uid: fresh.uid.toString(),
+        numericUid: fresh.uid,
+        token: fresh.token,
+      );
+    }
+    AppAuditLog.instance.log(
+      'token_renewed',
+      component: 'VideoCallProvider',
+      consultationId: consultationId,
+    );
+    notifyListeners();
+  }
+
+  /// Legacy join path — do not use for new code.
+  @Deprecated('Use joinConsultationWithBackendRtc')
   Future<void> getVideoCallToken({
     required BuildContext context,
     required String channelName,
@@ -160,7 +338,21 @@ class VideoCallProvider with ChangeNotifier {
     required String sessionId,
     bool isCaller = false,
   }) async {
+    if (_sessionJoinInFlight) {
+      AppAuditLog.instance.log(
+        'session_join_blocked_duplicate',
+        component: 'VideoCallProvider',
+        traceId: sessionId,
+      );
+      return;
+    }
     if (_isLoading) return;
+    _sessionJoinInFlight = true;
+    AppAuditLog.instance.log(
+      'session_join_attempt',
+      component: 'VideoCallProvider',
+      traceId: sessionId,
+    );
     setTokenApiData(ApiResponse.loading());
     try {
       _isLoading = true;
@@ -195,14 +387,26 @@ class VideoCallProvider with ChangeNotifier {
 
       // Extract token from response
       token = response.token?.token; // Directly get token from response
-      log("✅ Token received (length: ${token?.length ?? 0})  ${token}");
+      log("✅ Token received (length: ${token?.length ?? 0})  $token");
 
       if (token == null || token!.isEmpty) {
         throw Exception('Token is null or empty');
       }
 
       if (!_isInitialized) {
-        await initializeAgoraEngine(context);
+        await initializeAgoraEngine(
+          context,
+          agoraAppId: _resolveAgoraAppId(
+            AgoraRtcSessionDto(
+              token: token!,
+              channelName: channelName,
+              uid: numericUid,
+              consultationId: sessionId,
+              sessionId: sessionId,
+              expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+            ),
+          ),
+        );
       }
 
       await joinChannel(
@@ -211,7 +415,11 @@ class VideoCallProvider with ChangeNotifier {
         numericUid: numericUid,
         token: token!, // Use the extracted token
       );
-
+      AppAuditLog.instance.log(
+        'session_join_success',
+        component: 'VideoCallProvider',
+        traceId: sessionId,
+      );
     } catch (error, stackTrace) {
       log("❌ Error in video call setup: $error");
       log("Stack trace: $stackTrace");
@@ -220,8 +428,15 @@ class VideoCallProvider with ChangeNotifier {
       if (context.mounted) {
         AppPopUp.showToast(message: "Failed to start video call: $error");
       }
+      AppAuditLog.instance.log(
+        'session_join_failure',
+        component: 'VideoCallProvider',
+        traceId: sessionId,
+        outcome: error.toString(),
+      );
       rethrow;
     } finally {
+      _sessionJoinInFlight = false;
       _isLoading = false;
       notifyListeners();
     }
@@ -230,54 +445,127 @@ class VideoCallProvider with ChangeNotifier {
 
   Future<void> _requestPermissions() async {
     try {
-      await [
+      final statuses = await [
         Permission.microphone,
         Permission.camera,
         Permission.bluetoothConnect,
       ].request();
 
-      log("✅ Permissions requested");
+      if (statuses[Permission.microphone]?.isGranted != true ||
+          statuses[Permission.camera]?.isGranted != true) {
+        throw StateError(
+          'Camera and microphone access are required to join the video consultation.',
+        );
+      }
+
+      log('✅ Camera and microphone permissions granted');
     } catch (e) {
-      log("❌ Error requesting permissions: $e");
+      log('❌ Error requesting permissions: $e');
+      rethrow;
     }
   }
 
+  /// Ensures a clean RTC engine for each join attempt (provider is app-wide).
+  Future<void> _prepareEngineForJoin(
+    BuildContext context, {
+    required String agoraAppId,
+  }) async {
+    await _releaseEngine();
+    await initializeAgoraEngine(context, agoraAppId: agoraAppId);
+  }
 
-  void _debugToken(String token) {
-    log("🔍 Token Debug Analysis:");
-    log("   Length: ${token.length}");
-    log("   First 20 chars: ${token.substring(0, min(token.length, 20))}");
-    log("   Starts with '006': ${token.startsWith('006')}");
-    log("   Contains App ID: ${token.contains('ba2833372cbb4b84a169be6808c63706')}");
-    log("   Contains '{': ${token.contains('{')}");
-    log("   Contains 'token': ${token.contains('token')}");
+  Future<void> _releaseEngine() async {
+    _joinChannelCompleter?.completeError(
+      StateError('Video engine reset before join completed'),
+    );
+    _joinChannelCompleter = null;
+    _tokenExpiryTimer?.cancel();
+    _tokenExpiryTimer = null;
 
-    if (token.contains('{') || token.contains('token')) {
-      log("⚠️ WARNING: Token appears to contain JSON/object structure!");
-      log("   It should be a plain token string starting with '006'");
-      log("   Current token starts with: ${token.substring(0, 50)}");
+    if (_registeredEventHandler != null) {
+      try {
+        _engine.unregisterEventHandler(_registeredEventHandler!);
+      } catch (e) {
+        log('⚠️ unregisterEventHandler: $e');
+      }
+      _registeredEventHandler = null;
     }
 
-    if (!token.startsWith('006')) {
-      log("❌ ERROR: Token doesn't start with '006' - invalid Agora token!");
+    if (_isInitialized) {
+      try {
+        if (_isJoined) await _engine.leaveChannel();
+        await _engine.release();
+      } catch (e) {
+        log('⚠️ Engine release: $e');
+      }
+    }
+
+    _isInitialized = false;
+    _isJoined = false;
+    _remoteUid = null;
+  }
+
+  void _signalJoinSuccess() {
+    final completer = _joinChannelCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
     }
   }
 
-  int _generateNumericUid(String uid) {
-    final bytes = utf8.encode(uid);
-    final hash = bytes.fold(0, (prev, element) => prev + element);
-    return (hash % 100000).abs();
+  void _signalJoinFailure(Object error) {
+    final completer = _joinChannelCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(error);
+    }
   }
 
-  Future<void> initializeAgoraEngine(BuildContext context) async {
-    if (_isInitialized) return;
-
+  Future<void> _awaitJoinChannelConfirmation({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    _joinChannelCompleter = Completer<void>();
     try {
-      log("🚀 Initializing Agora Engine");
+      await _joinChannelCompleter!.future.timeout(timeout);
+    } on TimeoutException {
+      throw StateError(
+        'Timed out joining the video channel. Check your connection and try again.',
+      );
+    } finally {
+      _joinChannelCompleter = null;
+    }
+  }
+
+
+  /// Maps a string user id to a stable Agora numeric uid.
+  ///
+  /// Agora uids must be unique per participant within a channel; a collision
+  /// makes the second joiner evict the first, so patient and doctor would
+  /// silently fail to stay connected. The previous byte-sum `% 100000` hash
+  /// collided far too easily (e.g. hex ObjectIds/UUIDs), so we use a 32-bit
+  /// FNV-1a hash over the full uid and keep it in Agora's positive int range
+  /// (1..2^31-1, never 0 which Agora treats as "auto-assign").
+  int _generateNumericUid(String uid) {
+    const int fnvOffsetBasis = 0x811c9dc5;
+    const int fnvPrime = 0x01000193;
+    int hash = fnvOffsetBasis;
+    for (final byte in utf8.encode(uid)) {
+      hash ^= byte;
+      hash = (hash * fnvPrime) & 0xffffffff;
+    }
+    // Constrain to a positive 32-bit signed int and avoid 0.
+    final numericUid = hash & 0x7fffffff;
+    return numericUid == 0 ? 1 : numericUid;
+  }
+
+  Future<void> initializeAgoraEngine(
+    BuildContext context, {
+    required String agoraAppId,
+  }) async {
+    try {
+      log('🚀 Initializing Agora Engine (appId prefix: ${agoraAppId.substring(0, math.min(8, agoraAppId.length))})');
 
       _engine = createAgoraRtcEngine();
-      await _engine.initialize(const RtcEngineContext(
-        appId: "ba2833372cbb4b84a169be6808c63706",
+      await _engine.initialize(RtcEngineContext(
+        appId: agoraAppId,
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
         audioScenario: AudioScenarioType.audioScenarioDefault,
         areaCode: 4294967295,
@@ -307,12 +595,21 @@ class VideoCallProvider with ChangeNotifier {
   }
 
   void _setupEventHandlers(BuildContext context) {
-    _engine.registerEventHandler(RtcEngineEventHandler(
+    if (_registeredEventHandler != null) {
+      try {
+        _engine.unregisterEventHandler(_registeredEventHandler!);
+      } catch (e) {
+        log('⚠️ unregisterEventHandler before re-register: $e');
+      }
+    }
+
+    _registeredEventHandler = RtcEngineEventHandler(
       onJoinChannelSuccess: (connection, elapsed) {
         log("✅ Joined channel: ${connection.channelId}, UID: ${connection.localUid}");
         _isJoined = true;
         _isInCall = true;
         _callState = CallState.waitingForRemote;
+        _signalJoinSuccess();
         notifyListeners();
       },
 
@@ -365,6 +662,7 @@ class VideoCallProvider with ChangeNotifier {
       onError: (err, msg) {
         log("❌ Agora error: $err, msg: $msg");
         _error = "Agora Error: $msg";
+        _signalJoinFailure(StateError('Agora error $err: $msg'));
         notifyListeners();
 
         if (context.mounted) {
@@ -384,6 +682,12 @@ class VideoCallProvider with ChangeNotifier {
 
       onConnectionStateChanged: (connection, state, reason) {
         log("📡 Connection state: $state, reason: $reason");
+        if (state == ConnectionStateType.connectionStateFailed &&
+            !_isJoined) {
+          _signalJoinFailure(
+            StateError('Video connection failed ($reason). Try again.'),
+          );
+        }
       },
 
       onRtcStats: (connection, stats) {
@@ -393,7 +697,8 @@ class VideoCallProvider with ChangeNotifier {
         }
         notifyListeners();
       },
-    ));
+    );
+    _engine.registerEventHandler(_registeredEventHandler!);
   }
 
   Future<void> joinChannel({
@@ -435,9 +740,11 @@ class VideoCallProvider with ChangeNotifier {
         options: options,
       );
 
-      log("✅ Join channel completed");
+      await _awaitJoinChannelConfirmation();
+      log('✅ Join channel confirmed');
 
     } catch (e, stackTrace) {
+      _signalJoinFailure(e);
       log("❌ Error joining channel: $e");
       log("Stack trace: $stackTrace");
       _isJoined = false;
@@ -551,30 +858,38 @@ class VideoCallProvider with ChangeNotifier {
     return '$minutes:$seconds';
   }
 
-  void cleanup() {
+  Future<void> cleanup() async {
     try {
-      log("🧹 Cleaning up video call...");
+      log('🧹 Cleaning up video call...');
       _stopCallTimer();
+      await _releaseEngine();
 
-      if (_isInitialized && _engine != null) {
-        _engine.leaveChannel();
-        _engine.release();
-        _isInitialized = false;
-      }
-
-      _remoteUid = null;
-      _isJoined = false;
       _isInCall = false;
       _callState = CallState.ended;
       _isMicrophoneMuted = false;
       _isVideoMuted = false;
       _isLoading = false;
-      _error = "";
+      _error = '';
+      _activeBackendSession = null;
 
-      log("✅ Video call provider cleaned up");
+      log('✅ Video call provider cleaned up');
+      notifyListeners();
     } catch (e) {
-      log("❌ Error during cleanup: $e");
+      log('❌ Error during cleanup: $e');
     }
+  }
+
+  /// Fetches a fresh RTC session from the backend (for retry after failure).
+  Future<AgoraRtcSessionDto> refreshBackendSession() async {
+    final active = _activeBackendSession;
+    if (active == null) {
+      throw StateError('No active consultation session to refresh');
+    }
+    final fresh = await _rtcRepository.fetchPatientRtcToken(
+      consultationId: active.consultationId,
+    );
+    _activeBackendSession = fresh;
+    return fresh;
   }
 
   String formatToMMSS(int seconds) {
@@ -601,26 +916,7 @@ class VideoCallProvider with ChangeNotifier {
       // Stop timer
       _stopCallTimer();
 
-      // Leave channel if joined
-      if (_isInitialized && _engine != null) {
-        log("📤 Leaving Agora channel...");
-        try {
-          await _engine.leaveChannel();
-          log("✅ Left Agora channel successfully");
-        } catch (e) {
-          log("⚠️ Error leaving channel: $e");
-        }
-
-        // Release engine resources
-        log("🧹 Releasing Agora engine...");
-        try {
-          await _engine.release();
-          _isInitialized = false;
-          log("✅ Agora engine released");
-        } catch (e) {
-          log("⚠️ Error releasing engine: $e");
-        }
-      }
+      await _releaseEngine();
 
       // Reset all states
       _resetCallState();
@@ -687,34 +983,36 @@ class VideoCallProvider with ChangeNotifier {
 
 // Emergency cleanup method
   void _forceCleanup() {
-    log("🚨 Force cleaning up...");
+    log('🚨 Force cleaning up...');
 
     try {
-      // Cancel timer
+      _joinChannelCompleter?.completeError(StateError('Force cleanup'));
+      _joinChannelCompleter = null;
       _callTimer?.cancel();
       _callTimer = null;
 
-      // Try to leave channel
-      try {
-        _engine?.leaveChannel();
-      } catch (e) {
-        log("⚠️ Error in force leave channel: $e");
+      if (_registeredEventHandler != null) {
+        try {
+          _engine.unregisterEventHandler(_registeredEventHandler!);
+        } catch (_) {}
+        _registeredEventHandler = null;
       }
 
-      // Try to release engine
-      try {
-        _engine?.release();
-      } catch (e) {
-        log("⚠️ Error in force release: $e");
+      if (_isInitialized) {
+        try {
+          _engine.leaveChannel();
+        } catch (_) {}
+        try {
+          _engine.release();
+        } catch (_) {}
       }
 
-      // Reset all states
       _resetCallState();
       _isInitialized = false;
 
-      log("✅ Force cleanup completed");
+      log('✅ Force cleanup completed');
     } catch (e) {
-      log("❌ Error in force cleanup: $e");
+      log('❌ Error in force cleanup: $e');
     }
   }
 
@@ -761,7 +1059,7 @@ class VideoCallProvider with ChangeNotifier {
       }
     } else {
       // Agar call start nahi hua hai to direct cleanup
-      cleanup();
+      await cleanup();
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }

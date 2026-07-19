@@ -8,12 +8,10 @@ import 'package:babyland/app/data/response/api_response.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/navbar/pregnancy/navbar.dart';
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/app/widgets/validation.dart';
 import 'package:babyland/main.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'model/addAppointment_data_model.dart';
@@ -160,6 +158,7 @@ class PregnancyController extends ChangeNotifier {
     required List<String> symptoms,
     required var stressLevel,
     required var anxietyLevel,
+    required int sleepQuality,
     required String notes,
   }) async {
     setAddDailyLogsApiApiData(ApiResponse.loading());
@@ -170,6 +169,7 @@ class PregnancyController extends ChangeNotifier {
       "symptoms": symptoms,
       "stressLevel": stressLevel,
       "anxietyLevel": anxietyLevel,
+      "sleepQuality": sleepQuality,
       "notes": notes,
     };
     repository.postPregnancyDataApi(data: data).then((value) {
@@ -384,7 +384,9 @@ class PregnancyController extends ChangeNotifier {
         setCommunitiesApiData(ApiResponse.completed(value));
         pt(name: "response", "${value.data?.posts?[0].comments}");
       } else {
-        setCommunitiesApiData(ApiResponse.error("Something went wrong!"));
+        setCommunitiesApiData(
+          ApiResponse.error(value.message ?? 'Could not load community posts.'),
+        );
       }
     } catch (e, s) {
       pt("Error in login: $e\n$s");
@@ -406,7 +408,11 @@ class PregnancyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> lieApi({required String likeId}) async {
+  Future<void> lieApi({required String? likeId}) async {
+    if (likeId == null || likeId.isEmpty) {
+      AppPopUp.showToast(message: 'Unable to like this post. Please try again.');
+      return;
+    }
     setLikeApiData(ApiResponse.loading());
 
     try {
@@ -414,7 +420,7 @@ class PregnancyController extends ChangeNotifier {
 
       if (value.success == true) {
         setLikeApiData(ApiResponse.completed(value));
-        AppPopUp.showToast(message: "Appointment Booked! You will get notified.");
+        AppPopUp.showToast(message: value.message ?? 'Updated');
         getCommunitiesData(load: false);
       } else {
         setLikeApiData(ApiResponse.error(value.message ?? "like failed"));
@@ -462,6 +468,35 @@ class PregnancyController extends ChangeNotifier {
       pt("Error in like api: $e\n$s");
       setPostApiData(ApiResponse.error(e.toString()));
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
+    }
+  }
+
+  Future<void> addCommunityComment({
+    required String? postId,
+    required String comment,
+  }) async {
+    if (postId == null || postId.isEmpty) {
+      AppPopUp.showToast(message: 'Invalid post.');
+      return;
+    }
+    final text = comment.trim();
+    if (text.isEmpty) {
+      AppPopUp.showToast(message: 'Please enter a comment.');
+      return;
+    }
+    try {
+      final value = await repository.addCommunityComment(postId, text);
+      if (value.success == true) {
+        AppPopUp.showToast(message: value.message ?? 'Comment added');
+        await getCommunitiesData(load: false);
+      } else {
+        AppPopUp.showToast(
+          message: value.message ?? 'Could not add comment',
+        );
+      }
+    } catch (e, s) {
+      pt('Comment error: $e\n$s');
+      AppPopUp.showToast(message: 'Could not add comment');
     }
   }
 }

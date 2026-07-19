@@ -8,11 +8,11 @@ class CustomLoader extends StatefulWidget {
   final bool showBackground;
 
   const CustomLoader({
-    Key? key,
+    super.key,
     this.size = 150,
     this.backgroundColor,
     this.showBackground = true,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomLoader> createState() => _CustomLoaderState();

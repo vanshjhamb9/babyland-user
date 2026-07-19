@@ -1,6 +1,5 @@
 import 'package:babyland/app/controller/create_new_password/create_new_password_controller.dart';
 import 'package:babyland/app/data/response/status.dart';
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/app_popup.dart';

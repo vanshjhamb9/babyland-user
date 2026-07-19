@@ -1,0 +1,591 @@
+Babyland  Patient  App  –  Knowledge  
+Transfer
+ 
+Document
+ 
+Last  updated:  March  5,  2026  
+Platform:
+ 
+Flutter
+ 
+(Dart)
+ 
+Min
+ 
+SDK:
+ 
+^3.9.2
+  
+Table  of  Contents  
+1.  Project  Overview 2.  Tech  Stack  &  Dependencies 3.  Project  Structure 4.  Entry  Point  &  App  Bootstrap 5.  State  Management 6.  Navigation  &  Routing 7.  Data  Layer  (Network  /  API) 8.  Local  Storage 9.  Authentication 10.  Feature  Breakdown 11.  Theme  &  Styling 12.  Reusable  Widgets 13.  Environment  Configuration 14.  Existing  Documentation 15.  Code  Conventions 16.  Known  Gotchas  &  Notes 17.  How  to  Run 
+ 
+Project  Overview  Babyland  is  a  maternal  &  child  health  Flutter  app  that  covers  three  life  stages:  
+Stage  Description  
+Pre-Pregnancy  
+Menstrual  cycle  tracking,  daily  logs,  AI  insights,  cycle  calendar  
+
+Pregnancy  Pregnancy  dashboard,  fetal  development,  appointments,  save  logs,  community  
+Post-Pregnancy  
+Baby  details,  baby  growth  (milestones,  photos,  vaccinations),  recovery  tracking,  feeding  logs  
+The  app  also  includes  Expert  Consultation  (doctor  listing,  slot  booking,  video  calling  via  Agora),  
+an
+ 
+AI
+ 
+Assistant
+ 
+(chat-based),
+ 
+Subscriptions
+,
+ 
+and
+ 
+User
+ 
+Profile
+ 
+management.
+ 
+ 
+Tech  Stack  &  Dependencies  
+Category  Package(s)  
+State  Management  
+provider (ChangeNotifier  +  MultiProvider)  
+Networking  
+dio (HTTP  client)  
+Auth  firebase_auth,  google_sign_in,  googleapis_auth 
+Firebase  
+firebase_core,  firebase_messaging 
+Local  Storage  
+flutter_secure_storage (tokens,  user  data),  hive_flutter (first-time  flag)  
+
+Video  Calling  
+agora_rtc_engine 
+AI  Chat  /  STT  
+speech_to_text 
+UI  cached_network_image,  flutter_svg,  shimmer,  table_calendar,  pinput,  flutter_html,  flutter_spinkit,  dropdown_button2 
+Utilities  
+intl,  image_picker,  file_picker,  url_launcher,  permission_handler,  flutter_dotenv 
+Env  flutter_dotenv –  loads  from  assets/.env 
+No  new  dependencies  should  be  added  without  explicit  approval.   
+Project  Structure  babyland/  
+├──  assets/  
+│    ├──  .env                       #  Environment  variables  (SERVERClientID)  
+│    ├──  fonts/                     #  Gilroy  font  family  (10  weights)  
+│    └──  images/                    #  All  image  assets  (63  files)  
+├──  docs/  
+│    ├──  API_DOCUMENTATION.md       #  Full  API  docs  
+│    ├──  CURL_EXAMPLES.md           #  cURL  examples  for  every  endpoint  
+│    └──  swagger.json               #  OpenAPI  spec  
+
+├──  lib/  
+│    ├──  main.dart                  #  Entry  point,  MultiProvider  setup  
+│    ├──  firebase_options.dart      #  Firebase  config  (auto-generated)  
+│    └──  app/  
+│        ├──  agora/                 #  Video  call  (Agora  RTC)  
+│        ├──  common_model/          #  Shared  data  models  
+│        ├──  common_profile_header/#  GetUserProvider,  GetUserModel,  
+ProfileHeader
+ 
+widget
+ 
+│        ├──  constants/             #  Enums  (FlowType)  and  image  path  
+constants
+ 
+│        ├──  controller/            #  All  ChangeNotifier  controllers  (14  
+subdirectories)
+ 
+│        ├──  data/                  #  Network,  repository,  response,  storage  
+│        ├──  navbar/                #  Bottom  navigation  for  pregnancy  &  
+post-pregnancy
+ 
+flows
+ 
+│        ├──  push_notification/     #  Firebase  push  notification  setup  
+│        ├──  routes/                #  app_routes.dart  –  all  named  routes  
+│        ├──  services/              #  Social  login,  user  preferences  
+│        ├──  theme/                 #  Colors,  font  families,  text  styles  
+│        ├──  view/                  #  All  screens  (17  subdirectories)  
+│        └──  widgets/               #  28  reusable  widget  files  
+├──  pubspec.yaml  
+├──  structure.md                   #  Existing  brief  structure  doc  
+└──  firebase.json                  #  Firebase  hosting  config  
+
+ 
+ 
+Entry  Point  &  App  Bootstrap  File:  lib/main.dart  
+Boot  sequence:  
+1.  WidgetsFlutterBinding.ensureInitialized()  2.  UserPreference.init() →  Initializes  Hive  storage  3.  Firebase.initializeApp() →  Initializes  Firebase  with  platform  options  4.  dotenv.load(fileName:  "assets/.env") →  Loads  environment  variables  5.  Gets  Firebase  Messaging  token  (for  push  notifications)  6.  runApp(Babyland())  
+Global  instances:  final navigatorKey  =  GlobalKey<NavigatorState>();    //  Global  navigator  
+key 
+final networkApi  =  NetworkApiServices();             //  Dio  singleton 
+final repository  =  Repository(apiService:  networkApi);  //  Repository  
+singleton 
+ 
+App  config:  
+●  Portrait-only  orientation  ●  Transparent  status  bar  ●  initialRoute →  AppRoutes.splashView  ●  Route  generation  →  AppRoutes.generateRoute  
+ 
+State  Management  Pattern:  Provider +  ChangeNotifier  
+Global  Providers  (injected  in  main.dart via  MultiProvider):  
+
+Provider  Purpose  
+Repository API  calls  (injected  as  .value)  
+NavBarProvider Pregnancy  flow  bottom  navigation  
+ExpertConsultationProvider 
+Doctor  listing  /  filtering  
+BookingController Appointment  booking  logic  
+PostPregnancyNavBarProvider 
+Post-pregnancy  flow  bottom  navigation  
+PhotoProvider Baby  photo  management  
+PregnancyController Pregnancy  data  &  dashboard  
+PostpregnancyProvider Post-pregnancy  data  
+CycleCalenderProvider Menstrual  cycle  calendar  
+ForgotPassController Forgot  password  flow  
+GetUserProvider Current  user  profile  fetch  
+BabyGrowthProvider Baby  growth  tracking  
+
+PrePregancyNavBarProvider Pre-pregnancy  flow  bottom  navigation  
+AiAssistantProvider AI  chat  room  management  
+SubscriptionProvider Subscription  plans  
+PoliciesProvider Privacy,  terms,  refund  policies  
+RecordsProvider Medical  records  upload/view  
+VideoCallProvider Agora  video  call  state  
+PostAppointmentController Post-pregnancy  appointments  
+How  to  access  state:  //  Read  &  rebuild  on  change: 
+Consumer<MyController>(builder:  (_,  ctrl,  __)  =>  Text(ctrl.value));  
+ 
+//  Trigger  actions  without  rebuild: 
+Provider.of<MyController>(context,  listen:  false).doSomething();  
+ 
+Rule:  Do  NOT  change  state  management  patterns.  Stick  to  Provider/ChangeNotifier.   
+Navigation  &  Routing  File:  lib/app/routes/app_routes.dart  
+●  58  named  routes  defined  as  static  const  String fields  
+
+●  Route  generation  via  generateRoute(RouteSettings  settings) →  switch-case 
+mapping
+ ●  All  routes  use  MaterialPageRoute  ●  Some  routes  pass  settings (for  arguments):  stagesView,  processingDetailsView,  signInView,  navbarView,  dailyLogs,  doctorProfileView,  selectSlotTimeView,  bookingsView,  saveLogView,  profileScreen  
+Key  navigation  patterns:  //  Push  named  route: 
+Navigator.pushNamed(context,  AppRoutes.homeView);  
+ 
+//  Push  &  clear  entire  stack  (e.g.,  after  login): 
+Navigator.pushNamedAndRemoveUntil(context,  AppRoutes.signInView,  (route)  
+=>
+ false);  
+ 
+//  Pass  arguments: 
+Navigator.pushNamed(context,  AppRoutes.stagesView,  arguments:  
+{"fromLoginScreen":  true});  
+ 
+Route  groups:  
+Group  Routes  
+Onboarding  
+splashView,  onboardingView,  letsGetStartedView 
+
+Auth  
+signInView,  createNewAccountView,  addEmailView,  accountCreatedSuccessfullyView,  forgotPasswordView,  forgotPasswordOtpVerifyView,  createNewPasswordView,  allSetView 
+Setup  
+basicInfoView,  stagesView,  processingDetailsView 
+Pre-Pregnancy  
+navbarPrePregancyView,  mentrualCycle,  dailyLogs,  cycleCalendarView,  aiInsights 
+Pregnancy  
+navbarView,  pregnancyView,  pregnancyHomeView,  fetalDevelopmentView,  appointmentView,  addReminderView,  saveLogView 
+Post-Pregnancy  
+postPregnancyNavbarView,  postPregnancyView,  babyDetailView,  combinedBabyDetailScreen,  postPreBabyGrowthView,  postAppointmentView,  postAddReminderView 
+Baby  Growth  
+babyGrowthView,  babyGrowthSummaryView,  mildStonesView,  addMildStones,  photoView,  addNewPhotoView,  vaccinationView 
+Expert  Consultation  
+allDoctorView,  doctorProfileView,  selectSlotTimeView,  bookingsView,  myBookingsView,  recordsView,  reportView 
+
+AI  aiAssistantView 
+Subscription  
+prePreSubscriptionView,  preSubscriptionView,  postPreSubscriptionView,  babyChildSubscriptionView 
+Profile  
+profileScreen,  profileUpdateScreen,  privacyPolicy,  termOfServicesScreen,  refundPolicyScreen,  shippingPolicyScreen 
+ 
+Data  Layer  (Network  /  API)  Architecture  Controller  →  Repository  →  NetworkApiServices  (Dio)  →  Backend  API  
+ 
+Files:  
+File  Location  Purpose  
+end_points.dart lib/app/data/network/ 
+All  API  endpoint  URLs  as  static  constants  
+network_api_services.dart 
+lib/app/data/network/ 
+Dio  singleton  with  interceptors  
+repository.dart lib/app/data/repository/ 
+65+  methods  mapping  features  to  API  calls  
+
+api_response.dart lib/app/data/response/ 
+Generic  ApiResponse<T> wrapper  with  LOADING,  COMPLETED,  ERROR status  
+status.dart lib/app/data/response/ 
+ApiStatus enum  
+Base  URL  https://api-babyland.duckdns.org/api  
+ 
+Network  Layer  (NetworkApiServices)  
+●  Singleton  pattern  (factory constructor)  ●  Dio  with  120s  connect/receive  timeout  ●  Interceptor  automatically:  ○  Attaches  auth-token and  Authorization:  Bearer headers  from  SecureStorage  ○  Fixes  invalid  cycleType:  'pregnancy' →  'regular' (global  enum  fix)  ○  Logs  all  requests  ●  Methods:  get(),  post(),  put(),  delete(),  postApiMultiPart(),  putApiMultiPart()  ●  Error  responses  (400,  401,  403,  404,  409,  422)  are  returned  as  data,  not  thrown  
+Repository  (Repository)  
+●  Extends  ChangeNotifier  ●  Receives  NetworkApiServices via  constructor  ●  65+  methods  covering  all  features  (auth,  pregnancy,  menstrual,  postpartum,  baby  growth,  
+booking,
+ 
+AI
+ 
+chat,
+ 
+subscriptions,
+ 
+policies,
+ 
+etc.)
+ ●  Each  method  calls  the  appropriate  endpoint  and  parses  the  response  into  a  typed  model  
+API  Endpoint  Groups  (from  end_points.dart):  
+Group  Prefix  Examples  
+
+Auth  /auths/ request-verification,  verification,  set-password,  login-with-password,  request-forget-password 
+Users  /users/ getUser,  profile-update,  onboarding/complete,  check-mode-onboard/ 
+Pregnancy  
+/pregnancys/ 
+info,  doctor-appointment(s),  dashboard/predict,  logs 
+Menstrual  
+/menstruals/ 
+add-cycle,  cycles,  logs,  predict,  dashboard/* 
+Postpartum  
+/postpartums/ 
+add,  doctor-appointment(s),  recovery-task/add/,  feeding,  logs 
+Baby  Growth  
+/babygrowths/ 
+add,  get,  add/milestone,  get/milestones,  add/photo,  get/photos,  get/vaccinations,  update/vaccination/status/,  add/baby-growth 
+Bookings  
+/bookings/ upcoming,  past,  add,  cancel/,  doctor/{id}/available-slots 
+Doctors  
+/doctors/ doctors 
+Medical  
+/medical-record/ 
+upload,  gettall 
+
+Records  
+AI  Chat  
+/aichats/ create-chat,  all-messages,  send-message 
+AI  Insights  
+/ai/ insights 
+Communities  
+/communities/ 
+all,  toggle-like/,  add 
+Subscriptions  
+/plans/,  /subscriptions/ 
+get-all,  add 
+Agora  
+/agoras/ rtc 
+File  Upload  
+/fileuploads/ 
+single 
+Policies  
+/policies/ (root),  return,  terms,  shipping 
+ 
+Local  Storage  Two  storage  systems  are  used:  
+
+1.  SecureStorage (lib/app/data/storage/secure_storage.dart)  Uses  flutter_secure_storage.  Stores  sensitive  data:  
+Key  Methods  Purpose  
+token saveToken,  getToken,  clearToken Auth  JWT  token  
+user_id saveUserId,  getUserId,  clearUserId Logged-in  user  ID  
+tracker_id 
+saveTrackerId,  getTrackerId,  clearTrackerId Pregnancy/cycle  tracker  ID  
+con_Id saveConversationId,  getConversationId,  clearConversationId 
+AI  chat  conversation  ID  
+Has  a  clearAll() method  to  wipe  all  keys  (used  on  logout).  
+2.  UserLocalData (lib/app/data/storage/user_local_data.dart)  Also  uses  flutter_secure_storage.  Stores  app  state:  
+Key  Methods  Purpose  
+role saveRole,  getRole,  clearRole User  flow  role  
+step saveStep,  getStep,  clearStep Onboarding  step  
+
+doctor saveDoctorId,  getDoctorId Selected  doctor  ID  
+last_stage_screen_shown saveLastStageScreenShown,  shouldShowStageScreen 
+Rate-limits  stage  screen  to  30  days  
+post_pregnancy_setup_complete 
+save/is/clear Setup  flag  
+pregnancy_setup_complete save/is/clear Setup  flag  
+conception_date save/get Onboarding  data  
+baby_name,  baby_dob,  baby_gender 
+saveBabyDetails,  getBabyDetails Baby  info  
+3.  UserPreference 
+(lib/app/services/user_preference/user_preference.dart)  Uses  Hive .  Lightweight  —  only  stores  isFirstTime boolean  to  control  onboarding  display.  
+ 
+Authentication  Email/Password  Flow  
+1.  Sign  Up:  request-verification →  OTP  →  verification →  set-password →  onboarding/complete  2.  Sign  In:  login-with-password →  token  saved  to  SecureStorage  3.  Forgot  Password:  request-forget-password →  OTP  verify  →  set-password  
+
+Managed  by  controllers  in  lib/app/controller/sign_in/,  create_account/,  forgot_password/.  
+Google  Sign-In  Flow  File:  lib/app/services/social_login/social_login.dart  
+●  Singleton  SocialLoginService  ●  Uses  google_sign_in +  firebase_auth  ●  Reads  SERVERClientID from  .env  (Web  client  ID  from  Google  Cloud  Console)  ●  Sign-out  before  sign-in  to  always  show  account  picker  ●  Uses  authenticate(scopeHint:  ['email']) (Credential  Manager  API)  ●  On  success  →  Firebase  credential  exchange  →  navigates  to  stagesView  ●  Error  handling  for  API  Exception  10,  sign-in  canceled  
+Token  Injection  Auth  token  is  automatically  attached  to  every  API  request  via  Dio  interceptor  in  NetworkApiServices.  
+ 
+Feature  Breakdown  Pre-Pregnancy  Flow  Location:  lib/app/view/Pre_pregnancy_flow/ +  lib/app/controller/pre_pregenancy_flow/  
+Feature  View  Controller  
+Menstrual  Cycle  Tracking  
+Mentrual_cycle.dart cycle_celender_controller/ 
+Cycle  Calendar  
+cycle_calendar/cycle_calendar_view.dart 
+cycle_celender_controller/ 
+
+Daily  Logs  
+Daily_Logs.dart daily_logs_controller/ 
+AI  Insights  
+aI_insights.dart ai_insights_controller/ 
+Navigation  
+nav_bar/pre_pregnancy_navbar.dart 
+nav_bar/pre_pregnancy_nav_controller.dart 
+Pregnancy  Flow  Location:  lib/app/view/Pregnancy_Flow/ +  lib/app/controller/pregnancy_flow/  
+Feature  View  Controller  
+Pregnancy  Home  
+pregnancy_home_view.dart pregnancy_controller.dart 
+Pregnancy  Dashboard  
+pregnancy_view.dart pregnancy_controller.dart 
+Fetal  Development  
+fetal_development_view.dart 
+(data  from  controller)  
+Appointments  
+appointment_view.dart pregnancy_controller.dart 
+Add  Reminder  
+addreminder_view.dart (local)  
+
+Save  Log  savelog_view.dart (local)  
+Navigation  navbar/pregnancy/navbar.dart 
+navbar/pregnancy/navbar_controller.dart 
+Post-Pregnancy  Flow  Location:  lib/app/view/Post_pregnancy_flow/ +  lib/app/controller/post_pregenancy/  
+Feature  View  Controller  
+Post-Pregnancy  Home  
+post_pregnancy_view.dart post_pregenancy_controller.dart 
+Baby  Details  baby_detail_view.dart (controller)  
+Combined  Baby  Detail  
+post_pregnancy_pageview.dart (pageview)  
+Post  Appointments  
+post_pre_addAppointment.dart post_appoitment_controller.dart 
+Baby  Growth  (Post)  
+post_pre_baby_growth_view.dart 
+baby_growth_controller.dart 
+Baby  Growth  Location:  lib/app/view/baby_growth/  
+Feature  View  File  
+
+Baby  Growth  Dashboard  
+baby_growth_view/baby_growth_view.dart 
+Growth  Summary  baby_growth_view/baby_growth_summary_view.dart 
+Milestones  milestones/mild_stones_view.dart,  add_mild_stones.dart 
+Photos  photo/photo_view.dart,  add_new_photo_view.dart 
+Vaccinations  vaccianations/vaccination_view.dart 
+Expert  Consultation  Location:  lib/app/view/expert_consultation/ +  lib/app/controller/experts_consultation/  
+Feature  View  File  Controller  
+All  Doctors  all_doctor_view.dart experts_consultation_controller.dart 
+Doctor  Profile  
+doctor_profile_view.dart (local)  
+Slot  Selection  
+select_slot_time_view.dart booking/booking_controller.dart 
+My  Bookings  
+my_bookings/my_bookings_view.dart 
+booking/booking_controller.dart 
+
+Booking  Confirmation  
+my_bookings/bookings_view.dart 
+(local)  
+Medical  Records  
+records/records_view.dart records/records_controller.dart 
+Reports  report/report_view.dart (local)  
+Video  Calling  (Agora)  Location:  lib/app/agora/  
+File  Purpose  
+agora.dart TokenGeneratorModel –  parses  Agora  RTC  token  from  API  
+video_call_controller.dart 
+VideoCallProvider –  manages  Agora  engine,  join/leave  channel,  mic/camera  toggle  
+video_call_screen.dart Video  call  UI  with  local/remote  video  views  
+AI  Assistant  Location:  lib/app/view/ai_assistant/ +  lib/app/controller/ai_assistant/  
+●  Chat-based  AI  assistant  with  speech-to-text  support  ●  Backend  endpoints:  create-chat,  all-messages,  send-message  ●  Conversation  ID  stored  in  SecureStorage  
+Subscriptions  Location:  lib/app/view/subscription_unlock_plans/  
+●  Stage-specific  subscription  screens:  Pre-Pregnancy,  Pregnancy,  Post-Pregnancy,  Baby/Child  
+
+●  Controller:  subscription_unlock_plans/controller/subscription_controller.dart  
+Profile  Location:  lib/app/view/profile_screen/  
+●  Profile  viewing  &  editing  (profile_screen.dart,  profile_update_screen.dart)  ●  Sub-screens  for  policies:  Privacy,  Terms,  Refund,  Shipping  
+Push  Notifications  File:  lib/app/push_notification/push_notifications.dart  
+●  Firebase  Cloud  Messaging  setup  ●  Token  retrieval  happens  at  boot  in  main.dart  
+ 
+Theme  &  Styling  Location:  lib/app/theme/  
+File  Purpose  
+app_colors.dart Static  color  constants  (AppColors.backgroundClr,  etc.)  
+font_family.dart 
+Font  family  name  constants  (Gilroy  family,  10  weights)  
+font_style.dart Pre-defined  TextStyle objects  for  reuse  
+Font  Family:  Gilroy  (UltraLight  →  Black,  10  weights  registered  in  pubspec.yaml)  
+Constants  Location:  lib/app/constants/  
+
+File  Purpose  
+flow.dart FlowType enum:  postPregnancy,  pregnancy,  prePregnancy 
+images.dart Static  asset  path  strings  for  all  image  files  
+ 
+Reusable  Widgets  Location:  lib/app/widgets/ (28  files)  
+Widget  File  Purpose  
+Button  button.dart Standard  app  button  
+Custom  Image  
+custom_image.dart Cached  network  image  with  fallback  
+Custom  AppBar  
+custom_appbar.dart Consistent  top  navigation  bar  
+Text  Form  Field  
+custom_textform_field.dart Styled  text  input  
+
+Date  Picker  
+common_select_date_textfield.dart Date  selection  field  
+Timer  Field  
+CustomTimerFormField.dart Time  input  
+Days  Picker  
+custom_days_picker.dart Multi-day  selection  
+Loading  custom_loding.dart Loading  spinner  overlay  
+No  Data  Found  
+custom_no_data_found.dart Empty  state  display  
+Popup  app_popup.dart Toast/dialog  helper  
+Pinput  pinput.dart OTP  input  field  styling  
+Validation  
+validation.dart Form  validators  (email,  phone,  etc.)  
+Switch  Button  
+switch_btn.dart Toggle  switch  
+
+Gradient  Checkbox  
+gradient_checkbox.dart Styled  checkbox  
+Progress  Bar  
+gradientprogressBar.dart Gradient  progress  indicator  
+Circular  Indicator  
+circular_indicator.dart Circular  progress  
+Slider  slider_widget.dart Custom  slider  
+Containers  
+container.dart,  custom_cont.dart,  sub_custom_container.dart 
+Styled  wrappers  
+SizedBox  helpers  
+sizedbox.dart Common  spacing  
+Text  helper  
+text.dart Text  widget  shortcuts  
+TextField  title  
+texttield_title.dart Label  above  fields  
+Icon  +  Text  Row  
+icon_text_row.dart Horizontal  icon-text  layout  
+
+Print  utility  
+print.dart pt() —  custom  logger  ( always  use  this,  not  print())  
+General  Exception  
+general_exception.dart Error  screen  UI  
+Feeding  Dialogs  
+feeding_details_dialog.dart,  feeding_entry_dialog.dart 
+Feeding  log  popups  
+ 
+Environment  Configuration  .env file  (assets/.env)  SERVERClientID=<Google  Web  Client  ID>  
+ 
+●  Loaded  at  app  boot  via  flutter_dotenv  ●  Used  by  SocialLoginService for  Google  Sign-In  
+Firebase  
+●  Config  in  lib/firebase_options.dart (auto-generated  by  FlutterFire  CLI)  ●  firebase.json at  project  root  for  hosting  config  
+Android  Setup  
+●  android/ directory  contains  standard  Flutter  Android  project  ●  SHA-1  must  be  configured  in  Firebase  Console  for  Google  Sign-In  
+ 
+Existing  Documentation  
+
+File  Contents  
+docs/API_DOCUMENTATION.md 
+Full  API  endpoint  documentation  
+docs/CURL_EXAMPLES.md cURL  commands  for  testing  every  endpoint  
+docs/swagger.json OpenAPI  3.0  specification  
+structure.md Brief  architecture  overview  
+gemini.md AI  assistant  coding  constraints  
+ 
+Code  Conventions  
+Area  Convention  
+File  naming  snake_case (e.g.,  splash_view.dart,  booking_controller.dart)  
+Class  naming  PascalCase (e.g.,  SplashView,  BookingController)  
+Variable/Method  naming  
+camelCase (e.g.,  currentUser,  fetchData())  
+Screens  StatefulWidget with  Scaffold +  SafeArea,  or  StatelessWidget for  static  
+
+Logging  Use  pt("message") from  lib/app/widgets/print.dart.  Never  use  print() 
+State  access  Consumer<T> for  reactivity,  Provider.of<T>(context,  listen:  false) for  actions  
+Navigation  Navigator.pushNamed(context,  AppRoutes.routeName) 
+ 
+Known  Gotchas  &  Notes  
+1.  cycleType  Interceptor:  The  Dio  interceptor  globally  intercepts  and  fixes  cycleType:  
+'pregnancy' →  'regular' in  all  outgoing  requests.  This  was  a  workaround  for  a  backend  
+enum
+ 
+validation
+ 
+issue.
+ 2.  Backend  is  separate.  The  backend  code  is  at  C:\Users\telig\Downloads\Compressed\Baby-Land-Node-Server-main.  Never  
+modify
+ 
+backend
+ 
+code.
+ 3.  BookingController  is  registered  twice  in  the  MultiProvider  list  in  main.dart.  This  is  
+an
+ 
+existing
+ 
+quirk
+ 
+—
+ 
+be
+ 
+aware
+ 
+of
+ 
+potential
+ 
+conflicts.
+ 4.  File  naming  inconsistencies:  Some  view  directories  use  PascalCase (e.g.,  Post_pregnancy_flow/,  Pre_pregnancy_flow/,  Pregnancy_Flow/)  while  
+controllers
+ 
+use
+ snake_case.  This  is  inconsistent  but  should  not  be  changed.  5.  Spelling  variations:  Some  names  have  spelling  variations  (e.g.,  pregenancy vs  pregnancy,  mentural vs  menstrual,  mild_stones vs  milestones,  celender vs  calendar).  These  are  embedded  in  file  names  and  class  names  —  do  not  rename.  6.  Common  Profile  Header:  The  GetUserProvider and  ProfileHeader widget  in  lib/app/common_profile_header/ are  used  across  multiple  screens  for  showing  the  
+user’s
+ 
+profile
+ 
+info.
+ 7.  UserLocalData.shouldShowStageScreen():  Controls  whether  to  show  the  stage  
+selection
+ 
+screen
+ 
+—
+ 
+it’s
+ 
+rate-limited
+ 
+to
+ 
+once
+ 
+every
+ 
+30
+ 
+days.
+ 
+ 
+How  to  Run  #  1.  Clone  the  repository 
+git  clone <repo-url>  
+
+ 
+#  2.  Install  dependencies 
+flutter  pub  get  
+ 
+#  3.  Set  up  environment 
+#  Ensure  assets/.env  has  the  correct  SERVERClientID 
+ 
+#  4.  Firebase  setup 
+#  Ensure  firebase_options.dart  is  configured  for  your  Firebase  project 
+#  Add  your  SHA-1  to  Firebase  Console  for  Google  Sign-In 
+ 
+#  5.  Run  the  app 
+flutter  run  
+ 
+#  6.  For  Android  release 
+flutter  build  apk  
+ 
+Prerequisites  
+●  Flutter  SDK  ^3.9.2  ●  Android  Studio  /  Xcode  ●  Firebase  project  configured  ●  Google  Cloud  Console  project  with  OAuth  2.0  Web  Client  ID  (for  Google  Sign-In)  ●  Agora  App  ID  (for  video  calling  —  configured  on  backend)  
+ 
+
+ 

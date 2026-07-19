@@ -1,109 +1,162 @@
+import 'package:babyland/core/environment/app_environment.dart';
+
 class EndPoints {
-  static const String baseUrl = "https://api-babyland.duckdns.org/api";
-  // static const String baseUrl = "https://baby-land-node-servers.onrender.com/api";
-  // static const String baseUrl = "http://91.203.133.76:5000/api";
+  static String get baseUrl => AppEnvironment.baseUrl;
+  static String get apiRoot => AppEnvironment.apiRoot;
 
-  /* ---------------- video call -----------------------------------------  */
-  static const String agoraRtcTokenApi = "$baseUrl/agoras/rtc";
+  static String get agoraRtcTokenApi => '${baseUrl}/agoras/rtc';
+  static String get checkModeOnboard => '${baseUrl}/users/check-mode-onboard/';
 
+  static String get requestVerification => '${baseUrl}/auth/request-verification';
+  static String get otpVerification => '${baseUrl}/auth/verification';
+  static String get setPassword => '${baseUrl}/auth/set-password';
+  static String get login => '${baseUrl}/auth/login-with-password';
+  static String get onboardingCompleted => '${baseUrl}/users/onboarding/complete';
+  static String get forgot => '${baseUrl}/auth/request-forget-password';
 
-  static const String checkModeOnboard = "$baseUrl/users/check-mode-onboard/";
+  static String get signup => '${baseUrl}/auth/signup';
+  static String get sendOtp => '${baseUrl}/auth/send-otp';
+  static String get verifyOtp => '${baseUrl}/auth/verify-otp';
+  static String get googleLogin => '${baseUrl}/auth/google';
+  static String get appleLogin => '${baseUrl}/auth/apple';
+  static String get updatePhone => '${baseUrl}/auth/update-phone';
+  static String get authRefresh => '${baseUrl}/auth/refresh';
+  static String get authsRefresh => '${baseUrl}/auth/refresh';
 
+  static String get menstrualsDashboardPredict =>
+      '${baseUrl}/menstruals/dashboard/predict';
+  static String get predictMenstrual => '${baseUrl}/menstruals/predict';
+  static String getMenstrualCycleById(String cycleId) =>
+      '${baseUrl}/menstruals/cycle/$cycleId';
+  static String get getMenstrualLogs => '${baseUrl}/menstruals/logs';
 
-  /* ---------------- Authentication -----------------------------------------  */
-   static const String requestVerification = "$baseUrl/auths/request-verification";
-   static const String otpVerification = "$baseUrl/auths/verification";
-   static const String setPassword = "$baseUrl/auths/set-password";
-   static const String login = "$baseUrl/auths/login-with-password";
-   static const String onboardingCompleted = "$baseUrl/users/onboarding/complete";
-   static const String forgot = "$baseUrl/auths/request-forget-password";
+  static String get pregnancyInfo => '${baseUrl}/pregnancys/info';
+  static String get addAppointment => '${baseUrl}/pregnancys/doctor-appointment';
+  static String get getAppointment => '${baseUrl}/pregnancys/doctor-appointments';
+  static String get getPregnancyDashBoard =>
+      '${baseUrl}/pregnancys/dashboard/predict';
+  static String get pregnancysLogs => '${baseUrl}/pregnancys/logs';
+  static String get pregnancysSymptom => '${baseUrl}/pregnancys/symptom';
+  static String get getPregnancyPredict => '${baseUrl}/pregnancys/predict';
 
-  static const String menstrualsDashboardPredict = "$baseUrl/menstruals/dashboard/predict";
-  static const String predictMenstrual = "$baseUrl/menstruals/predict";
+  static String get getCommunities => '${baseUrl}/communities/all';
+  static String get likeApi => '${baseUrl}/communities/toggle-like/';
+  static String get postApi => '${baseUrl}/communities/add';
+  static String communityComment(String postId) =>
+      '${baseUrl}/communities/comment/$postId';
 
-   //pregnancy
-  static const String pregnancyInfo = "$baseUrl/pregnancys/info";
-  static const String addAppointment = "$baseUrl/pregnancys/doctor-appointment";
-  static const String getAppointment = "$baseUrl/pregnancys/doctor-appointments";
-  static const String getPregnancyDashBoard = "$baseUrl/pregnancys/dashboard/predict";
-  // static const String getPregnancy = "$baseUrl/pregnancys/info";
-  static const String pregnancysLogs = "$baseUrl/pregnancys/logs";
-  static const String getCommunities = "$baseUrl/communities/all";
-  static const String likeApi = "$baseUrl/communities/toggle-like/";
-  static const String postApi = "$baseUrl/communities/add";
+  static String get getMyGroups => '${baseUrl}/groups/my';
+  static String getGroupPosts(String id) => '${baseUrl}/groups/$id/posts';
+  static String get createGroupPost => '${baseUrl}/posts';
+  static String likeGroupPost(String id) => '${baseUrl}/posts/$id/like';
+  static String commentGroupPost(String id) =>
+      '${baseUrl}/posts/$id/comment';
+  static String saveGroupPost(String id) => '${baseUrl}/posts/$id/save';
+  static String get getSavedPosts => '${baseUrl}/posts/saved';
+  static String addGroupMember(String groupId) =>
+      '${baseUrl}/groups/$groupId/members';
 
-  //post pregnancy
-  static const String postpartumsAdd = "$baseUrl/postpartums/add";
-  static const String postpartumsDoctorAppointments = "$baseUrl/postpartums/doctor-appointment";
-  static const String getPostpartumsDoctorAppointments = "$baseUrl/postpartums/doctor-appointments";
-  static const String menstruals = "$baseUrl/menstruals/cycles";
+  static String get postpartumsAdd => '${baseUrl}/postpartums/add';
+  static String get postpartumsDoctorAppointments =>
+      '${baseUrl}/postpartums/doctor-appointment';
+  static String get getPostpartumsDoctorAppointments =>
+      '${baseUrl}/postpartums/doctor-appointments';
+  static String get menstruals => '${baseUrl}/menstruals/cycles';
 
-  static const String insights = "$baseUrl/ai/insights";
-  static const String menstrualsDashboardInsight = "$baseUrl/menstruals/dashboard/insight";
-  static const String addDailyLogMentrual = "$baseUrl/menstruals/logs";
-  static const String addMenstrual = "$baseUrl/menstruals/add-cycle";
-  static const String dashboardCurrentMood = "$baseUrl/menstruals/dashboard/current-mood";
-  static const String predictCalenderMentrual = "$baseUrl/menstruals/dashboard/predict-calender";
-  static const String postpartumsDoctorAppointmentAdd = "$baseUrl/postpartums/doctor-appointment";
-  static const String recoveryProgressAdd = "$baseUrl/postpartums/recovery-task/add/";
-  static const String postpartumsAppappointment = "$baseUrl/postpartums/doctor-appointment";
-  static const String feedingGet = "$baseUrl/postpartums/feeding";
-  static const String feedingAdd = "$baseUrl/postpartums/feeding/add";
+  static String get insights => '${apiRoot}/ai/insights';
+  static String get menstrualsDashboardInsight =>
+      '${baseUrl}/menstruals/dashboard/insight';
+  static String get addDailyLogMentrual => '${baseUrl}/menstruals/logs';
+  static String get addMenstrual => '${baseUrl}/menstruals/add-cycle';
+  static String get dashboardCurrentMood =>
+      '${baseUrl}/menstruals/dashboard/current-mood';
+  static String get predictCalenderMentrual =>
+      '${baseUrl}/menstruals/dashboard/predict-calender';
+  static String get postpartumsDoctorAppointmentAdd =>
+      '${baseUrl}/postpartums/doctor-appointment';
+  static String get recoveryProgressAdd =>
+      '${baseUrl}/postpartums/recovery-task/add/';
+  static String get postpartumsAppappointment =>
+      '${baseUrl}/postpartums/doctor-appointment';
+  static String get feedingGet => '${baseUrl}/postpartums/feeding';
+  static String get feedingAdd => '${baseUrl}/postpartums/feeding/add';
+  static String get getPostpartumRecoveryTasks =>
+      '${baseUrl}/postpartums/get/recovery-task';
+  static String get postpartumsLogsAdd => '${baseUrl}/postpartums/logs';
 
-
-  /// Expert Consultation Screens
-  static const String getBookingUpcoming = "$baseUrl/bookings/upcoming";
-  static const String getBookingPast = "$baseUrl/bookings/past";
-  static const String getDoctorApi = "$baseUrl/doctors/doctors";
-  /// Dynamic: pass doctorId to build the URL
+  static String get getBookingUpcoming => '${baseUrl}/consultations/upcoming';
+  static String get getBookingPast => '${baseUrl}/consultations/past';
+  static String get getDoctorApi => '${baseUrl}/doctors/doctors';
   static String getAvailableSlotApi(String doctorId) =>
-      "$baseUrl/bookings/doctor/$doctorId/available-slots";
-  static const String bookingAdd = "$baseUrl/bookings/add";
-  static const String cancelBooking = "$baseUrl/bookings/cancel/";
-  static const String medicalRecordUpload = "$baseUrl/medical-record/upload";
-  static const String medicalRecordGetAll = "$baseUrl/medical-record/gettall";
+      '${baseUrl}/consultations/doctor/$doctorId/available-slots';
+  static String getDoctorLiveSlotsApi(String doctorId) =>
+      '${baseUrl}/doctors/$doctorId/live-slots';
+  static String get bookingAdd => '${baseUrl}/consultations/add';
+  static String get cancelBooking => '${baseUrl}/consultations/cancel/';
+  static String get medicalRecordUpload => '${baseUrl}/medical-record/upload';
+  static String get medicalRecordGetAll => '${baseUrl}/medical-record/gettall';
 
-  static const String postpartumsLogs = "$baseUrl/postpartums/logs";
-  static const String getUser = "$baseUrl/users/getUser";
-  static const String updateUserProfile = "$baseUrl/users/profile-update";
-  static const String uploadFiles = "$baseUrl/upload"; // legacy generic upload
-  static const String uploadSingleFile = "$baseUrl/fileuploads/single";
+  static String get patientConsultationSlotLock =>
+      '${baseUrl}/patient/consultations/slot-lock';
+  static String patientConsultationSlotLockByToken(String lockToken) =>
+      '${baseUrl}/patient/consultations/slot-lock/$lockToken';
+  static String get patientConsultationPhonePeIntent =>
+      '${baseUrl}/patient/consultations/payments/phonepe/intent';
+  static String patientConsultationProjection(String consultationId) =>
+      '${baseUrl}/patient/consultations/$consultationId/projection';
+  static String patientConsultationPaymentProjection(
+    String merchantTransactionId,
+  ) =>
+      '${baseUrl}/patient/consultations/payments/$merchantTransactionId/projection';
 
+  static String get postpartumsLogs => '${baseUrl}/postpartums/logs';
+  static String get postpartumsJournal => '${baseUrl}/postpartums/journal';
+  static String get getUser => '${baseUrl}/users/getUser';
+  static String get updateUserProfile => '${baseUrl}/users/profile-update';
+  static String get uploadFiles => '${baseUrl}/upload';
+  static String get uploadSingleFile => '${baseUrl}/fileuploads/single';
 
-  //baby growth
+  static String get addBabygrowths => '${baseUrl}/babygrowths/add';
+  static String get babygrowthsDetails => '${baseUrl}/babygrowths/get';
+  static String get babygrowthsAdd => '${baseUrl}/babygrowths/add';
+  static String get babygrowthsUpdate => '${baseUrl}/babygrowths/update';
+  static String get babygrowthsAddData => '${baseUrl}/babygrowths/';
+  static String get addMildStones => '${baseUrl}/babygrowths/add/milestone';
+  static String get getMildStone => '${baseUrl}/babygrowths/get/milestones';
+  static String get getBabyPhotos => '${baseUrl}/babygrowths/get/photos';
+  static String get addBabyPhotos => '${baseUrl}/babygrowths/add/photo';
+  static String get getVaccinations => '${baseUrl}/babygrowths/get/vaccinations';
+  static String get updateVaccinations =>
+      '${baseUrl}/babygrowths/update/vaccination/status/';
+  static String get addBabyGrowthApi => '${baseUrl}/babygrowths/add/baby-growth';
+  static String get babygrowthsLogs => '${baseUrl}/babygrowths/logs';
+  static String get getBabygrowthsDailyLogs =>
+      '${baseUrl}/babygrowths/get/daily-logs';
+  static String get addBabygrowthsVaccination =>
+      '${baseUrl}/babygrowths/add/vaccination';
 
-  static const String addBabygrowths = "$baseUrl/babygrowths/add";
-  static const String babygrowthsDetails = "$baseUrl/babygrowths/get";
-  static const String babygrowthsAdd = "$baseUrl/babygrowths/add";
-  static const String babygrowthsUpdate = "$baseUrl/babygrowths/update";
-  static const String babygrowthsAddData = "$baseUrl/babygrowths/";
-  static const String addMildStones = "$baseUrl/babygrowths/add/milestone";
-  static const String getMildStone = "$baseUrl/babygrowths/get/milestones";
-  static const String getBabyPhotos = "$baseUrl/babygrowths/get/photos";
-  static const String addBabyPhotos = "$baseUrl/babygrowths/add/photo";
-  static const String getVaccinations = "$baseUrl/babygrowths/get/vaccinations";
-  static const String updateVaccinations = "$baseUrl/babygrowths/update/vaccination/status/";
-  static const String addBabyGrowthApi = "$baseUrl/babygrowths/add/baby-growth";
+  static String get getAllSubscriptionPlan => '${baseUrl}/plans/get-all';
+  static String get subscriptionsAdd => '${baseUrl}/subscriptions/add';
+  static String get getMySubscription => '${baseUrl}/subscriptions/me';
+  static String get getPublicPlans => '${baseUrl}/plans/public';
 
-///------------------------------------Subscription
-  static const String getAllSubscriptionPlan = "$baseUrl/plans/get-all";
-  static const String subscriptionsAdd = "$baseUrl/subscriptions/add";
+  static String get aiChatCreateRoom => '${baseUrl}/aichats/create-chat';
+  static String get aiChatAllMessages => '${baseUrl}/aichats/all-messages';
+  static String get aiChatSendMessage => '${baseUrl}/aichats/send-message';
 
-  ///------------------------------------AI CHAT
+  static String get recoveryTask => '${baseUrl}/postpartums/recovery-task/add/';
+  static String get getRecoveryTask =>
+      '${baseUrl}/postpartums/get/recovery-task/';
 
-  static const String aiChatCreateRoom = '$baseUrl/aichats/create-chat';
-  static const String aiChatAllMessages = '$baseUrl/aichats/all-messages';
-  static const String aiChatSendMessage = '$baseUrl/aichats/send-message';
+  @Deprecated('Use insights (GET /api/v1/ai/insights) per API contract')
+  static String get getAisInsights => '${baseUrl}/aisinsights/';
+  static String get directChat => '${baseUrl}/chat/';
+  static String get streamChat => '${baseUrl}/chat/stream';
+  static String getNotifications(String userId) =>
+      '${baseUrl}/notifications/getAll/$userId';
 
-///------------------------------------Postpartum Api
-  static const String recoveryTask = '$baseUrl/postpartums/recovery-task/add/';
-  static const String getRecoveryTask = '$baseUrl/postpartums/get/recovery-task/';
-
-
-//policies
-  static const String privacyPolicy = '$baseUrl/policies/';
-  static const String returnPolicy = '$baseUrl/policies/return';
-  static const String termPolicy = '$baseUrl/policies/terms';
-  static const String shippingPolicy = '$baseUrl/policies/shipping';
-
+  static String get privacyPolicy => '${baseUrl}/policies/';
+  static String get returnPolicy => '${baseUrl}/policies/return';
+  static String get termPolicy => '${baseUrl}/policies/terms';
+  static String get shippingPolicy => '${baseUrl}/policies/shipping';
 }

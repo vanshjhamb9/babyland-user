@@ -283,6 +283,7 @@ class DailyLogs {
   List<String>? symptoms;
   String? stressLevel;
   String? anxietyLevel;
+  String? sleepQuality;
   String? notes;
   String? sId;
 
@@ -292,6 +293,7 @@ class DailyLogs {
         this.symptoms,
         this.stressLevel,
         this.anxietyLevel,
+        this.sleepQuality,
         this.notes,
         this.sId});
 
@@ -305,6 +307,7 @@ class DailyLogs {
     }
     stressLevel = json['stressLevel']?.toString();
     anxietyLevel = json['anxietyLevel']?.toString();
+    sleepQuality = json['sleepQuality']?.toString();
     notes = json['notes']?.toString();
     sId = json['_id']?.toString();
   }
@@ -316,6 +319,7 @@ class DailyLogs {
     data['symptoms'] = symptoms;
     data['stressLevel'] = stressLevel;
     data['anxietyLevel'] = anxietyLevel;
+    data['sleepQuality'] = sleepQuality;
     data['notes'] = notes;
     data['_id'] = sId;
     return data;

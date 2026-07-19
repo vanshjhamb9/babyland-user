@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -46,24 +45,23 @@ class AppColors{
     ],
   );
 
+  /// Soft wash for screens (pairs with dashboard canvas #FFF9FB).
   static LinearGradient backGroundColor = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    transform: const GradientRotation(5),
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
     colors: [
-      AppColors.buttonClr2.withValues(alpha: 0.15),
-      AppColors.buttonClr1.withValues(alpha: 0.1),
+      const Color(0xFFFFB6C1).withValues(alpha: 0.28),
+      const Color(0xFFFFD1DC).withValues(alpha: 0.34),
     ],
   );
 
+  /// Primary CTA / progress: light pink gradient (#FFB6C1 → #FFD1DC).
   static LinearGradient buttonClr = LinearGradient(
-    // begin: Alignment.centerLeft,
-    // end: Alignment.centerRight,
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
     colors: [
-      AppColors.buttonClr1.withValues(alpha: 0.9),
-      AppColors.buttonClr2.withValues(alpha: 0.6),
+      const Color(0xFFFFB6C1),
+      const Color(0xFFFFD1DC),
     ],
   );
 

@@ -72,6 +72,8 @@ class Users {
   String? profilePicture;
   String? phone;
   String? weight;
+  String? age;
+  String? height;
   String? pregnancyStartDate;
   String? stage;
 
@@ -142,6 +144,8 @@ class Users {
     profilePicture = (json['photo'] ?? json['profilePicture'])?.toString();
     phone = json['phone']?.toString();
     weight = json['weight']?.toString();
+    age = json['age']?.toString();
+    height = json['height']?.toString();
     pregnancyStartDate = json['pregnancyStartDate']?.toString();
     stage = json['stage']?.toString();
 

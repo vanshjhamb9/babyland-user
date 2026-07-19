@@ -95,6 +95,7 @@ class ImageConstants {
   static String fish = '$imagePath/Fish 02.png';
   static String cup = '$imagePath/Capa_1.png';
   static String noData = '$imagePath/No-data-cuate.svg';
+  static String iraAvatar = '$imagePath/IRA.jpeg';
   static String prePregnancy1 = '$imagePath/prePregnancy.png';
 
 

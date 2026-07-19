@@ -4,6 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
 
+/// E.164-style: optional leading +, 8–15 digits after stripping spaces/dashes.
+bool isValidPhone(String? input, {bool isRequired = false}) {
+  if (input == null || input.trim().isEmpty) {
+    return !isRequired;
+  }
+  final normalized = input.trim().replaceAll(RegExp(r'[\s\-().]'), '');
+  return RegExp(r'^\+?[0-9]{8,15}$').hasMatch(normalized);
+}
+
 bool isValidEmail(String? inputString, {bool isRequired = false,}) {
   bool isInputStringValid = false;
 

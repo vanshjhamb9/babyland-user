@@ -129,89 +129,80 @@ class _AppointmentViewState extends State<AppointmentView> {
             color: AppColors.backgroundClr,
             gradient: AppColors.backGroundColor,
             child: RefreshIndicator(
-              onRefresh: () =>provider.getAppointmentApi(),
-              child: Padding(
+              onRefresh: () => provider.getAppointmentApi(),
+              child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Upcoming Appointments",
-                      style: AppFontStyle.text_16_400(
-                        fontFamily: AppFontFamily.gilroySemiBold,
-                        color: AppColors.black,
-                      ),
+                children: [
+                  Text(
+                    "Upcoming Appointments",
+                    style: AppFontStyle.text_16_400(
+                      fontFamily: AppFontFamily.gilroySemiBold,
+                      color: AppColors.black,
                     ),
-                    const SizedBox(height: 18),
-                    appointments.isEmpty
-                        ? CustomNoDataFound(isClr: false,heightBox: SBox(h: 50),)
-                        : Expanded(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: appointments.length,
-                        itemBuilder: (context, index) {
-                          final appointment = appointments[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: AppContainer(
-                              color: AppColors.white,
-                              radius: 8,
-                              padding: const EdgeInsets.all(10),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  ),
+                  const SizedBox(height: 18),
+                  if (appointments.isEmpty)
+                    CustomNoDataFound(isClr: false, heightBox: SBox(h: 50))
+                  else
+                    ...List.generate(appointments.length, (index) {
+                      final appointment = appointments[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: AppContainer(
+                          color: AppColors.white,
+                          radius: 8,
+                          padding: const EdgeInsets.all(10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
                                 children: [
-                                  Row(
+                                  CustomImage(
+                                      path: ImageConstants.scan, scale: 4),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      CustomImage(
-                                          path: ImageConstants.scan, scale: 4),
-                                      const SizedBox(width: 12),
-                                      Column(
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                      Text(
+                                        appointment.title ?? "",
+                                        style: AppFontStyle.text_15_400(
+                                            fontFamily:
+                                            AppFontFamily.gilroySemiBold),
+                                      ),
+                                      const SizedBox(height: 7),
+                                      Row(
                                         children: [
-                                          Text(
-                                            appointment.title ?? "",
-                                            style: AppFontStyle.text_15_400(
-                                                fontFamily:
-                                                AppFontFamily.gilroySemiBold),
+                                          const Icon(
+                                            Icons.calendar_today_outlined,
+                                            size: 18,
                                           ),
-                                          const SizedBox(height: 7),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.calendar_today_outlined,
-                                                size: 18,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                "${provider.formatApiDate(appointment.date.toString())} - ${appointment.time ?? ""}",
-                                                style: AppFontStyle.text_13_400(
-                                                  fontFamily:
-                                                  AppFontFamily.gilroyMedium,
-                                                  color: AppColors.textLightClr,
-                                                ),
-                                              ),
-                                            ],
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            "${provider.formatApiDate(appointment.date.toString())} - ${appointment.time ?? ""}",
+                                            style: AppFontStyle.text_13_400(
+                                              fontFamily:
+                                              AppFontFamily.gilroyMedium,
+                                              color: AppColors.textLightClr,
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                  CustomImage(
-                                    path: appointment.reminder == true
-                                        ? ImageConstants.notification
-                                        : ImageConstants.notificationoff,
-                                    scale: 4,
-                                  ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    )
-                  ],
-                ),
+                              CustomImage(
+                                path: appointment.reminder == true
+                                    ? ImageConstants.notification
+                                    : ImageConstants.notificationoff,
+                                scale: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                ],
               ),
             ),
           ),

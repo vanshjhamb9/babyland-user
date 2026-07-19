@@ -1,4 +1,3 @@
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
@@ -8,14 +7,12 @@ import 'package:babyland/app/widgets/switch_btn.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../controller/pregnancy_flow/pregnancy_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/font_family.dart';
 import '../../theme/font_style.dart';
 import '../../widgets/CustomTimerFormField.dart';
 import '../../widgets/button.dart';
 import '../../widgets/common_select_date_textfield.dart';
-import '../../widgets/custom_image.dart';
 import '../../widgets/validation.dart';
 import 'controller/post_appoitment_controller.dart';
 

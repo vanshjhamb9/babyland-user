@@ -1,4 +1,5 @@
 import 'package:babyland/app/widgets/button.dart';
+import 'package:babyland/core/constants/app_constants.dart';
 import 'package:flutter/material.dart';
 import '../../../constants/images.dart';
 import '../../../theme/app_colors.dart';
@@ -160,7 +161,7 @@ class _LifestyleSubScreenState extends State<LifestyleSubScreen> {
                       height: 12,
                     ),
 
-                    IconTextRow(label: "AI lifecycle tracker",imagePath:imgValue1 ? ImageConstants.done2 : ImageConstants.cancel),
+                    IconTextRow(label: "${AppConstants.aiAssistantDisplayName} lifecycle tracker",imagePath:imgValue1 ? ImageConstants.done2 : ImageConstants.cancel),
 
                     IconTextRow(label: "Diet & yoga plan",imagePath: imgValue1 ? ImageConstants.done2 : ImageConstants.cancel),
 

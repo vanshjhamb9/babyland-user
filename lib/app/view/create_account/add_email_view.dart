@@ -1,6 +1,5 @@
 import 'package:babyland/app/controller/create_account/create_account_provider.dart';
 import 'package:babyland/app/data/response/status.dart';
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
@@ -15,7 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class AddEmailView extends StatelessWidget {
-  AddEmailView({super.key});
+  const AddEmailView({super.key});
 
 
   @override
@@ -35,8 +34,7 @@ class AddEmailView extends StatelessWidget {
                   centerTitle: true,
                   leadingOnTap: () => provider.currentIndex > 0 ? provider.pageController.previousPage(duration: Duration(microseconds: 100), curve: Curves.bounceIn) : Navigator.pop(context),
                   title: Text(
-                    provider.currentIndex == 0 ?
-                    "Add your email" : provider.currentIndex == 1 ? "Verify your email" : "Add Password",
+                    provider.currentIndex == 0 ? "Create new account" : "Verify your number",
                     style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroySemiBold),
                   ),
                   backgroundClr: AppColors.transparent,
@@ -45,7 +43,7 @@ class AddEmailView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
-                    3,
+                    2,
                         (index1) => Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       height: 4,
@@ -60,9 +58,9 @@ class AddEmailView extends StatelessWidget {
                 SizedBox(height: 10),
                 Expanded(
                   child: PageView.builder(
-                    // physics: NeverScrollableScrollPhysics(),
+                    physics: NeverScrollableScrollPhysics(), // Prevent swipe to skip validation
                     controller:provider.pageController,
-                    itemCount: 3,
+                    itemCount: 2,
                     onPageChanged: (value) {
                       provider.changeIndex(value);
                     },
@@ -71,10 +69,8 @@ class AddEmailView extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14.0),
                         child: index == 0 ?
-                        _addYourEmail(provider) :
-                        index == 1 ?
-                        verifyYourEmail(provider) :
-                            _addPassword(provider),
+                        SingleChildScrollView(child: _addYourDetails(provider)) :
+                        verifyYourEmail(provider),
                       );
                     },),
                 ),
@@ -101,7 +97,7 @@ class AddEmailView extends StatelessWidget {
             style: AppFontStyle.text_15_400(color: AppColors.textLightClr,fontFamily: AppFontFamily.gilroyRegular),
           ),
           TextSpan(
-            text: " ${provider.emailController.text}, ",
+            text: " ${provider.phoneController.text}, ",
             style: AppFontStyle.text_14_400(color: AppColors.textLightClr,fontFamily: AppFontFamily.gilroySemiBold,),
           ),
           TextSpan(
@@ -114,34 +110,58 @@ class AddEmailView extends StatelessWidget {
         Text("Enter Code",
           style: AppFontStyle.text_14_400(color: AppColors.black,fontFamily: AppFontFamily.gilroyMedium), ),
         SizedBox(height: 5),
-        CommonPinput(controller:provider.otpController)
+        CommonPinput(controller:provider.otpController),
+        if (provider.phoneAuthMessage != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            provider.phoneAuthMessage!,
+            style: AppFontStyle.text_13_400(
+              color: AppColors.red,
+              fontFamily: AppFontFamily.gilroyMedium,
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
+        Center(
+          child: Text(
+            provider.resendCooldownSeconds > 0
+                ? "Resend in ${provider.resendCooldownSeconds}s"
+                : "Didn't receive OTP?",
+            style: AppFontStyle.text_14_400(
+              color: AppColors.textLightClr,
+              fontFamily: AppFontFamily.gilroyRegular,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: GestureDetector(
+            onTap: provider.isSendingPhoneOtp || !provider.canResendPhoneOtp
+                ? null
+                : () => provider.resendSignupOtp(),
+            child: Text(
+              "Resend OTP",
+              style: AppFontStyle.text_14_400(
+                color: provider.canResendPhoneOtp && !provider.isSendingPhoneOtp
+                    ? AppColors.buttonClr1
+                    : AppColors.textLightClr,
+                fontFamily: AppFontFamily.gilroySemiBold,
+              ).copyWith(decoration: TextDecoration.underline),
+            ),
+          ),
+        ),
       ],
     );
   }
 
 
 
-  Widget _addYourEmail(CreateAccountProvider provider) {
+  Widget _addYourDetails(CreateAccountProvider provider) {
     return Form(
       key: provider.emailKey,
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            textFieldTitle(title: "What’s your name?"),
-            SizedBox(height: 6),
-            CustomTextFormField(
-              hintText: "Please enter your name",
-              controller: provider.nameController,
-              validator: (value) {
-                if((value?.isEmpty ?? false)){
-                  return "Please enter your name";
-                }else if(value!.length < 3){
-                  return "Please enter a valid name";
-                }
-                return null;
-              },
-            ),
-            SizedBox(height: 32),
             textFieldTitle(title: "Email"),
             SizedBox(height: 6),
             CustomTextFormField(
@@ -156,6 +176,48 @@ class AddEmailView extends StatelessWidget {
                 return null;
               },
             ),
+            SizedBox(height: 20),
+            textFieldTitle(title: "Phone Number"),
+            SizedBox(height: 6),
+            CustomTextFormField(
+              hintText: "Enter your phone number",
+              controller: provider.phoneController,
+              textInputType: TextInputType.phone,
+              validator: (value) {
+                if(value?.isEmpty ?? false){
+                  return "Please enter your phone number";
+                } else if(!RegExp(r'^[0-9]+$').hasMatch(value!)) {
+                  return "Phone must be numeric";
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 20),
+            textFieldTitle(title: "Enter password"),
+            SizedBox(height: 6),
+            CustomTextFormField(
+              controller: provider.passwordController,
+              obscureText: provider.isShowPass,
+              suffix: InkWell(
+                  onTap: () {
+                    provider.setIsShowPass(!provider.isShowPass);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Icon(provider.isShowPass ? Icons.visibility_outlined : Icons.visibility_off,size: 20,color: AppColors.black),
+                  )),
+              hintText: "Password",
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter password';
+                }
+                if (value.length < 6) {
+                   return 'Password must be at least 6 characters';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 20),
           ],
       ),
     );
@@ -250,31 +312,24 @@ class AddEmailView extends StatelessWidget {
         child: Button(
           height: 58,
           onTap: (){
-              if((provider.emailKey.currentState?.validate() ?? false) && provider.currentIndex == 0){
-                provider.requestVerification();
-              }else if(provider.currentIndex == 1) {
+              if(provider.currentIndex == 0) {
+                 if(provider.emailKey.currentState?.validate() ?? false) {
+                    provider.signup();
+                 }
+              } else if(provider.currentIndex == 1) {
                 if (provider.otpController.text.length < 6) {
                   AppPopUp.showToast(
                       message: "Please enter a valid 6 digit otp.");
                 } else {
-                  provider.otpVerification();
+                  provider.verifyOtpSignup();
                 }
-              }else if(provider.currentIndex == 2){
-                if(provider.passwordController.text.trim().isEmpty && provider.confirmPasswordController.text.trim().isEmpty){
-                  AppPopUp.showToast(message: "Please enter password");
-                }else if(provider.passwordController.text.trim() != provider.confirmPasswordController.text.trim()){
-                  AppPopUp.showToast(message: "Password not matched!");
-                }else{
-                provider.setPassword(token: provider.otpApiData?.data?.token ?? "");
               }
-             }
           },
           child:
-          provider.forgotPassRequestOtpData?.status == ApiStatus.LOADING ||
-          provider.otpApiData?.status == ApiStatus.LOADING ||
-          provider.setPasswordApiData?.status == ApiStatus.LOADING
+          provider.signupApiData?.status == ApiStatus.LOADING ||
+          provider.verifyOtpSignupData?.status == ApiStatus.LOADING
           ? customLoading() :
-          Text(provider.currentIndex == 0 ? "Create an account" : provider.currentIndex == 1 ? "Verify Email" : "Continue",
+          Text(provider.currentIndex == 0 ? "Create an account" : "Verify Number",
           style:  AppFontStyle.text_16_400(fontFamily: AppFontFamily.gilroyBold,color: AppColors.white),
           ),
         ),

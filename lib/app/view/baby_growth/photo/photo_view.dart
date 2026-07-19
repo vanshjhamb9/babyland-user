@@ -1,8 +1,6 @@
 import 'package:babyland/app/constants/images.dart';
-import 'package:babyland/app/controller/baby_growth/baby_growth_controller.dart';
 import 'package:babyland/app/controller/photo/photo_controller.dart';
 import 'package:babyland/app/data/response/status.dart';
-import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
@@ -20,7 +18,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../widgets/button.dart';
 
 class PhotoView extends StatefulWidget {
-  PhotoView({super.key});
+  const PhotoView({super.key});
 
   @override
   State<PhotoView> createState() => _PhotoViewState();

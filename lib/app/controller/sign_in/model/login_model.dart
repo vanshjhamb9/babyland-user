@@ -2,9 +2,10 @@ class LoginModel {
   bool? success;
   String? message;
   String? authToken;
+  String? refreshToken;
   User? user;
 
-  LoginModel({this.success, this.message, this.authToken, this.user});
+  LoginModel({this.success, this.message, this.authToken, this.refreshToken, this.user});
 
   LoginModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
@@ -12,8 +13,11 @@ class LoginModel {
     final data = json['data'];
     if (data != null) {
       authToken = data['authToken']?.toString();
+      refreshToken = data['refreshToken']?.toString();
       user = data['user'] != null ? User.fromJson(data['user']) : null;
     }
+    // Some auth responses may include refreshToken at the top-level as well.
+    refreshToken ??= json['refreshToken']?.toString();
   }
 
   Map<String, dynamic> toJson() {
@@ -22,6 +26,7 @@ class LoginModel {
     data['message'] = message;
     data['data'] = {
       'authToken': authToken,
+      'refreshToken': refreshToken,
       'user': user?.toJson(),
     };
     return data;

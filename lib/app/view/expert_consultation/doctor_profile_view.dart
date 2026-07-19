@@ -1,4 +1,4 @@
-import 'package:babyland/app/controller/experts_consultation/model/doctor_data_model.dart' hide Datum;
+import 'package:babyland/app/controller/experts_consultation/model/doctor_data_model.dart';
 import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
@@ -20,6 +20,7 @@ import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:babyland/features/patient_consultation/consultation_checkout_controller.dart';
 
 class DoctorProfileView extends StatefulWidget {
   const DoctorProfileView({super.key});
@@ -37,9 +38,14 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      doctorId = args?['doctorId'] ?? "";
-        pt(name: "doctor id",args?['doctorId'] ?? "");
-      context.read<ExpertConsultationProvider>().doctorDetailApiData(doctorId: args?['doctorId'] ?? "");
+      final raw = args?['doctorId'];
+      doctorId = raw is String
+          ? raw
+          : (raw is Map ? (raw['_id'] ?? raw['id'])?.toString() : null) ?? "";
+      pt(name: "doctor id", doctorId);
+      if (doctorId.isNotEmpty) {
+        context.read<ExpertConsultationProvider>().doctorDetailApiData(doctorId: doctorId);
+      }
     },);
   }
 
@@ -96,7 +102,9 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                     ),
                   ),
                   Button(
-                    onTap: () {
+                    onTap: () async {
+                      final checkout = context.read<ConsultationCheckoutController>();
+
                       pt("this is date ${provider.selectedTimeIndex}");
                       pt("this is time ${provider.selectedIndex}");
 
@@ -105,15 +113,40 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                       }
                       else if(provider.selectedTimeIndex == -1){
                         AppPopUp.showToast(message: "Please select time..",lineColor: AppColors.red);
-                      } else{
+                      } else if (doctorId.isEmpty) {
+                        AppPopUp.showToast(message: "Doctor not found.", lineColor: AppColors.red);
+                      } else if (provider.selectedDate == null) {
+                        AppPopUp.showToast(message: "Please select a date...", lineColor: AppColors.red);
+                      } else {
                         pt("this is date ${ provider.selectedDate}");
                         pt("this is time ${ provider.selectedTime}");
+                        provider.setSelectedDoctorId(doctorId);
+                        checkout.clearForNewFlow();
+
+                        final dateStr = provider.formatDate(provider.selectedDate!);
+                        final timeStr = provider.selectedTime ?? "";
+
+                        final locked = await checkout.requestSlotLock(
+                          doctorId: doctorId,
+                          slotDate: dateStr,
+                          slotTime: timeStr,
+                        );
+                        if (!context.mounted) return;
+                        if (!locked.ok) {
+                          AppPopUp.showToast(
+                            message:
+                                locked.message ?? "Unable to reserve this slot. Try another time.",
+                            lineColor: AppColors.red,
+                          );
+                          return;
+                        }
+
                         Navigator.pushNamed(
                           context,
                           AppRoutes.bookingsView,
                           arguments: {
                             'appointmentDate': provider.selectedDate?.toString(),
-                            'appointmentTime': provider.selectedTime?.toString(),
+                            'appointmentTime': timeStr,
                             'doctorId': doctorId.toString(),
                           },
                         );
@@ -267,12 +300,24 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
           ),
         ),
         SizedBox(height: 8),
-        // DOC-01/DOC-02: real available slots from API
+        // DOC-01/DOC-02: real available slots from API.
+        // Route through the endpoint-agnostic state slot so the live-slots
+        // flag (§8) covers this widget too.
         Builder(builder: (_) {
-          final slotStatus = provider.getAvailableSlot?.status;
-          final slots = provider.getAvailableSlot?.data?.data
-              ?.where((s) => s.status == true)
-              .toList() ?? [];
+          final useLive = ExpertConsultationProvider.useLiveSlotsEndpoint;
+          final ApiStatus? slotStatus = useLive
+              ? provider.liveSlots?.status
+              : provider.getAvailableSlot?.status;
+          final List<({String time, bool bookable})> slots = useLive
+              ? (provider.liveSlots?.data?.slots
+                      .map((s) => (time: s.time, bookable: s.isBookable))
+                      .toList() ??
+                  const [])
+              : (provider.getAvailableSlot?.data?.data
+                      ?.map((d) => (time: d.time ?? '', bookable: d.status == true))
+                      .toList() ??
+                  const []);
+          final bookableSlots = slots.where((s) => s.bookable).toList();
 
           // No date selected yet
           if (provider.selectedDate == null) {
@@ -310,7 +355,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
           }
 
           // No slots available
-          if (slots.isEmpty) {
+          if (bookableSlots.isEmpty) {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Text(
@@ -327,14 +372,14 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: slots.asMap().entries.map((entry) {
+              children: bookableSlots.asMap().entries.map((entry) {
                 final index = entry.key;
                 final slot = entry.value;
                 final isSelected = index == provider.selectedTimeIndex;
                 return GestureDetector(
                   onTap: () {
                     provider.setSelectedTimeIndex(index);
-                    provider.pickTime(slot.time ?? "");
+                    provider.pickTime(slot.time);
                   },
                   child: AppContainer(
                     margin: EdgeInsets.only(left: index == 0 ? 14 : 8, top: 10, bottom: 10),
@@ -350,7 +395,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       child: Text(
-                        slot.time ?? "",
+                        slot.time,
                         style: AppFontStyle.text_11_400(
                           color: isSelected ? AppColors.black : AppColors.textClr,
                           fontFamily: isSelected ? AppFontFamily.gilroySemiBold : AppFontFamily.gilroyMedium,

@@ -190,7 +190,7 @@ class _SignInViewState extends State<SignInView> {
                                             if (index == 0) {
                                               googleSignInService.signInWithGoogle();
                                             } else if (index == 1) {
-                                              // Handle Apple Sign-in if needed
+                                              googleSignInService.signInWithApple();
                                             }
                                           },
                                           child: Container(

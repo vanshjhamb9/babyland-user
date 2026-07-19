@@ -1,4 +1,11 @@
+import 'dart:async';
+
 import 'package:babyland/app/controller/experts_consultation/experts_consultation_controller.dart';
+import 'package:babyland/app/view/subscription_unlock_plans/controller/subscription_controller.dart';
+import 'package:babyland/app/widgets/stale_sync_banner.dart';
+import 'package:babyland/core/runtime/app_state_reconciliation_coordinator.dart';
+import 'package:babyland/core/sync/consultation_sync_service.dart';
+import 'package:babyland/core/sync/polling_consultation_sync.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
@@ -11,11 +18,21 @@ import 'package:babyland/app/widgets/sizedbox.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:babyland/features/patient_consultation/consultation_checkout_controller.dart';
 
-import '../../controller/experts_consultation/model/availableslotdatamodel.dart';
 import '../../data/response/status.dart';
 import '../../widgets/general_exception.dart'; // Assuming you have CustomNoDataFound too
 import '../../widgets/custom_no_data_found.dart'; // Add if missing
+
+/// UI-side view of a bookable slot, independent of the underlying endpoint.
+/// Built from either the legacy `Datum` (status: bool) or the new `LiveSlot`
+/// (status: AVAILABLE/HELD/BOOKED/PAST). The slot grid only needs the label
+/// and a bookable flag.
+class _SelectableSlot {
+  const _SelectableSlot({required this.time, required this.bookable});
+  final String time;
+  final bool bookable;
+}
 
 class SelectSlotTimeView extends StatefulWidget {
   const SelectSlotTimeView({super.key});
@@ -29,6 +46,9 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
   String? date;
   String? doctorId;
 
+  StreamSubscription<ConsultationSyncReason>? _syncSub;
+  PollingConsultationSyncService? _sync;
+
   @override
   void initState() {
     super.initState();
@@ -37,11 +57,30 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
       date = args?['appointmentDate'];
       time = args?['appointmentTime'];
       doctorId = args?['doctorId'];
-      context.read<ExpertConsultationProvider>().getAvailableSlotApiData(
+      final provider = context.read<ExpertConsultationProvider>();
+      // Endpoint-agnostic dispatch: legacy `/available-slots` by default,
+      // new `/doctors/:id/live-slots` when the build flag is on (§8).
+      provider.getSlotsForDoctor(
         doctorId: doctorId ?? "",
         date: DateTime.parse(date.toString()),
       );
+      _sync = context.read<PollingConsultationSyncService>();
+      _sync!.startSlotPolling();
+      _syncSub = _sync!.invalidations.listen((_) {
+        if (!mounted || doctorId == null || date == null) return;
+        provider.getSlotsForDoctor(
+          doctorId: doctorId!,
+          date: DateTime.parse(date.toString()),
+        );
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    _sync?.stopSlotPolling();
+    super.dispose();
   }
 
   @override
@@ -54,22 +93,41 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
         padding: EdgeInsets.symmetric(horizontal: 14),
         child: Consumer<ExpertConsultationProvider>(
           builder: (context, provider, _) {
-            return RefreshIndicator(
-              onRefresh: () => provider.getAvailableSlotApiData(
-                doctorId: doctorId ?? "",
-                date: DateTime.parse(date.toString()),
-              ),
-              child: switch (provider.getAvailableSlot?.status) {
-                ApiStatus.LOADING => _buildShimmerLoading(),
-                ApiStatus.COMPLETED => _buildCompletedUI(provider),
-                ApiStatus.ERROR => GeneralExceptionWidget(
-                  onPress: () => provider.getAvailableSlotApiData(
-                    doctorId: doctorId ?? "",
-                    date: DateTime.parse(date.toString()),
+            return Column(
+              children: [
+                Consumer2<AppStateReconciliationCoordinator, SubscriptionProvider>(
+                  builder: (context, coord, sub, _) {
+                    final show = coord.isReconciling ||
+                        sub.isEntitlementSnapshotStale;
+                    if (!show) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        const StaleSyncBanner(),
+                        const SizedBox(height: 8),
+                      ],
+                    );
+                  },
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () => provider.getSlotsForDoctor(
+                      doctorId: doctorId ?? "",
+                      date: DateTime.parse(date.toString()),
+                    ),
+                    child: switch (_activeStatus(provider)) {
+                      ApiStatus.LOADING => _buildShimmerLoading(),
+                      ApiStatus.COMPLETED => _buildCompletedUI(provider),
+                      ApiStatus.ERROR => GeneralExceptionWidget(
+                        onPress: () => provider.getSlotsForDoctor(
+                          doctorId: doctorId ?? "",
+                          date: DateTime.parse(date.toString()),
+                        ),
+                      ),
+                      _ => const SizedBox(),
+                    },
                   ),
                 ),
-                _ => const SizedBox(),
-              },
+              ],
             );
           },
         ),
@@ -124,34 +182,113 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
     );
   }
 
-  // Handle completed state - check empty data
-  Widget _buildCompletedUI(ExpertConsultationProvider provider) {
-    final model = provider.getAvailableSlot?.data;
-    if (model?.data == null || model!.data!.isEmpty) {
-      return CustomNoDataFound(isClr: false);
+  /// Status of the state slot that matches the active endpoint.
+  ApiStatus? _activeStatus(ExpertConsultationProvider provider) {
+    if (ExpertConsultationProvider.useLiveSlotsEndpoint) {
+      return provider.liveSlots?.status;
     }
-    return _buildSlotsList(provider, model);
+    return provider.getAvailableSlot?.status;
   }
 
-  // Dynamic slots list from API data
-  Widget _buildSlotsList(ExpertConsultationProvider provider, AvailableSlotDataModel model) {
+  /// Endpoint-agnostic view of the slot list. Returns an empty list when
+  /// the API is still loading or yielded no slots.
+  List<_SelectableSlot> _activeSlots(ExpertConsultationProvider provider) {
+    if (ExpertConsultationProvider.useLiveSlotsEndpoint) {
+      final ls = provider.liveSlots?.data;
+      if (ls == null) return const [];
+      return ls.slots
+          .map((s) => _SelectableSlot(time: s.time, bookable: s.isBookable))
+          .toList(growable: false);
+    }
+    final model = provider.getAvailableSlot?.data;
+    final rows = model?.data;
+    if (rows == null) return const [];
+    return rows
+        .map((d) => _SelectableSlot(
+              time: d.time ?? '',
+              // Legacy `Datum.status` is a bool flag: `true` == available.
+              bookable: d.status == true,
+            ))
+        .toList(growable: false);
+  }
+
+  // Handle completed state - check empty data
+  Widget _buildCompletedUI(ExpertConsultationProvider provider) {
+    final slots = _activeSlots(provider);
+    if (slots.isEmpty) {
+      return CustomNoDataFound(isClr: false);
+    }
+    return _buildSlotsList(provider, slots);
+  }
+
+  // Dynamic slots list — works for both `/available-slots` and `/live-slots`.
+  Widget _buildSlotsList(
+    ExpertConsultationProvider provider,
+    List<_SelectableSlot> slots,
+  ) {
     return ListView.separated(
       shrinkWrap: true,
       itemCount: 1,
       itemBuilder: (context, index) {
         return GestureDetector(
-          onTap: () {
+          onTap: () async {
             final isCardSelected = provider.slotIndex != -1;
-            final isTimeSelected = isCardSelected && provider.selectedShiftIndex[provider.slotIndex] != -1;
-            if (isCardSelected && isTimeSelected) {
-              Navigator.pushNamed(context, AppRoutes.bookingsView, arguments: {
-                'appointmentDate': date?.toString(),
-                'appointmentTime': time?.toString(),
-                'doctorId': doctorId?.toString(),
-              });
-            } else {
-              AppPopUp.showToast(message: "Please select date & time slot", lineColor: AppColors.red);
+            final isTimeSelected =
+                isCardSelected && provider.selectedShiftIndex[provider.slotIndex] != -1;
+            if (!isCardSelected || !isTimeSelected) {
+              AppPopUp.showToast(
+                  message: "Please select date & time slot", lineColor: AppColors.red);
+              return;
             }
+
+            final shiftIdx = provider.getShiftIndexForSlot(provider.slotIndex);
+            final slotLabel = shiftIdx != null && shiftIdx < slots.length
+                ? slots[shiftIdx].time
+                : time?.toString() ?? '';
+
+            if (doctorId == null ||
+                doctorId!.isEmpty ||
+                date == null ||
+                shiftIdx == null) {
+              AppPopUp.showToast(
+                  message: "Missing slot selection", lineColor: AppColors.red);
+              return;
+            }
+
+            final effectiveTime = slotLabel.isNotEmpty
+                ? slotLabel
+                : (time?.toString().isNotEmpty == true ? time!.toString() : '');
+            if (effectiveTime.isEmpty) {
+              AppPopUp.showToast(
+                  message: "Please select date & time slot", lineColor: AppColors.red);
+              return;
+            }
+
+            provider.setSelectedDoctorId(doctorId!);
+            final checkout = context.read<ConsultationCheckoutController>();
+            checkout.clearForNewFlow();
+
+            final dateFmt = provider.formatDate(DateTime.parse(date!));
+            final locked = await checkout.requestSlotLock(
+              doctorId: doctorId!,
+              slotDate: dateFmt,
+              slotTime: effectiveTime,
+            );
+            if (!context.mounted) return;
+            if (!locked.ok) {
+              AppPopUp.showToast(
+                message:
+                    locked.message ?? "Unable to reserve this slot. Pick another time.",
+                lineColor: AppColors.red,
+              );
+              return;
+            }
+
+            Navigator.pushNamed(context, AppRoutes.bookingsView, arguments: {
+              'appointmentDate': date?.toString(),
+              'appointmentTime': effectiveTime,
+              'doctorId': doctorId?.toString(),
+            });
           },
           child: AppContainer(
             radius: 8,
@@ -189,13 +326,15 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: model.data!
+                    children: slots
                         .asMap()
                         .entries
-                        .where((entry) => entry.value.status == true) // Only available slots
+                        // Both shapes filter the same way: bookable means
+                        // AVAILABLE for /live-slots or status==true for legacy.
+                        .where((entry) => entry.value.bookable)
                         .map((entry) {
                       final slotIndex = entry.key;
-                      final datum = entry.value;
+                      final slot = entry.value;
                       final isSelectedShift = provider.getShiftIndexForSlot(index) == slotIndex;
                       final isSlotSelected = provider.slotIndex == index && provider.isSelectedTimeSlot;
                       return Padding(
@@ -217,7 +356,7 @@ class _SelectSlotTimeViewState extends State<SelectSlotTimeView> {
                                 end: Alignment.bottomRight,
                               ),
                               child: Text(
-                                datum.time ?? "",
+                                slot.time,
                                 style: AppFontStyle.text_12_400(
                                   fontFamily: AppFontFamily.gilroyMedium,
                                   color: isSelectedShift && isSlotSelected ? AppColors.white : AppColors.textLightClr,

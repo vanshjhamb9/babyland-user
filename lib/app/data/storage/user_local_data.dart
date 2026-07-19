@@ -1,14 +1,20 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:babyland/app/data/storage/secure_storage_read.dart';
 import '../../widgets/print.dart';
 
 class UserLocalData {
   static const _storage = FlutterSecureStorage();
+
+  static Future<String?> _read(String key) =>
+      safeSecureStorageRead(_storage, key);
   static const _tokenKey = 'token';
   static const _roleKey = 'role';
   static const _stepKey = 'step';
   static const _doctorKey = 'doctor';
 
   static const _lastStageScreenShownKey = 'last_stage_screen_shown';
+  static const _needsPhoneProfileKey = 'needs_phone_profile';
+  static const _needsBasicProfileKey = 'needs_basic_profile';
 
   // ---------------- ROLE ----------------
   static Future<void> saveRole(String role) async {
@@ -34,9 +40,7 @@ class UserLocalData {
     await _storage.write(key: _stepKey, value: step);
   }
 
-  static Future<String?> getStep() async {
-    return await _storage.read(key: _stepKey);
-  }
+  static Future<String?> getStep() async => _read(_stepKey);
 
   static Future<void> clearStep() async {
     await _storage.delete(key: _stepKey);
@@ -46,9 +50,7 @@ class UserLocalData {
       pt('Role saved securely: $id');
       await _storage.write(key: _doctorKey, value: id);
   }
-  static Future<String?> getDoctorId() async {
-    return await _storage.read(key: _doctorKey);
-  }
+  static Future<String?> getDoctorId() async => _read(_doctorKey);
 
   static Future<void> clearDoctorId() async {
     await _storage.delete(key: _doctorKey);
@@ -61,6 +63,42 @@ class UserLocalData {
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _doctorKey);
     await _storage.delete(key: _lastStageScreenShownKey); // Add this line
+    await _storage.delete(key: _needsPhoneProfileKey);
+    await _storage.delete(key: _needsBasicProfileKey);
+  }
+
+  /// After login / social sign-in, require user to add phone in profile if missing.
+  static Future<void> setNeedsPhoneProfile(bool value) async {
+    await _storage.write(
+      key: _needsPhoneProfileKey,
+      value: value ? '1' : '0',
+    );
+  }
+
+  static Future<bool> needsPhoneProfile() async {
+    final v = await _read(_needsPhoneProfileKey);
+    return v == '1';
+  }
+
+  static Future<void> clearNeedsPhoneProfile() async {
+    await _storage.delete(key: _needsPhoneProfileKey);
+  }
+
+  /// After signup, user must complete cycle / health basic info (server: onboarding API).
+  static Future<void> setNeedsBasicProfile(bool value) async {
+    await _storage.write(
+      key: _needsBasicProfileKey,
+      value: value ? '1' : '0',
+    );
+  }
+
+  static Future<bool> needsBasicProfile() async {
+    final v = await _read(_needsBasicProfileKey);
+    return v == '1';
+  }
+
+  static Future<void> clearNeedsBasicProfile() async {
+    await _storage.delete(key: _needsBasicProfileKey);
   }
 
   static Future<void> saveLastStageScreenShown() async {
@@ -104,7 +142,7 @@ class UserLocalData {
   }
 
   static Future<bool> isPostPregnancySetupComplete() async {
-    final value = await _storage.read(key: _postPregnancySetupCompleteKey);
+    final value = await _read(_postPregnancySetupCompleteKey);
     return value == 'true';
   }
 
@@ -121,7 +159,7 @@ class UserLocalData {
   }
 
   static Future<bool> isPregnancySetupComplete() async {
-    final value = await _storage.read(key: _pregnancySetupCompleteKey);
+    final value = await _read(_pregnancySetupCompleteKey);
     return value == 'true';
   }
 
@@ -139,9 +177,7 @@ class UserLocalData {
     await _storage.write(key: _conceptionDateKey, value: date);
   }
 
-  static Future<String?> getConceptionDate() async {
-    return await _storage.read(key: _conceptionDateKey);
-  }
+  static Future<String?> getConceptionDate() async => _read(_conceptionDateKey);
 
   static Future<void> saveBabyDetails({String? name, String? dob, String? gender}) async {
     if (name != null) await _storage.write(key: _babyNameKey, value: name);
@@ -151,9 +187,9 @@ class UserLocalData {
 
   static Future<Map<String, String?>> getBabyDetails() async {
     return {
-      'name': await _storage.read(key: _babyNameKey),
-      'dob': await _storage.read(key: _babyDobKey),
-      'gender': await _storage.read(key: _babyGenderKey),
+      'name': await _read(_babyNameKey),
+      'dob': await _read(_babyDobKey),
+      'gender': await _read(_babyGenderKey),
     };
   }
 

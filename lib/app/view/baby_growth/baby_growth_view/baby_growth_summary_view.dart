@@ -8,8 +8,8 @@ import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:babyland/app/common_profile_header/profile_header.dart';
 import 'package:babyland/app/widgets/sizedbox.dart';
+import 'package:babyland/app/widgets/general_exception.dart';
 import 'package:babyland/app/widgets/validation.dart';
-import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -36,12 +36,18 @@ class _BabyGrowthSummaryViewState extends State<BabyGrowthSummaryView> {
     });
   }
 
+  String _lastUpdatedLabel(dynamic apiData) {
+    final summary = apiData?.data?.tracker?.babyGrowthSummary;
+    if (summary == null || summary.isEmpty) return "--";
+    final dateStr = summary.first.date;
+    if (dateStr == null || dateStr.isEmpty) return "--";
+    return formatDate(dateStr);
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BabyGrowthProvider>();
     final apiData = provider.babyGrowthApiData;
-    print("this is the data here ${apiData?.data?.success}");
     return Scaffold(
       appBar: const ProfileHeader(showBackButton: true),
       body: AppContainer(
@@ -58,14 +64,15 @@ class _BabyGrowthSummaryViewState extends State<BabyGrowthSummaryView> {
               children: [
                 SizedBox(height: 20),
                 switch (apiData?.status) {
-
-                  ApiStatus.LOADING => Center(
-                    child: babyMeasurementsShimmer() ,
-                  ),
-
-
-                  ApiStatus.COMPLETED =>
-                      AppContainer(
+                  ApiStatus.ERROR =>
+                    GeneralExceptionWidget(
+                      onPress: () => context.read<BabyGrowthProvider>().babyGrowthsDetails(),
+                    ),
+                  ApiStatus.LOADING =>
+                    Center(
+                      child: babyMeasurementsShimmer(),
+                    ),
+                  ApiStatus.COMPLETED => AppContainer(
                         radius: 8,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         color: AppColors.white,
@@ -89,8 +96,8 @@ class _BabyGrowthSummaryViewState extends State<BabyGrowthSummaryView> {
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child:Text(
-                                    "Last Updated: ${formatDate(apiData?.data?.tracker?.babyGrowthSummary?.first.date ??"") ?? ": --"} ",
+                                  child: Text(
+                                    "Last Updated: ${_lastUpdatedLabel(apiData)} ",
                                     maxLines: 2,
                                     style: AppFontStyle.text_11_400(
                                       fontFamily: AppFontFamily.gilroyMedium,
@@ -183,14 +190,7 @@ class _BabyGrowthSummaryViewState extends State<BabyGrowthSummaryView> {
                         ),
                       ),
 
-                  ApiStatus.ERROR => Center(
-                    child: Text(
-                      provider.babyGrowthApiData?.message ?? "Something went wrong",
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-
-                  _ => const SizedBox(), // null / default
+                  _ => const SizedBox(),
                 },
                 SizedBox(height: 16),
                 allTiles(),

@@ -6,6 +6,7 @@ import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/view/Pre_pregnancy_flow/nav_bar/pre_pregnancy_nav_controller.dart';
 import 'package:babyland/app/widgets/container.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
+import 'package:babyland/app/widgets/user_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -93,7 +94,8 @@ class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
                     _buildNavItem( "Tracker", 1, provider),
                     _buildNavItem("Insights", 2, provider),
                     _buildNavItem("Community", 3, provider),
-                    _buildProfileItem(4, provider),
+                    _buildShopItem(4, provider),
+                    _buildProfileItem(5, provider),
                   ],
                 ),
               ),
@@ -144,11 +146,12 @@ class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
             gradient: AppColors.buttonClr,
             radius: 100,
             padding: EdgeInsets.all(1),
-            child: CustomImage(
-              h: 26,
-              w: 26,
-              borderRadius: BorderRadius.circular(100),
-              path: "https://i.pravatar.cc/300",),
+            child: UserAvatar(
+              size: 26,
+              imageUrl: context.read<GetUserProvider>().userData?.data?.user?.user?.profilePicture,
+              name: context.read<GetUserProvider>().userData?.data?.user?.user?.name,
+              stage: context.read<GetUserProvider>().userData?.data?.user?.user?.stage,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -156,6 +159,36 @@ class _NavbarPrePregancyViewState extends State<NavbarPrePregancyView> {
               style: AppFontStyle.text_12_400(
                   fontFamily:isSelected? AppFontFamily.gilroySemiBold : AppFontFamily.gilroyMedium,
                   color:isSelected ? AppColors.textClr : AppColors.textLightClr)
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopItem(int index, PrePregancyNavBarProvider provider) {
+    final isSelected = provider.selectedIndex == index;
+    return InkWell(
+      splashColor: AppColors.transparent,
+      highlightColor: AppColors.transparent,
+      onTap: () => provider.setSelectedIndex(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.shopping_bag_rounded,
+            size: 22,
+            color: isSelected ? AppColors.buttonClr1 : AppColors.textLightClr,
+          ),
+          const SizedBox(height: 5),
+          Text(
+            "Shop",
+            style: AppFontStyle.text_12_400(
+              fontFamily: isSelected
+                  ? AppFontFamily.gilroySemiBold
+                  : AppFontFamily.gilroyMedium,
+              color: isSelected ? AppColors.textClr : AppColors.textLightClr,
+            ),
           ),
         ],
       ),

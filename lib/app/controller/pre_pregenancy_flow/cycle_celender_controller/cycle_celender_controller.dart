@@ -3,9 +3,9 @@ import 'package:babyland/app/controller/pre_pregenancy_flow/model/dashboard_curr
 import 'package:babyland/app/controller/pre_pregenancy_flow/model/menstrual_dashboard_Predict_model.dart';
 import 'package:babyland/app/controller/pre_pregenancy_flow/model/mentural_ai_insights_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
-import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
+import 'package:babyland/app/widgets/subscription_dialog.dart';
 import 'package:babyland/app/widgets/validation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -86,7 +86,7 @@ class CycleCalenderProvider extends ChangeNotifier {
     };
     // pt("data body==>> $data");
 
-    await repository.menstrualDashboardPredict(data).then((value) {
+    await repository.menstrualDashboardPredict(data).then((value) async {
       if (value.success == true) {
         setDashboardApiData(ApiResponse.completed(value));
         pt(name: "response", "${value.message}");
@@ -97,7 +97,8 @@ class CycleCalenderProvider extends ChangeNotifier {
         }else {
           setDashboardApiData(ApiResponse.error(value.message ?? "Something went wrong!"));
         }
-        AppPopUp.showToast(message: value.message ?? "Something went wrong!");
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+        if (!handled) AppPopUp.showToast(message: value.message ?? "Something went wrong!");
       }
       notifyListeners();
     },).onError((error, stackTrace) {
@@ -123,14 +124,15 @@ class CycleCalenderProvider extends ChangeNotifier {
   Future<void> dashboardMoodData() async {
     setMoodApiData(ApiResponse.loading());
     notifyListeners();
-    await repository.menstrualDashboardMood().then((value) {
+    await repository.menstrualDashboardMood().then((value) async {
       if (value.success == true) {
         setMoodApiData(ApiResponse.completed(value));
         pt(name: "response", "${value.message}");
       }
       if(value.success == false) {
         setMoodApiData(ApiResponse.error(value.message ?? "Something went wrong!"));
-        AppPopUp.showToast(message: value.message ?? "Something went wrong!");
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+        if (!handled) AppPopUp.showToast(message: value.message ?? "Something went wrong!");
       }
       notifyListeners();
     },).onError((error, stackTrace) {
@@ -225,11 +227,10 @@ class CycleCalenderProvider extends ChangeNotifier {
   Future<void> aiInsightsApi(String category) async {
     setAiInsightsApiData(ApiResponse.loading());
     notifyListeners();
-    final userId = await SecureStorage.getUserId();
 
-    final data = {
+    // GET /api/v1/ai/insights: category required; user id from JWT only (do not send userId).
+    final data = <String, dynamic>{
       "category": category,
-      "userId": userId,
     };
 
     try {
@@ -241,18 +242,12 @@ class CycleCalenderProvider extends ChangeNotifier {
 
       if (value.success == true) {
         setAiInsightsApiData(ApiResponse.completed(value));
-      }
-      // else if (isPlanError || isTrackerNotFound) {
-      //   // ⬅️ Treat these as VALID responses
-      //   setAiInsightsApiData(ApiResponse.completed(value));
-      // }
-      else {
-        // ⬅️ Real error
-        setAiInsightsApiData(
-          ApiResponse.error("Something went wrong!"),
-        );
-        AppPopUp.showToast(
-            message: "Something went wrong!");
+      } else {
+        final msg = value.displayMessage;
+        setAiInsightsApiData(ApiResponse.error(msg));
+        final handled =
+            await SubscriptionDialog.showDialogIfSubscriptionRequired(msg);
+        if (!handled) AppPopUp.showToast(message: msg);
       }
 
     } catch (error, stackTrace) {
@@ -272,6 +267,7 @@ class CycleCalenderProvider extends ChangeNotifier {
 //--------------------------------------------------------------------------------------------
   double stressLevel = 3;
   double anxietyLevel = 2;
+  double sleepQualityLevel = 3;
 
   ApiResponse<DailyLogsMenturalModel>? _menturalAddDailyLogs = ApiResponse.completed(null);
   ApiResponse<DailyLogsMenturalModel>? get menturalAddDailyLogs => _menturalAddDailyLogs;
@@ -280,6 +276,47 @@ class CycleCalenderProvider extends ChangeNotifier {
     _menturalAddDailyLogs = response;
     notifyListeners();
 
+  }
+
+  /// Load existing log for a given date into the form (mood, symptoms, stress, anxiety, notes)
+  Future<void> loadLogForDate(DateTime date) async {
+    final dateStr = DateFormat('dd-MM-yyyy').format(date);
+    final apiDate = formatDateForApi(dateStr);
+    try {
+      final value = await repository.getMenstrualLogs(params: {'date': apiDate});
+      if (value.success != true || value.data == null || value.data!.isEmpty) {
+        clearDailyLogForm();
+        return;
+      }
+      final log = value.data!.first;
+      _selectedMood = log.mood;
+      _selectedSymptoms.clear();
+      if (log.symptoms != null && log.symptoms!.isNotEmpty) {
+        for (final s in log.symptoms!) {
+          final cap = s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}' : s;
+          _selectedSymptoms.add(cap);
+        }
+      }
+      stressLevel = double.tryParse(log.stressLevel ?? '3') ?? 3;
+      anxietyLevel = double.tryParse(log.anxietyLevel ?? '2') ?? 2;
+      sleepQualityLevel = (log.sleepQuality ?? 3).toDouble();
+      otherController.text = log.notes ?? '';
+      notifyListeners();
+    } catch (e, st) {
+      pt("loadLogForDate error: $e $st");
+      clearDailyLogForm();
+      notifyListeners();
+    }
+  }
+
+  void clearDailyLogForm() {
+    _selectedMood = null;
+    _selectedSymptoms.clear();
+    stressLevel = 3;
+    anxietyLevel = 2;
+    sleepQualityLevel = 3;
+    otherController.clear();
+    notifyListeners();
   }
 
   Future<void> addDailyLogsMentural({DateTime? date}) async {
@@ -291,8 +328,8 @@ class CycleCalenderProvider extends ChangeNotifier {
       "symptoms": selectedSymptoms.map((e) => e.toLowerCase()).toList(),
       "stressLevel": stressLevel,
       "anxietyLevel": anxietyLevel,
+      "sleepQuality": sleepQualityLevel.toInt(),
       "notes": otherController.text,
-      // "sleepQuality": 4
     };
     await repository.addDailyLogsMentural(data).then((value) async{
       if (value.success == true) {
@@ -307,7 +344,8 @@ class CycleCalenderProvider extends ChangeNotifier {
       }
       if(value.success == false) {
         setDailyLogs(ApiResponse.error(value.message ?? "Something went wrong!"));
-        AppPopUp.showToast(message: value.message ?? "Something went wrong!",duration: Duration(seconds: 10),);
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+        if (!handled) AppPopUp.showToast(message: value.message ?? "Something went wrong!", duration: Duration(seconds: 10));
       }
       notifyListeners();
     },).onError((error, stackTrace) {
@@ -342,7 +380,8 @@ class CycleCalenderProvider extends ChangeNotifier {
           await dashboardMoodData();
           await cycleCalender(year: focusedDay.year, month: focusedDay.month);
         } else {
-          AppPopUp.showToast(message: value.message ?? "Something went wrong!");
+          final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+          if (!handled) AppPopUp.showToast(message: value.message ?? "Something went wrong!");
         }
       });
     } catch (e, s) {
@@ -424,7 +463,10 @@ class CycleCalenderProvider extends ChangeNotifier {
         pt("🔥 Ovulation[$month]: $ovulationDays");
       } else {
         pt("🔥 API returned success=false: ${value.message}");
-        _setCalendarApi(ApiResponse.error(value.message ?? "Something went wrong!"));
+        final msg = value.message ?? "Something went wrong!";
+        _setCalendarApi(ApiResponse.error(msg));
+        final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(msg);
+        if (!handled) AppPopUp.showToast(message: msg);
       }
       notifyListeners();
     } catch (e, stackTrace) {
@@ -512,19 +554,61 @@ class CycleCalenderProvider extends ChangeNotifier {
   // -------------------------------------------------------
   // ⛳ DOT COLOR FUNCTION (FINAL)
   // -------------------------------------------------------
+  /// Ovulation is checked before fertile window so the ovulation day (usually
+  /// inside the fertile range) still shows the ovulation color per legend.
   Color? getDotColor(DateTime date) {
     String f = _format(date);
 
     if (predictedPeriod.contains(f)) {
       return Colors.red; // Period
     }
-    if (fertileWindow.contains(f)) {
-      return Colors.green; // Fertile
-    }
     if (ovulationDays.contains(f)) {
       return Colors.yellow; // Ovulation
     }
+    if (fertileWindow.contains(f)) {
+      return Colors.green; // Fertile
+    }
     return null;
+  }
+
+  /// Summary strings for the **currently loaded calendar month** (same data as grid).
+  String? get monthSummaryPredictedPeriodRange {
+    final range = _dateRangeLabel(predictedPeriod);
+    return range;
+  }
+
+  String? get monthSummaryFertileWindowRange {
+    return _dateRangeLabel(fertileWindow);
+  }
+
+  String? get monthSummaryOvulationDay {
+    if (ovulationDays.isEmpty) return null;
+    final sorted = _parseSortIsoDates(ovulationDays);
+    if (sorted.isEmpty) return null;
+    return formatDateToDayMonth(_format(sorted.first));
+  }
+
+  List<DateTime> _parseSortIsoDates(List<String> dates) {
+    final out = <DateTime>[];
+    for (final s in dates) {
+      try {
+        out.add(DateTime.parse(s));
+      } catch (_) {}
+    }
+    out.sort();
+    return out;
+  }
+
+  String? _dateRangeLabel(List<String> isoDates) {
+    final sorted = _parseSortIsoDates(isoDates);
+    if (sorted.isEmpty) return null;
+    final a = sorted.first;
+    final b = sorted.last;
+    final sameDay = a.year == b.year && a.month == b.month && a.day == b.day;
+    if (sameDay) {
+      return formatDateToDayMonth(_format(a));
+    }
+    return '${formatDateToDayMonth(_format(a))} - ${formatDateToDayMonth(_format(b))}';
   }
 
   // YYYY-MM-DD format for matching API result
