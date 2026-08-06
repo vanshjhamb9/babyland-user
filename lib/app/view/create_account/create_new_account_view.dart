@@ -9,17 +9,21 @@ import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/custom_image.dart';
 import 'package:flutter/material.dart';
 
-class CreateNewAccountView extends StatelessWidget {
-CreateNewAccountView({super.key});
+class CreateNewAccountView extends StatefulWidget {
+  CreateNewAccountView({super.key});
 
- final List<String> icons = [
-    // ImageConstants.facebook,
+  @override
+  State<CreateNewAccountView> createState() => _CreateNewAccountViewState();
+}
+
+class _CreateNewAccountViewState extends State<CreateNewAccountView> {
+  final List<String> icons = [
     ImageConstants.google,
     ImageConstants.apple,
-    // ImageConstants.whatsApp,
   ];
 
- SocialLoginService socialLoginService = SocialLoginService();
+  final SocialLoginService socialLoginService = SocialLoginService();
+  bool _isSocialLoginLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -76,12 +80,25 @@ CreateNewAccountView({super.key});
                     children:List.generate(icons.length, (index) => InkWell(
                       splashColor: AppColors.transparent,
                       highlightColor: AppColors.transparent,
-                      onTap: () {
-                        switch(index){
-                          case 0:
-                            socialLoginService.signInWithGoogle();
-                        }
-                      },
+                      onTap: _isSocialLoginLoading
+                          ? null
+                          : () async {
+                              setState(() => _isSocialLoginLoading = true);
+                              try {
+                                switch(index){
+                                  case 0:
+                                    await socialLoginService.signInWithGoogle();
+                                    break;
+                                  case 1:
+                                    await socialLoginService.signInWithApple();
+                                    break;
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isSocialLoginLoading = false);
+                                }
+                              }
+                            },
                       child: Container(
                         margin: EdgeInsets.only(left: 14,right: icons.length -1 == index ? 10 :0),
                         height: 50,

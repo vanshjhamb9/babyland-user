@@ -28,6 +28,7 @@ class SignInView extends StatefulWidget {
 class _SignInViewState extends State<SignInView> {
 
   SocialLoginService googleSignInService = SocialLoginService();
+  bool _isSocialLoginLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -185,14 +186,23 @@ class _SignInViewState extends State<SignInView> {
                                           provider.icons.length, (index) => InkWell(
                                           splashColor: AppColors.transparent,
                                           highlightColor: AppColors.transparent,
-                                          onTap: () {
-                                            // 0 is Google, 1 is Apple in SignInController.icons
-                                            if (index == 0) {
-                                              googleSignInService.signInWithGoogle();
-                                            } else if (index == 1) {
-                                              googleSignInService.signInWithApple();
-                                            }
-                                          },
+                                          onTap: _isSocialLoginLoading
+                                              ? null
+                                              : () async {
+                                                  // 0 is Google, 1 is Apple in SignInController.icons
+                                                  setState(() => _isSocialLoginLoading = true);
+                                                  try {
+                                                    if (index == 0) {
+                                                      await googleSignInService.signInWithGoogle();
+                                                    } else if (index == 1) {
+                                                      await googleSignInService.signInWithApple();
+                                                    }
+                                                  } finally {
+                                                    if (mounted) {
+                                                      setState(() => _isSocialLoginLoading = false);
+                                                    }
+                                                  }
+                                                },
                                           child: Container(
                                             margin: EdgeInsets.only(left: 16),
                                             height: 50,

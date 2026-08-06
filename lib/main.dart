@@ -124,6 +124,8 @@ Future<void> startApp() async {
   await _configureFirebaseAuthForDev();
 
   await AppEnvironment.init(env: Environment.production);
+  // ignore: avoid_print
+  print('API baseUrl=${AppEnvironment.baseUrl}');
 
   await sl.init();
 
@@ -271,40 +273,42 @@ Future<void> _configureFirebaseAuthForDev() async {
   }
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    final disableFromDefine = const bool.fromEnvironment(
-      'FIREBASE_AUTH_DISABLE_APP_VERIFICATION',
-    );
-    final disableFromEnv =
-        dotenv.env['FIREBASE_AUTH_DISABLE_APP_VERIFICATION']?.toLowerCase() ==
-            'true';
-    // Test-only bypass (Firebase Console → Phone → test numbers). Does NOT fix real SMS.
+    // Opt-in only: Firebase Console -> Phone -> "Phone numbers for testing".
+    // Do NOT auto-enable on debug — that disables reCAPTCHA and breaks real SMS.
     const skipAppVerification = bool.fromEnvironment(
       'FIREBASE_SKIP_APP_VERIFICATION',
       defaultValue: false,
     );
-    // Debug + profile builds: allow Firebase Console test phone numbers without Play Integrity.
-    final disableAppVerification = disableFromDefine ||
-        disableFromEnv ||
-        skipAppVerification ||
-        !kReleaseMode;
-    // Sideloaded APKs: Play Integrity fails → force reCAPTCHA (needs SHA-1+SHA-256 in Firebase).
-    // Hardcoded true so plain `flutter build apk` works without extra --dart-define flags.
+    final disableFromDefine = const bool.fromEnvironment(
+      'FIREBASE_AUTH_DISABLE_APP_VERIFICATION',
+      defaultValue: false,
+    );
+    final disableFromEnv =
+        dotenv.env['FIREBASE_AUTH_DISABLE_APP_VERIFICATION']?.toLowerCase() ==
+            'true';
+    final disableAppVerification =
+        disableFromDefine || disableFromEnv || skipAppVerification;
+
+    // Sideloaded APKs fail Play Integrity -> force reCAPTCHA (needs SHA-1+SHA-256).
+    // When test-number bypass is on, skip reCAPTCHA (Integrity not used).
     const forceRecaptchaFromDefine = bool.fromEnvironment(
       'FIREBASE_FORCE_RECAPTCHA',
-      defaultValue: true,
+      defaultValue: false,
     );
     final forceRecaptchaFromEnv =
         dotenv.env['FIREBASE_FORCE_RECAPTCHA']?.toLowerCase() != 'false';
-    final forceRecaptchaFlow = forceRecaptchaFromDefine &&
-        forceRecaptchaFromEnv &&
-        !disableAppVerification;
+    final forceRecaptchaFlow = !disableAppVerification &&
+        forceRecaptchaFromDefine &&
+        forceRecaptchaFromEnv;
 
     await FirebaseAuth.instance.setSettings(
       appVerificationDisabledForTesting: disableAppVerification,
       forceRecaptchaFlow: forceRecaptchaFlow,
     );
 
-    const buildTag = String.fromEnvironment('APP_BUILD_TAG', defaultValue: 'otp-v5');
+    final androidOpts = DefaultFirebaseOptions.android;
+    const buildTag =
+        String.fromEnvironment('APP_BUILD_TAG', defaultValue: 'otp-v7');
     agentDebugLog(
       hypothesisId: 'H9',
       location: 'main.dart:_configureFirebaseAuthForDev',
@@ -312,6 +316,7 @@ Future<void> _configureFirebaseAuthForDev() async {
       runId: buildTag,
       data: {
         'projectId': Firebase.app().options.projectId,
+        'androidAppId': androidOpts.appId,
         'kDebugMode': kDebugMode,
         'kReleaseMode': kReleaseMode,
         'disableAppVerification': disableAppVerification,
@@ -322,12 +327,13 @@ Future<void> _configureFirebaseAuthForDev() async {
 
     pt(
       'Firebase Phone Auth: project=${Firebase.app().options.projectId} '
-      'debug=$kDebugMode '
+      'appId=${androidOpts.appId} '
+      'debug=$kDebugMode release=$kReleaseMode '
       'appVerificationDisabledForTesting=$disableAppVerification '
-      'forceRecaptchaFlow=$forceRecaptchaFlow '
-      'skipAppVerification=$skipAppVerification. '
-      'If OTP fails: Firebase → Android app → SHA-1+SHA-256 (tools/print_firebase_sha.ps1), '
-      'enable Phone sign-in, re-download google-services.json, reinstall APK.',
+      'forceRecaptchaFlow=$forceRecaptchaFlow. '
+      'Play Integrity works for Play Store installs. '
+      'Sideloaded APKs require reCAPTCHA as fallback. '
+      'Test numbers need FIREBASE_AUTH_DISABLE_APP_VERIFICATION=true.',
       name: 'Firebase',
     );
   }

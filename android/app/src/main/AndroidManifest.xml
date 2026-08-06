@@ -104,5 +104,8 @@
         </intent>
         <package android:name="com.android.chrome"/>
         <package android:name="com.google.android.gms"/>
+        <package android:name="com.sec.android.app.sbrowser"/>
+        <package android:name="org.mozilla.firefox"/>
+        <package android:name="com.UCMobile"/>
     </queries>
 </manifest>

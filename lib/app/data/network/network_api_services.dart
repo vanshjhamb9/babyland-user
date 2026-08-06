@@ -33,9 +33,9 @@ class NetworkApiServices {
           String token = await SecureStorage.getToken() ?? "";
           final isPublic = isAuthPublicEndpoint(options.uri);
           if (kDebugMode) {
-            pt('Request with auth: ${token.isNotEmpty}');
-            pt('Public auth endpoint: $isPublic');
-            pt('Auth token (masked): ${token.isNotEmpty ? _maskSensitive(token) : "(none)"}');
+            pt('[NET-AUDIT] ${options.method} ${options.uri}');
+            pt('[NET-AUDIT] isPublic: $isPublic');
+            pt('[NET-AUDIT] token: ${token.isNotEmpty ? "present (${token.length} chars, prefix: ${token.substring(0, token.length > 20 ? 20 : token.length)})" : "EMPTY/NULL"}');
           }
           if (!isPublic && token.isNotEmpty) {
             options.headers['auth-token'] = token;
@@ -102,22 +102,28 @@ class NetworkApiServices {
             pt("✅ RESPONSE BODY: ${response.data}");
           }
           if (response.statusCode == 401) {
+            pt('[NET-AUDIT] ⚠️ 401 on ${response.requestOptions.uri}');
             final requestOptions = response.requestOptions;
             final uri = requestOptions.uri;
             final alreadyRefreshed =
                 requestOptions.extra['didAuthRefresh'] == true;
+            pt('[NET-AUDIT] alreadyRefreshed: $alreadyRefreshed');
 
             if (!isAuthPublicEndpoint(uri) && !alreadyRefreshed) {
               final refreshToken = await SecureStorage.getRefreshToken() ?? '';
+              pt('[NET-AUDIT] onResponse 401: refreshToken present: ${refreshToken.isNotEmpty}');
               if (refreshToken.isNotEmpty) {
+                pt('[NET-AUDIT] onResponse 401: attempting refresh...');
                 final refreshed = await _refreshTokens(refreshToken);
                 final newAccessToken = refreshed?['authToken'];
                 final newRefreshToken = refreshed?['refreshToken'];
+                pt('[NET-AUDIT] onResponse 401: refresh result: token=${newAccessToken != null ? "present" : "NULL"}, refresh=${newRefreshToken != null ? "present" : "NULL"}');
 
                 if (newAccessToken != null &&
                     newAccessToken.isNotEmpty &&
                     newRefreshToken != null &&
                     newRefreshToken.isNotEmpty) {
+                  pt('[NET-AUDIT] onResponse 401: ✅ refresh successful, retrying');
                   await SecureStorage.saveToken(newAccessToken);
                   await SecureStorage.saveRefreshToken(newRefreshToken);
                   await sl.authService.saveToken(newAccessToken);
@@ -134,6 +140,7 @@ class NetworkApiServices {
                   return;
                 }
               }
+              pt('[NET-AUDIT] onResponse 401: ❌ refresh failed → performUnauthorizedLogout()');
               unawaited(performUnauthorizedLogout());
             }
           }
@@ -152,22 +159,28 @@ class NetworkApiServices {
             pt("❌ DIO RESPONSE BODY: ${error.response?.data}");
           }
           if (error.response?.statusCode == 401) {
+            pt('[NET-AUDIT] onError 401 on ${error.requestOptions.uri}');
             final requestOptions = error.requestOptions;
             final uri = requestOptions.uri;
             final alreadyRefreshed =
                 requestOptions.extra['didAuthRefresh'] == true;
+            pt('[NET-AUDIT] onError 401: alreadyRefreshed: $alreadyRefreshed');
 
             if (!isAuthPublicEndpoint(uri) && !alreadyRefreshed) {
               final refreshToken = await SecureStorage.getRefreshToken() ?? '';
+              pt('[NET-AUDIT] onError 401: refreshToken present: ${refreshToken.isNotEmpty}');
               if (refreshToken.isNotEmpty) {
+                pt('[NET-AUDIT] onError 401: attempting refresh...');
                 final refreshed = await _refreshTokens(refreshToken);
                 final newAccessToken = refreshed?['authToken'];
                 final newRefreshToken = refreshed?['refreshToken'];
+                pt('[NET-AUDIT] onError 401: refresh result: token=${newAccessToken != null ? "present" : "NULL"}, refresh=${newRefreshToken != null ? "present" : "NULL"}');
 
                 if (newAccessToken != null &&
                     newAccessToken.isNotEmpty &&
                     newRefreshToken != null &&
                     newRefreshToken.isNotEmpty) {
+                  pt('[NET-AUDIT] onError 401: ✅ refresh successful, retrying');
                   await SecureStorage.saveToken(newAccessToken);
                   await SecureStorage.saveRefreshToken(newRefreshToken);
                   await sl.authService.saveToken(newAccessToken);
@@ -187,6 +200,7 @@ class NetworkApiServices {
             }
 
             if (!isAuthPublicEndpoint(uri)) {
+              pt('[NET-AUDIT] onError 401: ❌ performing unauthorized logout');
               unawaited(performUnauthorizedLogout());
             }
           }
@@ -407,7 +421,8 @@ class NetworkApiServices {
     if (kDebugMode) {
       pt('API Response == ${response.statusCode}');
     }
-    if ([200, 201, 202, 204, 400, 401, 403, 404, 409, 422]
+    // Include 429 so RATE_LIMIT_AUTH body reaches callers (signup/login OTP).
+    if ([200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 429]
         .contains(response.statusCode)) {
       final data = response.data;
       if (data == null) {

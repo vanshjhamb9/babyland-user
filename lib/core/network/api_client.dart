@@ -247,6 +247,15 @@ class _AuthInterceptor extends Interceptor {
       if (token != null && token.isNotEmpty) {
         options.headers['auth-token'] = token;
         options.headers['Authorization'] = 'Bearer $token';
+        if (kDebugMode) {
+          log('[API-CLIENT-AUDIT] ${options.method} ${options.path}: token attached (${token.length} chars)');
+        }
+      } else {
+        if (kDebugMode) {
+          log('[API-CLIENT-AUDIT] ⚠️ ${options.method} ${options.path}: NO TOKEN! AuthService token is null/empty');
+          final secureToken = await SecureStorage.getToken();
+          log('[API-CLIENT-AUDIT] SecureStorage token: ${secureToken != null && secureToken.isNotEmpty ? "present (${secureToken.length} chars)" : "NULL/EMPTY"}');
+        }
       }
     }
     options.headers['Accept'] = 'application/json';
@@ -332,7 +341,6 @@ class _AuthRefreshInterceptor extends Interceptor {
       await SecureStorage.saveToken(newAccessToken);
       await SecureStorage.saveRefreshToken(newRefreshToken);
 
-      requestOptions.headers ??= <String, dynamic>{};
       requestOptions.headers['auth-token'] = newAccessToken;
       requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
       requestOptions.extra['authRefreshApplied'] = true;
@@ -359,7 +367,14 @@ class _UnauthorizedInterceptor extends Interceptor {
     if (response.statusCode == 401) {
       final uri = response.requestOptions.uri;
       if (!isAuthPublicEndpoint(uri)) {
+        if (kDebugMode) {
+          log('[API-CLIENT-UNAUTH] ⚠️ 401 on ${uri.path} — performing logout');
+        }
         unawaited(performUnauthorizedLogout());
+      } else {
+        if (kDebugMode) {
+          log('[API-CLIENT-UNAUTH] 401 on public endpoint ${uri.path} — skipping logout');
+        }
       }
     }
     handler.next(response);
@@ -370,6 +385,9 @@ class _UnauthorizedInterceptor extends Interceptor {
     if (err.response?.statusCode == 401) {
       final uri = err.requestOptions.uri;
       if (!isAuthPublicEndpoint(uri)) {
+        if (kDebugMode) {
+          log('[API-CLIENT-UNAUTH] ⚠️ onError 401 on ${uri.path} — performing logout');
+        }
         unawaited(performUnauthorizedLogout());
       }
     }

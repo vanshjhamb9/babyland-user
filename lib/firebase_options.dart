@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDdepgOWXZqL0r04QMH96ka-cIieEqqZ8c',
-    appId: '1:240228974389:android:68e3b0eaf2de15d702967c',
+    appId: '1:240228974389:android:211e354e02114e4a02967c',
     messagingSenderId: '240228974389',
     projectId: 'thebabyland-6db6d',
     storageBucket: 'thebabyland-6db6d.firebasestorage.app',

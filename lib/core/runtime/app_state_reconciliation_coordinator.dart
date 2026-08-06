@@ -4,6 +4,7 @@ import 'dart:async';
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:babyland/app/controller/experts_consultation/booking/booking_controller.dart';
+import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/view/subscription_unlock_plans/controller/subscription_controller.dart';
 import 'package:babyland/core/navigation/root_navigator.dart';
 import 'package:babyland/core/observability/app_runtime_audit_trail.dart';
@@ -51,6 +52,17 @@ class AppStateReconciliationCoordinator extends ChangeNotifier {
       );
       return;
     }
+
+    // Signup / reCAPTCHA resume must not hit authed APIs (401 wiped the signup stack).
+    final token = await SecureStorage.getToken() ?? '';
+    if (token.isEmpty) {
+      AppRuntimeAuditTrail.log(
+        AppRuntimeEvent.reconcileDone,
+        reason: '${trigger.name}_skipped_no_session',
+      );
+      return;
+    }
+
     _busy = true;
     notifyListeners();
 

@@ -1,10 +1,16 @@
 {
+  "emulators": {
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9099
+    }
+  },
   "flutter": {
     "platforms": {
       "android": {
         "default": {
           "projectId": "thebabyland-6db6d",
-          "appId": "1:240228974389:android:68e3b0eaf2de15d702967c",
+          "appId": "1:240228974389:android:211e354e02114e4a02967c",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -20,7 +26,7 @@
         "lib/firebase_options.dart": {
           "projectId": "thebabyland-6db6d",
           "configurations": {
-            "android": "1:240228974389:android:68e3b0eaf2de15d702967c",
+            "android": "1:240228974389:android:211e354e02114e4a02967c",
             "ios": "1:240228974389:ios:c31a03551c6dc9a502967c"
           }
         }

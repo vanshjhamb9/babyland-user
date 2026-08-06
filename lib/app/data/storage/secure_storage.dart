@@ -12,6 +12,7 @@ class SecureStorage {
   static const String _userIdKey = 'user_id';
   static const String _trackerId = 'tracker_id';
   static const String _conId = 'con_Id';
+  static const String _googleIdTokenKey = 'google_id_token';
 
   static Future<void> saveToken(String token) async {
     if (kDebugMode && token.isNotEmpty) {
@@ -124,7 +125,29 @@ class SecureStorage {
   static Future<void> clearConversationId() async {
     await _storage.delete(key: _conId);
     if (kDebugMode) {
-      pt('conversation id cleared');
+      pt('conversation id cleared from storage');
+    }
+  }
+
+  static Future<void> saveGoogleIdToken(String token) async {
+    if (kDebugMode) {
+      pt('Google idToken saved (redacted)');
+    }
+    await _storage.write(key: _googleIdTokenKey, value: token);
+  }
+
+  static Future<String?> getGoogleIdToken() async {
+    final token = await safeSecureStorageRead(_storage, _googleIdTokenKey);
+    if (kDebugMode) {
+      pt('Google idToken fetched: ${token != null && token.isNotEmpty ? '(present)' : '(none)'}');
+    }
+    return token;
+  }
+
+  static Future<void> clearGoogleIdToken() async {
+    await _storage.delete(key: _googleIdTokenKey);
+    if (kDebugMode) {
+      pt('Google idToken cleared from storage');
     }
   }
 
@@ -134,6 +157,7 @@ class SecureStorage {
     await _storage.delete(key: _userIdKey);
     await _storage.delete(key: _trackerId);
     await _storage.delete(key: _conId);
+    await _storage.delete(key: _googleIdTokenKey);
 
     if (kDebugMode) {
       pt('🔐 secure storage cleared');

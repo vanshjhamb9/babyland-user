@@ -46,7 +46,17 @@ class GetUserProvider extends ChangeNotifier {
     notifyListeners();
 
     await repository.getUser().then((value) async {
-      pt("getUser() response: success=${value.success}");
+      pt("[USER-AUDIT] getUser() response: success=${value.success}");
+      pt("[USER-AUDIT] message: ${value.message}");
+      pt("[USER-AUDIT] user: ${value.user}");
+      if (value.user?.user != null) {
+        final u = value.user!.user!;
+        pt("[USER-AUDIT] user.sId: ${u.sId}");
+        pt("[USER-AUDIT] user.phone: ${u.phone}");
+        pt("[USER-AUDIT] user.lastPeriodStartDate: ${u.lastPeriodStartDate}");
+        pt("[USER-AUDIT] user.cycleType: ${u.cycleType}");
+        pt("[USER-AUDIT] user.email: ${u.email}");
+      }
       if (value.success == true) {
         setUserData(ApiResponse.completed(value));
 
@@ -64,7 +74,10 @@ class GetUserProvider extends ChangeNotifier {
 
           final lpd = user.lastPeriodStartDate?.trim();
           if (lpd != null && lpd.isNotEmpty && lpd != 'null') {
+            pt("[USER-AUDIT] lastPeriodStartDate='$lpd' — clearing needsBasicProfile");
             await UserLocalData.clearNeedsBasicProfile();
+          } else {
+            pt("[USER-AUDIT] lastPeriodStartDate is null/empty — keeping needsBasicProfile");
           }
 
           // ✅ Self-healing patch for numeric strings
@@ -116,7 +129,8 @@ class GetUserProvider extends ChangeNotifier {
       }
       notifyListeners();
     }).onError((error, stackTrace) {
-      pt("Error in getUser: $error");
+      pt("[USER-AUDIT] ❌ Error in getUser: $error");
+      pt("[USER-AUDIT] Stack trace: $stackTrace");
       setUserData(ApiResponse.error(error.toString()));
       notifyListeners();
     });

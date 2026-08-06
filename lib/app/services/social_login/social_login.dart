@@ -1,12 +1,15 @@
 import 'package:babyland/app/common_model/common_model.dart';
+import 'package:babyland/app/data/network/end_points.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/main.dart';
 import 'package:babyland/core/auth/app_google_sign_in.dart';
+import 'package:babyland/core/auth/jwt_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:babyland/app/data/repository/repository.dart';
@@ -24,22 +27,16 @@ class SocialLoginService {
 
   /// Google: get `idToken` → backend → returns JWT + user payload in [CommonResponseModel.data].
   Future<CommonResponseModel?> signInWithGoogle() async {
-    if (kDebugMode) {
-      pt('Starting Google Sign-In');
-    }
+    print('Starting Google Sign-In');
 
     try {
       final googleSignIn = AppGoogleSignIn.instance;
-
-      await googleSignIn.signOut().catchError((_) => null);
 
       GoogleSignInAccount? googleUser;
       try {
         googleUser = await googleSignIn.signIn();
       } catch (authError) {
-        if (kDebugMode) {
-          pt('Google Sign-In failed: $authError.');
-        }
+        print('Google Sign-In failed: $authError.');
         AppPopUp.showToast(
           message:
               'Google Sign-In was canceled or no account exists on device.',
@@ -48,35 +45,69 @@ class SocialLoginService {
       }
 
       if (googleUser == null) {
-        if (kDebugMode) {
-          pt('Google Sign In was cancelled by the user.');
-        }
+        print('Google Sign In was cancelled by the user.');
         return null;
       }
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      if (kDebugMode) {
-        pt(
-          'Google Auth success. ID Token received: ${googleAuth.idToken != null}',
+      print('Google Auth success. ID Token received: ${googleAuth.idToken != null}');
+
+      if (googleAuth.idToken == null || googleAuth.idToken!.isEmpty) {
+        print('Google Sign-In: idToken is null or empty');
+        AppPopUp.showToast(
+          message: 'Google Sign-In failed to obtain credentials. Please try again.',
         );
+        return null;
       }
+
+      final serverClientId = dotenv.env['SERVERClientID'] ?? '';
+      print('=== GOOGLE SIGN-IN DEBUG START ===');
+      print('idToken length: ${googleAuth.idToken?.length}');
+      print('idToken first50chars: ${googleAuth.idToken?.substring(0, googleAuth.idToken!.length > 50 ? 50 : googleAuth.idToken!.length)}');
+      print('serverClientId from .env: "$serverClientId"');
+      print('serverClientId isEmpty: ${serverClientId.isEmpty}');
+      final payload = decodeJwtPayload(googleAuth.idToken!);
+      print('JWT aud: ${payload?['aud']}');
+      print('JWT iss: ${payload?['iss']}');
+      print('JWT sub: ${payload?['sub']}');
+      print('JWT email: ${payload?['email']}');
+      print('Backend URL: ${EndPoints.googleLogin}');
+      print('=== GOOGLE SIGN-IN DEBUG END ===');
 
       final response = await _repo.googleLogin({
         'idToken': googleAuth.idToken,
+        'serverClientId': serverClientId,
       });
 
-      if (kDebugMode) {
-        debugPrint('User logged in');
-      }
-
-      if (kDebugMode) {
-        pt('Backend Google response: ${response.message}');
-      }
+      print('=== BACKEND RESPONSE START ===');
+      print('success: ${response.success}');
+      print('message: ${response.message}');
+      print('token: ${response.token != null ? "present (${response.token!.length} chars)" : "NULL"}');
+      print('refreshToken: ${response.refreshToken != null ? "present (${response.refreshToken!.length} chars)" : "NULL"}');
+      print('data: ${response.data}');
+      print('=== BACKEND RESPONSE END ===');
 
       if (response.success == true) {
+        print('[GOOGLE-AUDIT] success=true. Token prefix: ${response.token != null ? response.token!.substring(0, response.token!.length > 40 ? 40 : response.token!.length) : "NULL"}');
+        print('[GOOGLE-AUDIT] RefreshToken prefix: ${response.refreshToken != null ? response.refreshToken!.substring(0, response.refreshToken!.length > 40 ? 40 : response.refreshToken!.length) : "NULL"}');
         await _persistSessionAndNavigate(response);
+        return response;
+      }
+
+      // Handle requirePhone: backend says user exists but needs phone verification
+      final responseData = response.data;
+      if (responseData is Map && responseData['requirePhone'] == true) {
+        print('Backend requires phone. Navigating to AddPhoneView...');
+        // Save the Google idToken so updatePhone can link phone to this account
+        await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
+        if (navigatorKey.currentContext != null) {
+          Navigator.pushReplacementNamed(
+            navigatorKey.currentContext!,
+            AppRoutes.addPhoneView,
+          );
+        }
         return response;
       }
 
@@ -85,16 +116,25 @@ class SocialLoginService {
       );
       return response;
     } catch (e) {
-      if (kDebugMode) {
-        pt('Detailed Google Sign-In error: $e');
-      }
+      print('Detailed Google Sign-In error: $e');
 
       String errorMsg = 'Google Sign-In failed.';
-      if (e.toString().contains('ApiException: 10')) {
+      final errorStr = e.toString();
+      if (errorStr.contains('ApiException: 10') ||
+          errorStr.contains('DEVELOPER_ERROR')) {
         errorMsg =
-            'Configuration Error (10): Please verify your SHA-1 and Web Client ID in Firebase.';
-      } else if (e.toString().contains('sign_in_canceled')) {
+            'Configuration error. Please ensure:\n'
+            '1. SHA-1 & SHA-256 are added in Firebase Console\n'
+            '2. Web Client ID matches your Firebase project\n'
+            '3. Google Sign-In is enabled in Firebase Console';
+      } else if (errorStr.contains('sign_in_canceled') ||
+          errorStr.contains('cancelled')) {
         errorMsg = 'Sign-in cancelled.';
+      } else if (errorStr.contains('network_error') ||
+          errorStr.contains('SocketException')) {
+        errorMsg = 'Network error. Check your connection and try again.';
+      } else if (errorStr.contains('sign_in_failed')) {
+        errorMsg = 'Sign-in failed. Please check your Google account and try again.';
       }
 
       AppPopUp.showToast(
@@ -168,21 +208,79 @@ class SocialLoginService {
   Future<void> _persistSessionAndNavigate(CommonResponseModel response) async {
     final token = response.token ?? '';
     final refreshToken = response.refreshToken ?? '';
-    if (token.isNotEmpty) {
-      await SecureStorage.saveToken(token);
-      if (refreshToken.isNotEmpty) {
-        await SecureStorage.saveRefreshToken(refreshToken);
-      }
-      await sl.authService.saveToken(token);
-      if (refreshToken.isNotEmpty) {
-        await sl.authService.saveRefreshToken(refreshToken);
-      }
+    print('[GOOGLE-AUDIT] _persistSessionAndNavigate called');
+    print('[GOOGLE-AUDIT] Token empty: ${token.isEmpty}');
+    print('[GOOGLE-AUDIT] Response data type: ${response.data.runtimeType}');
+    print('[GOOGLE-AUDIT] Response data: ${response.data}');
+
+    if (token.isEmpty) {
+      print('[GOOGLE-AUDIT] ⚠️ Token is EMPTY — showing error toast');
+      AppPopUp.showToast(message: 'No auth token received. Please try again.');
+      return;
     }
 
+    // 1. Persist tokens to both storage backends.
+    await SecureStorage.saveToken(token);
+    if (refreshToken.isNotEmpty) {
+      await SecureStorage.saveRefreshToken(refreshToken);
+    }
+    await sl.authService.saveToken(token);
+    if (refreshToken.isNotEmpty) {
+      await sl.authService.saveRefreshToken(refreshToken);
+    }
+    print('[GOOGLE-AUDIT] ✅ Tokens saved to SecureStorage + AuthService');
+
+    // Verify tokens were actually saved
+    final verifySecure = await SecureStorage.getToken();
+    final verifyAuth = await sl.authService.getToken();
+    print('[GOOGLE-AUDIT] Verify SecureStorage token: ${verifySecure != null && verifySecure.isNotEmpty ? "present (${verifySecure.length} chars)" : "NULL/EMPTY"}');
+    print('[GOOGLE-AUDIT] Verify AuthService token: ${verifyAuth != null && verifyAuth.isNotEmpty ? "present (${verifyAuth.length} chars)" : "NULL/EMPTY"}');
+    print('[GOOGLE-AUDIT] Tokens match: ${verifySecure == verifyAuth}');
+
+    // 2. Validate the token by calling getUser(). If the backend rejects it
+    //    (e.g. token format mismatch, account issue), redirect to login
+    //    instead of proceeding with a broken session.
+    print('[GOOGLE-AUDIT] Validating token via getUser()...');
+    try {
+      final validateResponse = await _repo.getUser();
+      print('[GOOGLE-AUDIT] Token validation result: success=${validateResponse.success}, message=${validateResponse.message}');
+      print('[GOOGLE-AUDIT] User from validation: ${validateResponse.user?.user?.sId}');
+      if (validateResponse.success != true) {
+        if (kDebugMode) {
+          pt('[GOOGLE-AUDIT] ⚠️ Token validation FAILED: ${validateResponse.message}');
+        }
+        // Clear the invalid session
+        await SecureStorage.clearAll();
+        await sl.authService.logout();
+        AppPopUp.showToast(
+          message: 'Session creation failed. Please try signing in again.',
+          duration: const Duration(seconds: 4),
+        );
+        if (navigatorKey.currentContext != null) {
+          print('[GOOGLE-AUDIT] → signInView (token validation failed)');
+          Navigator.pushNamedAndRemoveUntil(
+            navigatorKey.currentContext!,
+            AppRoutes.signInView,
+            (route) => false,
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        pt('Token validation exception after social login: $e');
+      }
+      // Network error or similar — proceed optimistically; splash will
+      // handle any stale-token scenario on next cold start.
+    }
+
+    // 3. Extract user data from the original response (not the validate call).
     if (response.data != null && response.data is Map) {
       final dataMap = Map<String, dynamic>.from(response.data as Map);
       final user = dataMap['user'];
+      print('[GOOGLE-AUDIT] User from response: $user');
       final email = _emailFromUser(user);
+      print('[GOOGLE-AUDIT] Email: $email');
       if (email == null || email.isEmpty) {
         await UserLocalData.setNeedsPhoneProfile(true);
         if (navigatorKey.currentContext != null) {
@@ -195,32 +293,61 @@ class SocialLoginService {
       }
     }
 
-    bool hasPhone = true;
+    bool hasPhone = false;
+    bool hasCompletedOnboarding = false;
     if (response.data != null && response.data is Map) {
       final Map<String, dynamic> dataMap =
           Map<String, dynamic>.from(response.data as Map);
       if (dataMap.containsKey('user') && dataMap['user'] != null) {
-        final userPhone = dataMap['user']['phone'];
-        if (userPhone == null || userPhone.toString().isEmpty) {
-          hasPhone = false;
+        final Map<String, dynamic> userMap =
+            Map<String, dynamic>.from(dataMap['user'] as Map);
+        final userPhone = userMap['phone'];
+        if (userPhone != null && userPhone.toString().isNotEmpty) {
+          hasPhone = true;
+        }
+        // Check if user already completed onboarding on the backend.
+        final lpd = userMap['lastPeriodStartDate']?.toString().trim();
+        if (lpd != null && lpd.isNotEmpty && lpd != 'null') {
+          hasCompletedOnboarding = true;
         }
       }
     }
 
-    await UserLocalData.setNeedsPhoneProfile(true);
+    if (!hasPhone) {
+      await UserLocalData.setNeedsPhoneProfile(true);
+    }
+
+    print('[GOOGLE-AUDIT] hasPhone: $hasPhone, hasCompletedOnboarding: $hasCompletedOnboarding');
+    print('[GOOGLE-AUDIT] needsPhoneProfile set: ${!hasPhone}');
+    print('[GOOGLE-AUDIT] Routing decision: hasPhone=$hasPhone, hasCompletedOnboarding=$hasCompletedOnboarding');
 
     if (navigatorKey.currentContext != null) {
       if (!hasPhone) {
+        // New user needs phone verification → addPhone → then onboarding
+        await UserLocalData.setNeedsBasicProfile(true);
+        print('[GOOGLE-AUDIT] → addPhoneView (no phone)');
         Navigator.pushReplacementNamed(
           navigatorKey.currentContext!,
           AppRoutes.addPhoneView,
         );
+      } else if (!hasCompletedOnboarding) {
+        // Existing phone but no onboarding completed → basic profile
+        await UserLocalData.setNeedsBasicProfile(true);
+        print('[GOOGLE-AUDIT] → basicProfileView (phone but no onboarding)');
+        Navigator.pushNamedAndRemoveUntil(
+          navigatorKey.currentContext!,
+          AppRoutes.basicProfileView,
+          (route) => false,
+        );
       } else {
+        // Returning user with completed profile → skip onboarding → stage
+        await UserLocalData.setNeedsBasicProfile(false);
+        print('[GOOGLE-AUDIT] → stagesView (returning user)');
         Navigator.pushNamedAndRemoveUntil(
           navigatorKey.currentContext!,
           AppRoutes.stagesView,
           (route) => false,
-          arguments: {'fromLoginScreen': true},
+          arguments: {"fromLoginScreen": true, "back": false},
         );
       }
     }

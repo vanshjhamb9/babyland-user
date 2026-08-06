@@ -11,13 +11,24 @@ class CommonResponseModel {
     success = json['success'];
     message = json['message']?.toString();
     
-    // Check both `token` and `authToken` keys
+    // Check both `token` and `authToken` keys at top level
     token = (json['token'] ?? json['authToken'])?.toString();
     
     refreshToken = json['refreshToken']?.toString();
     data = json['data'] ?? json['user'];
 
     // Some controllers return refreshToken both at top-level and inside `data`.
+    if (refreshToken == null || refreshToken!.isEmpty) {
+      final dataMap = data is Map ? data as Map<String, dynamic> : null;
+      refreshToken = dataMap?['refreshToken']?.toString();
+    }
+
+    // Also check inside `data` for token/authToken if still null
+    // Backend may nest: { success: true, data: { authToken: "...", refreshToken: "...", user: {...} } }
+    if (token == null || token!.isEmpty) {
+      final dataMap = data is Map ? data as Map<String, dynamic> : null;
+      token = (dataMap?['authToken'] ?? dataMap?['token'])?.toString();
+    }
     if (refreshToken == null || refreshToken!.isEmpty) {
       final dataMap = data is Map ? data as Map<String, dynamic> : null;
       refreshToken = dataMap?['refreshToken']?.toString();

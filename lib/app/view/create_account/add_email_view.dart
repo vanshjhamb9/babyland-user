@@ -10,7 +10,9 @@ import 'package:babyland/app/widgets/custom_textform_field.dart';
 import 'package:babyland/app/widgets/pinput.dart';
 import 'package:babyland/app/widgets/texttield_title.dart';
 import 'package:babyland/app/widgets/validation.dart';
+import 'package:babyland/core/auth/phone_normalize.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 class AddEmailView extends StatelessWidget {
@@ -97,7 +99,7 @@ class AddEmailView extends StatelessWidget {
             style: AppFontStyle.text_15_400(color: AppColors.textLightClr,fontFamily: AppFontFamily.gilroyRegular),
           ),
           TextSpan(
-            text: " ${provider.phoneController.text}, ",
+            text: " ${provider.phoneDisplayE164}, ",
             style: AppFontStyle.text_14_400(color: AppColors.textLightClr,fontFamily: AppFontFamily.gilroySemiBold,),
           ),
           TextSpan(
@@ -179,18 +181,59 @@ class AddEmailView extends StatelessWidget {
             SizedBox(height: 20),
             textFieldTitle(title: "Phone Number"),
             SizedBox(height: 6),
-            CustomTextFormField(
-              hintText: "Enter your phone number",
-              controller: provider.phoneController,
-              textInputType: TextInputType.phone,
-              validator: (value) {
-                if(value?.isEmpty ?? false){
-                  return "Please enter your phone number";
-                } else if(!RegExp(r'^[0-9]+$').hasMatch(value!)) {
-                  return "Phone must be numeric";
-                }
-                return null;
-              },
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.greyStroke),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: provider.countryCallingCode,
+                      icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                      items: PhoneNormalize.countryOptions
+                          .map(
+                            (c) => DropdownMenuItem<String>(
+                              value: c.dial,
+                              child: Text(
+                                '${c.iso} +${c.dial}',
+                                style: AppFontStyle.text_14_400(
+                                  fontFamily: AppFontFamily.gilroyMedium,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) provider.setCountryCallingCode(v);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: CustomTextFormField(
+                    hintText: "10-digit mobile number",
+                    controller: provider.phoneController,
+                    textInputType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(12),
+                    ],
+                    validator: (value) {
+                      return PhoneNormalize.validationError(
+                        value ?? '',
+                        dialCode: provider.countryCallingCode,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: 20),
             textFieldTitle(title: "Enter password"),
@@ -313,10 +356,16 @@ class AddEmailView extends StatelessWidget {
           height: 58,
           onTap: (){
               if(provider.currentIndex == 0) {
+                 if (provider.signupApiData?.status == ApiStatus.LOADING) {
+                   return;
+                 }
                  if(provider.emailKey.currentState?.validate() ?? false) {
                     provider.signup();
                  }
               } else if(provider.currentIndex == 1) {
+                if (provider.verifyOtpSignupData?.status == ApiStatus.LOADING) {
+                  return;
+                }
                 if (provider.otpController.text.length < 6) {
                   AppPopUp.showToast(
                       message: "Please enter a valid 6 digit otp.");
@@ -329,7 +378,7 @@ class AddEmailView extends StatelessWidget {
           provider.signupApiData?.status == ApiStatus.LOADING ||
           provider.verifyOtpSignupData?.status == ApiStatus.LOADING
           ? customLoading() :
-          Text(provider.currentIndex == 0 ? "Create an account" : "Verify Number",
+          Text(provider.currentIndex == 0 ? "Send OTP" : "Verify Number",
           style:  AppFontStyle.text_16_400(fontFamily: AppFontFamily.gilroyBold,color: AppColors.white),
           ),
         ),

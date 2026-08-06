@@ -46,6 +46,19 @@ class DashboardData {
           : DateTime.now(),
     );
   }
+
+  factory DashboardData.empty() {
+    return DashboardData(
+      healthSummary: HealthSummary(
+        hydration: HydrationSummary(today: 0, weeklyAverage: 0, goal: 2500),
+        sleep: SleepSummary(lastNight: 0, weeklyAverage: 0, goal: 480),
+        symptoms: SymptomSummary(activeCount: 0),
+        medications: MedicationSummary(todayCount: 0),
+        supplements: SupplementSummary(todayCount: 0),
+      ),
+      lastUpdated: DateTime.now(),
+    );
+  }
 }
 
 /// Health summary model
@@ -349,12 +362,10 @@ class DashboardService {
       }
       // FIXED: Provide better error message with response type
       ErrorHandler.logError('Invalid health insights response: $response');
-      throw AppException(
-        'Failed to fetch dashboard data: Invalid response format',
-      );
+      return DashboardData.empty();
     } catch (e) {
       ErrorHandler.logError(e);
-      throw AppException('Error fetching dashboard data: $e');
+      return DashboardData.empty();
     }
   }
 

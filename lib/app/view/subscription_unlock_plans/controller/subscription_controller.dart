@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
+import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/core/entitlement/subscription_entitlement.dart';
 import 'package:babyland/core/observability/app_audit_log.dart';
 import 'package:babyland/core/subscription/subscription_payment_coordinator.dart';
@@ -147,6 +148,17 @@ class SubscriptionProvider extends ChangeNotifier {
     String reason = 'unknown',
     bool silent = false,
   }) async {
+    final token = await SecureStorage.getToken() ?? '';
+    if (token.isEmpty) {
+      AppAuditLog.instance.log(
+        'entitlement_refresh_completed',
+        component: 'SubscriptionProvider',
+        reason: '${reason}_skipped_no_session',
+        outcome: 'skipped',
+      );
+      return;
+    }
+
     final sw = Stopwatch()..start();
     AppAuditLog.instance.log(
       'entitlement_refresh_started',

@@ -96,8 +96,11 @@ class ErrorHandler {
             }
           }
           
+          // Prefer server message (e.g. "Please verify your phone number before logging in").
           return AuthException(
-            'You don\'t have permission for this action.',
+            message.isNotEmpty && message != 'Something went wrong.'
+                ? message
+                : 'You don\'t have permission for this action.',
             code: 'FORBIDDEN',
             originalError: error,
           );
@@ -174,8 +177,11 @@ class ErrorHandler {
         );
 
       case DioExceptionType.connectionError:
-        return const NetworkException(
-          'Could not connect to the server.',
+        final uri = error.requestOptions.uri.toString();
+        return NetworkException(
+          'Could not connect to the server ($uri). '
+          'If using a local IP, rebuild/reinstall the app so HTTP cleartext is allowed, '
+          'and keep phone + PC on the same Wi‑Fi.',
           code: 'CONNECTION_ERROR',
         );
 

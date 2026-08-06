@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:babyland/core/auth/phone_normalize.dart';
 import 'package:babyland/core/debug/agent_debug_log.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -121,24 +122,28 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       case 'missing-phone-number':
         return 'Phone number is missing.';
       case 'too-many-requests':
-        return 'Too many attempts. Please wait before trying again.';
+        return 'Too many attempts. Please wait a few minutes before trying again.';
       case 'quota-exceeded':
         return 'SMS quota exceeded. Try again later or use a test number in Firebase Console.';
       case 'operation-not-allowed':
-        return 'Phone sign-in is disabled. Enable Phone in Firebase Console → Authentication.';
+        return 'Phone sign-in is not enabled. Please contact support.';
       case 'network-request-failed':
-        return 'Network error. Check your connection and try again.';
+        return 'Network error. Check your internet connection and try again.';
       case 'missing-client-identifier':
       case 'invalid-app-credential':
-        return 'Firebase could not verify this app (Play Integrity / reCAPTCHA failed).\n'
-            'Fix A — Debug without SMS: Firebase Console → Authentication → Sign-in method → Phone → '
-            '"Phone numbers for testing" → add your number (e.g. +918769626027) with a 6-digit code, '
-            'then enter that code in the app.\n'
-            'Fix B — Real SMS: Project settings → Android → add SHA-1 and SHA-256 '
-            '(run: cd android && gradlew signingReport), download new google-services.json, reinstall.\n'
-            'Fix C — Emulator: set FIREBASE_AUTH_EMULATOR_HOST in assets/.env and run firebase emulators:start --only auth.';
+        return 'Security verification failed. This usually happens when:\n'
+            '• App is not installed from Play Store (reCAPTCHA required)\n'
+            '• SHA-1/SHA-256 not configured in Firebase\n\n'
+            'For testing, use Firebase test numbers in Console.\n'
+            'For production, ensure SHA fingerprints are registered.';
       case 'captcha-check-failed':
-        return 'Security check failed. Retry or update Play Services / app.';
+        return 'Security check failed. Please:\n'
+            '• Ensure Play Services is up to date\n'
+            '• Try again in a moment\n'
+            '• If persistent, use a Firebase test number';
+      case 'missing-recaptcha-token':
+        return 'Security verification required. Please wait for the '
+            'reCAPTCHA verification to complete.';
       case 'session-expired':
       case 'invalid-verification-code':
         return 'Invalid or expired code. Request a new SMS and try again.';
@@ -147,6 +152,16 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       case 'user-disabled':
         return 'This account has been disabled.';
       default:
+        final msg = (e.message ?? '').toLowerCase();
+        if (msg.contains('recaptcha') || msg.contains('reCAPTCHA')) {
+          return 'Security verification (reCAPTCHA) failed.\n\n'
+              'This happens when the app cannot complete reCAPTCHA verification. '
+              'Please check:\n'
+              '• SHA-1 and SHA-256 fingerprints are registered in Firebase Console\n'
+              '• Internet connection is active\n'
+              '• Play Services is up to date\n\n'
+              'If the issue persists, contact support.';
+        }
         return e.message?.isNotEmpty == true
             ? e.message!
             : 'Authentication failed (${e.code}).';
@@ -159,19 +174,11 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     String raw, {
     String defaultCountryCallingCode = '91',
   }) {
-    var s = raw.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    if (s.startsWith('+')) {
-      return s;
-    }
-    if (s.startsWith('00')) {
-      s = '+${s.substring(2)}';
-      return s;
-    }
-    final cc = defaultCountryCallingCode.replaceAll('+', '');
-    if (s.startsWith(cc)) {
-      return '+$s';
-    }
-    return '+$cc$s';
+    // Keep in sync with [PhoneNormalize.toE164] (auth signup / verify-otp).
+    return PhoneNormalize.toE164(
+      raw,
+      defaultCountryCallingCode: defaultCountryCallingCode,
+    );
   }
 
   void _startResendCooldown([int seconds = _defaultResendCooldown]) {

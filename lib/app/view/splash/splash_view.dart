@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/constants/images.dart';
+import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
@@ -97,15 +98,16 @@ class _SplashViewState extends State<SplashView> {
     if (kDebugMode) {
       final uid =
           await sl.authService.getUserId() ?? await SecureStorage.getUserId();
-      pt(
-        "token... ${token != null && token.isNotEmpty ? 'Token exists' : 'No token'}",
-      );
-      pt("id... $uid");
-      pt("step... $step");
-      pt("isAuthenticated... ${sl.authService.isAuthenticated}");
+      pt('[SPLASH-AUDIT] token... ${token != null && token.isNotEmpty ? 'Token exists (${token.length} chars)' : 'No token'}');
+      pt('[SPLASH-AUDIT] token prefix: ${token != null && token.isNotEmpty ? token.substring(0, token.length > 30 ? 30 : token.length) : "(none)"}');
+      pt('[SPLASH-AUDIT] id... $uid');
+      pt('[SPLASH-AUDIT] step... $step');
+      pt('[SPLASH-AUDIT] isAuthenticated... ${sl.authService.isAuthenticated}');
+      pt('[SPLASH-AUDIT] isFirstTime... $isFirstTime');
     }
 
     if (isFirstTime) {
+      pt('[SPLASH-AUDIT] → FIRST TIME → onboardingView');
       if (!mounted) return;
       setState(() => _checkingAuth = false);
       Navigator.pushNamedAndRemoveUntil(
@@ -117,22 +119,32 @@ class _SplashViewState extends State<SplashView> {
     }
 
     if (token != null && token.isNotEmpty) {
+      pt('[SPLASH-AUDIT] Token present. Calling getUser()...');
       final navCtx = navigatorKey.currentContext;
       if (navCtx != null && navCtx.mounted) {
         try {
           await navCtx.read<GetUserProvider>().getUser();
+          pt('[SPLASH-AUDIT] getUser() completed. Checking result...');
+
           final after = navigatorKey.currentContext;
           if (after != null && after.mounted) {
-            final userPhone = after
-                .read<GetUserProvider>()
-                .userData
-                ?.data
-                ?.user
-                ?.user
-                ?.phone
-                ?.trim();
+            final userProvider = after.read<GetUserProvider>();
+            final userData = userProvider.userData;
+            pt('[SPLASH-AUDIT] userData status: ${userData?.status}');
+            pt('[SPLASH-AUDIT] userData message: ${userData?.message}');
+            pt('[SPLASH-AUDIT] userData data: ${userData?.data}');
+            pt('[SPLASH-AUDIT] userData success: ${userData?.data?.success}');
+
+            final userPhone = userData?.data?.user?.user?.phone?.trim();
+            pt('[SPLASH-AUDIT] userPhone: $userPhone');
+
             final needsPhone = await UserLocalData.needsPhoneProfile();
+            final needsBasic = await UserLocalData.needsBasicProfile();
+            pt('[SPLASH-AUDIT] needsPhoneProfile: $needsPhone');
+            pt('[SPLASH-AUDIT] needsBasicProfile: $needsBasic');
+
             if (needsPhone && (userPhone == null || userPhone.isEmpty)) {
+              pt('[SPLASH-AUDIT] → needsPhone=true & no phone → profileUpdateScreen');
               final target = navigatorKey.currentContext;
               if (target != null && target.mounted) {
                 if (!mounted) return;
@@ -146,8 +158,8 @@ class _SplashViewState extends State<SplashView> {
               }
             }
 
-            final needsBasicProfile = await UserLocalData.needsBasicProfile();
-            if (needsBasicProfile) {
+            if (needsBasic) {
+              pt('[SPLASH-AUDIT] → needsBasic=true → basicInfoView');
               final target = navigatorKey.currentContext;
               if (target != null && target.mounted) {
                 if (!mounted) return;
@@ -160,20 +172,45 @@ class _SplashViewState extends State<SplashView> {
                 return;
               }
             }
+
+            pt('[SPLASH-AUDIT] getUser succeeded, no onboarding flags → fall through to stage/dashboard routing');
           }
         } catch (e) {
-          if (kDebugMode) {
-            pt('Splash profile prefetch: $e');
+          pt('[SPLASH-AUDIT] ⚠️ getUser() THREW: $e');
+        }
+      } else {
+        pt('[SPLASH-AUDIT] ⚠️ navCtx is null or not mounted');
+      }
+
+      // Check if getUser() failed — if so, the interceptor may have cleared
+      // the session. Log heavily but still fall through so we can audit what
+      // the existing routing does.
+      final authCheckCtx = navigatorKey.currentContext;
+      if (authCheckCtx != null && authCheckCtx.mounted) {
+        final userData = authCheckCtx.read<GetUserProvider>().userData;
+        pt('[SPLASH-AUDIT] Post-try check: userData.status=${userData?.status}');
+        if (userData == null || userData.status == ApiStatus.ERROR) {
+          final currentToken = await SecureStorage.getToken();
+          final authServiceToken = await sl.authService.getToken();
+          pt('[SPLASH-AUDIT] ⚠️ getUser FAILED. SecureStorage token: ${currentToken != null && currentToken.isNotEmpty ? "present" : "NULL"}. AuthService token: ${authServiceToken != null && authServiceToken.isNotEmpty ? "present" : "NULL"}');
+
+          if (currentToken == null || currentToken.isEmpty) {
+            pt('[SPLASH-AUDIT] → Token cleared by interceptor. signInView should already be pushed. Returning.');
+            return;
           }
+          // Token still exists — log but allow fall-through for audit
+          pt('[SPLASH-AUDIT] → Token STILL present despite getUser failure. Will fall through (audit mode).');
         }
       }
 
       final shouldShowStageScreen = await UserLocalData.shouldShowStageScreen();
+      pt('[SPLASH-AUDIT] shouldShowStageScreen: $shouldShowStageScreen');
 
       if (!mounted) return;
       setState(() => _checkingAuth = false);
 
       if (shouldShowStageScreen) {
+        pt('[SPLASH-AUDIT] → stagesView (stageScreen)');
         await UserLocalData.saveLastStageScreenShown();
         Navigator.pushNamedAndRemoveUntil(
           navigatorKey.currentContext!,
@@ -182,9 +219,11 @@ class _SplashViewState extends State<SplashView> {
           arguments: {"fromLoginScreen": true, "back": false},
         );
       } else {
+        pt('[SPLASH-AUDIT] step=$step → routing to step-based screen');
         if (step != null && step.isNotEmpty) {
           switch (step) {
             case "0":
+              pt('[SPLASH-AUDIT] → navbarPrePregancyView');
               Navigator.pushNamedAndRemoveUntil(
                 navigatorKey.currentContext!,
                 AppRoutes.navbarPrePregancyView,
@@ -195,6 +234,7 @@ class _SplashViewState extends State<SplashView> {
               final isPregnancySetupComplete =
                   await UserLocalData.isPregnancySetupComplete();
               if (isPregnancySetupComplete) {
+                pt('[SPLASH-AUDIT] → NavbarView(pregnancy)');
                 Navigator.pushAndRemoveUntil(
                   navigatorKey.currentContext!,
                   MaterialPageRoute(
@@ -204,6 +244,7 @@ class _SplashViewState extends State<SplashView> {
                   (route) => false,
                 );
               } else {
+                pt('[SPLASH-AUDIT] → pregnancyView');
                 Navigator.pushNamedAndRemoveUntil(
                   navigatorKey.currentContext!,
                   AppRoutes.pregnancyView,
@@ -215,12 +256,14 @@ class _SplashViewState extends State<SplashView> {
               final isSetupComplete =
                   await UserLocalData.isPostPregnancySetupComplete();
               if (isSetupComplete) {
+                pt('[SPLASH-AUDIT] → postPregnancyNavbarView');
                 Navigator.pushNamedAndRemoveUntil(
                   navigatorKey.currentContext!,
                   AppRoutes.postPregnancyNavbarView,
                   (route) => false,
                 );
               } else {
+                pt('[SPLASH-AUDIT] → combinedBabyDetailScreen');
                 Navigator.pushNamedAndRemoveUntil(
                   navigatorKey.currentContext!,
                   AppRoutes.combinedBabyDetailScreen,
@@ -229,6 +272,7 @@ class _SplashViewState extends State<SplashView> {
               }
               break;
             default:
+              pt('[SPLASH-AUDIT] → stagesView (default step)');
               await UserLocalData.saveLastStageScreenShown();
               Navigator.pushNamedAndRemoveUntil(
                 navigatorKey.currentContext!,
@@ -238,6 +282,7 @@ class _SplashViewState extends State<SplashView> {
               );
           }
         } else {
+          pt('[SPLASH-AUDIT] → stagesView (no step)');
           await UserLocalData.saveLastStageScreenShown();
           Navigator.pushNamedAndRemoveUntil(
             navigatorKey.currentContext!,
@@ -248,6 +293,7 @@ class _SplashViewState extends State<SplashView> {
         }
       }
     } else {
+      pt('[SPLASH-AUDIT] → No token → letsGetStartedView');
       if (!mounted) return;
       setState(() => _checkingAuth = false);
       Navigator.pushNamedAndRemoveUntil(

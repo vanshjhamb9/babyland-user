@@ -111,9 +111,11 @@ class SignInController extends ChangeNotifier {
           );
         }
       } else {
-        // ❌ API returned failure
-        setLoginApiData(ApiResponse.error(value.message ?? "Login failed"));
-        AppPopUp.showToast(message: value.message ?? "Login failed");
+        // ❌ API returned failure (e.g. 403 phone not verified)
+        final raw = value.message ?? 'Login failed';
+        final message = _loginFailureMessage(raw);
+        setLoginApiData(ApiResponse.error(message));
+        AppPopUp.showToast(message: message, duration: const Duration(seconds: 6));
       }
     } catch (e, s) {
       pt("Error in login: $e\n$s");
@@ -122,7 +124,7 @@ class SignInController extends ChangeNotifier {
 
       if (e is DioException) {
         final appException = ErrorHandler.handle(e);
-        message = appException.message;
+        message = _loginFailureMessage(appException.message);
 
         if (e.type == DioExceptionType.connectionTimeout ||
             e.type == DioExceptionType.sendTimeout ||
@@ -142,8 +144,19 @@ class SignInController extends ChangeNotifier {
         }
       }
 
-      AppPopUp.showToast(message: message);
+      AppPopUp.showToast(message: message, duration: const Duration(seconds: 6));
     }
+  }
+
+  /// Server returns 403 FORBIDDEN until Firebase phone OTP completes `/auth/verify-otp`.
+  String _loginFailureMessage(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('verify your phone') ||
+        lower.contains('phone number before logging')) {
+      return 'Please verify your phone with OTP before logging in. '
+          'Complete signup OTP first (Firebase Phone Auth), then try again.';
+    }
+    return raw;
   }
 
   final List<String> icons = [

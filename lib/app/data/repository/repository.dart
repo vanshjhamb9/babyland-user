@@ -81,7 +81,13 @@ class Repository extends ChangeNotifier {
   }
 
   Future<CommonResponseModel> googleLogin(Map<String, dynamic> data) async {
+    if (kDebugMode) {
+      print('[REPO-AUDIT] googleLogin() calling ${EndPoints.googleLogin}');
+    }
     final response = await apiService.post(EndPoints.googleLogin, data: data);
+    if (kDebugMode) {
+      print('[REPO-AUDIT] googleLogin() raw response: $response');
+    }
     return CommonResponseModel.fromJson(response);
   }
 
@@ -90,10 +96,20 @@ class Repository extends ChangeNotifier {
     return CommonResponseModel.fromJson(response);
   }
 
-  Future<CommonResponseModel> updatePhone(Map<String, dynamic> data) async {
-    // Modify based on the exact endpoint if update phone is required.
-    // Assuming EndPoints.updatePhone for now
-    final response = await apiService.post(EndPoints.updatePhone, data: data);
+  Future<CommonResponseModel> updatePhone(
+    Map<String, dynamic> data, {
+    String? authHeader,
+  }) async {
+    final response = await apiService.post(
+      EndPoints.updatePhone,
+      data: data,
+      headers: authHeader != null
+          ? {
+              'auth-token': authHeader,
+              'Authorization': 'Bearer $authHeader',
+            }
+          : null,
+    );
     return CommonResponseModel.fromJson(response);
   }
 
@@ -619,15 +635,27 @@ class Repository extends ChangeNotifier {
   }
 
 
- Future<GetUserModel> getUser() async {
+  Future<GetUserModel> getUser() async {
+    if (kDebugMode) {
+      print('[REPO-AUDIT] getUser() calling ${EndPoints.getUser}');
+    }
     final response = await apiService.get(EndPoints.getUser);
+    if (kDebugMode) {
+      print('[REPO-AUDIT] getUser() raw response type: ${response.runtimeType}');
+      print('[REPO-AUDIT] getUser() raw response: $response');
+    }
     if (response is! Map<String, dynamic>) {
+      print('[REPO-AUDIT] getUser() response is NOT a Map — returning error');
       return GetUserModel(
         success: false,
         message: 'Invalid server response',
       );
     }
-    return GetUserModel.fromJson(response);
+    final model = GetUserModel.fromJson(response);
+    if (kDebugMode) {
+      print('[REPO-AUDIT] getUser() parsed: success=${model.success}, message=${model.message}');
+    }
+    return model;
   }
 
   Future<PolicyModel> privacyPolicy(String policy) async {

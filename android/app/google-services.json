@@ -7,14 +7,14 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:240228974389:android:68e3b0eaf2de15d702967c",
+        "mobilesdk_app_id": "1:240228974389:android:211e354e02114e4a02967c",
         "android_client_info": {
           "package_name": "com.thebabyland"
         }
       },
       "oauth_client": [
         {
-          "client_id": "240228974389-71a08uqa4675lguidl9ca8nrf6sa51j0.apps.googleusercontent.com",
+          "client_id": "240228974389-qdacpglf1t854bg2rufqp2hbd7rnjo92.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.thebabyland",
@@ -22,7 +22,15 @@
           }
         },
         {
-          "client_id": "240228974389-p56h0gfk15ajj6qmgediesifrnu129v9.apps.googleusercontent.com",
+          "client_id": "240228974389-r0rcah0tup1lvvei8fkek3vt582fvlea.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thebabyland",
+            "certificate_hash": "65c922a05783abe0dadd069919eb32fc7b95c4a5"
+          }
+        },
+        {
+          "client_id": "240228974389-v720evq5b95r3gfa2ujhedetpjgug85m.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.thebabyland",
@@ -45,6 +53,13 @@
             {
               "client_id": "240228974389-sphplrara017o8u7b46i9eamgdh7ev3h.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "240228974389-40neleo12t5b0dfjn1c648pi6q280tdb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.thebabyland"
+              }
             }
           ]
         }

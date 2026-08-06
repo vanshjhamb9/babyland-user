@@ -96,7 +96,8 @@ $flutterArgs = @(
     "--dart-define=API_BASE_URL=http://164.52.197.176/api/v1",
     "--dart-define=API_ROOT_URL=http://164.52.197.176/api",
     "--dart-define=FIREBASE_FORCE_RECAPTCHA=true",
-    "--dart-define=APP_BUILD_TAG=otp-v5",
+    "--dart-define=FIREBASE_AUTH_DISABLE_APP_VERIFICATION=false",
+    "--dart-define=APP_BUILD_TAG=otp-v7",
     "--dart-define=FIREBASE_APP_CHECK_ENABLED=false"
 )
 if ($SplitPerAbi) { $flutterArgs += "--split-per-abi" }

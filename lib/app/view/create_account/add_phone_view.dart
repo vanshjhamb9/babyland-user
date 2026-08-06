@@ -1,12 +1,16 @@
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/theme/app_colors.dart';
+import 'package:babyland/app/theme/font_family.dart';
+import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/button.dart';
 import 'package:babyland/app/widgets/custom_textform_field.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
 import 'package:babyland/app/widgets/texttield_title.dart';
+import 'package:babyland/core/auth/phone_normalize.dart';
 import 'package:babyland/core/services/firebase_phone_auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 class AddPhoneView extends StatefulWidget {
@@ -18,6 +22,7 @@ class AddPhoneView extends StatefulWidget {
 
 class _AddPhoneViewState extends State<AddPhoneView> {
   final TextEditingController phoneController = TextEditingController();
+  String _countryCallingCode = '91';
 
   @override
   void initState() {
@@ -36,12 +41,15 @@ class _AddPhoneViewState extends State<AddPhoneView> {
 
     final phoneAuth = context.read<FirebasePhoneAuthService>();
     try {
-      await phoneAuth.sendOtp(phoneController.text.trim());
+      await phoneAuth.sendOtp(
+        phoneController.text.trim(),
+        defaultCountryCallingCode: _countryCallingCode,
+      );
       if (!mounted) return;
       if (!phoneAuth.hasPendingPhoneVerification) {
         AppPopUp.showToast(
           message: phoneAuth.userFacingMessage ??
-              'Could not send SMS. Check Firebase SHA-1/SHA-256 and Phone auth.',
+              'Could not send SMS. Check Firebase configuration.',
         );
         return;
       }
@@ -74,9 +82,11 @@ class _AddPhoneViewState extends State<AddPhoneView> {
               children: [
                 CustomAppBar(
                   centerTitle: true,
-                  title: const Text(
+                  title: Text(
                     'Complete your profile',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: AppFontStyle.text_20_400(
+                      fontFamily: AppFontFamily.gilroySemiBold,
+                    ),
                   ),
                   backgroundClr: AppColors.transparent,
                 ),
@@ -86,24 +96,75 @@ class _AddPhoneViewState extends State<AddPhoneView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'We’ll send a verification code to your number (Firebase SMS).',
-                        style: TextStyle(fontSize: 14, color: Colors.black54),
+                      Text(
+                        "We'll send a verification code to your number.",
+                        style: AppFontStyle.text_14_400(
+                          color: AppColors.textLightClr,
+                          fontFamily: AppFontFamily.gilroyRegular,
+                        ),
                       ),
                       if (phoneAuth.userFacingMessage != null) ...[
                         const SizedBox(height: 12),
                         Text(
                           phoneAuth.userFacingMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                          style: AppFontStyle.text_13_400(
+                            color: AppColors.red,
+                            fontFamily: AppFontFamily.gilroyMedium,
+                          ),
                         ),
                       ],
                       const SizedBox(height: 20),
                       textFieldTitle(title: 'Phone Number'),
                       const SizedBox(height: 6),
-                      CustomTextFormField(
-                        controller: phoneController,
-                        hintText: '10-digit mobile or +91…',
-                        textInputType: TextInputType.phone,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 56,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.greyStroke),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _countryCallingCode,
+                                icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                                items: PhoneNormalize.countryOptions
+                                    .map(
+                                      (c) => DropdownMenuItem<String>(
+                                        value: c.dial,
+                                        child: Text(
+                                          '${c.iso} +${c.dial}',
+                                          style: AppFontStyle.text_14_400(
+                                            fontFamily: AppFontFamily.gilroyMedium,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) {
+                                  if (v != null) {
+                                    setState(() => _countryCallingCode = v);
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: CustomTextFormField(
+                              controller: phoneController,
+                              hintText: '10-digit mobile number',
+                              textInputType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(12),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 30),
                       Button(
@@ -117,12 +178,11 @@ class _AddPhoneViewState extends State<AddPhoneView> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
+                            : Text(
                                 'Send code',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                style: AppFontStyle.text_16_400(
+                                  fontFamily: AppFontFamily.gilroyBold,
+                                  color: AppColors.white,
                                 ),
                               ),
                       ),

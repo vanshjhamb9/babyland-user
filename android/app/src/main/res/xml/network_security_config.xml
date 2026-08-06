@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Allow all cleartext HTTP for local LAN / USB-adb reverse debugging. -->
 <network-security-config>
-    <!-- Allow HTTP to the local dev server IP -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">192.168.1.16</domain>
-        <domain includeSubdomains="false">192.168.1.12</domain>
-        <domain includeSubdomains="false">192.168.178.198</domain>
-        <domain includeSubdomains="false">164.52.197.254</domain>
-        <domain includeSubdomains="false">164.52.197.176</domain>
-        <domain includeSubdomains="false">192.168.0.6</domain>
-        <domain includeSubdomains="false">192.168.137.197</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>
-
