@@ -9,13 +9,14 @@ This is **not** fixed by backend API URL changes.
 
 | Item | Value |
 |------|--------|
-| Package | `com.babyland` |
+| Package | `com.thebabyland` |
 | Firebase project | `thebabyland-6db6d` |
-| Release signing | **Debug keystore** (`signingConfig debug`) |
-| SHA-1 (debug + release APK) | `2B:57:0C:F0:36:13:E3:25:3D:54:BB:6F:36:C8:80:81:FA:09:52:13` |
-| SHA-256 | `91:BF:3E:D2:3D:E1:B9:B5:E3:14:CD:84:12:59:EA:6F:ED:06:60:90:41:6A:B4:38:BA:B3:0E:25:6E:98:5D:ED` |
+| Release SHA-1 | `44:70:15:D9:C2:E0:77:B8:2A:78:8A:ED:5E:70:D2:89:9D:68:2F:BA` |
+| Debug SHA-1 | `2B:57:0C:F0:36:13:E3:25:3D:54:BB:6F:36:C8:80:81:FA:09:52:13` |
+| Debug SHA-256 | `91:BF:3E:D2:3D:E1:B9:B5:E3:14:CD:84:12:59:EA:6F:ED:06:60:90:41:6A:B4:38:BA:B3:0E:25:6E:98:5D:ED` |
+| Release SHA-256 | `C3:CD:8A:8B:A0:CA:29:77:5C:A6:B7:78:2A:BD:09:48:B7:18:92:F9:4C:64:32:CB:28:A1:EB:80:9F:52:3F:65` |
 
-`google-services.json` already contains SHA-1 `2b570cf0…5213` — matches the keystore above.
+`google-services.json` includes both SHA-1 hashes above for `com.thebabyland`.
 
 ## App Check (optional — do not enable until ready)
 
@@ -45,30 +46,41 @@ Play Integrity fails outside Play Store → Firebase uses **reCAPTCHA in Chrome 
 ## Firebase Console checklist
 
 1. **Authentication → Sign-in method → Phone** → **Enabled**.
-2. **Project settings → Your apps → Android (`com.babyland`)**  
-   Add **both** SHA-1 **and** SHA-256 (run `.\tools\print_firebase_sha.ps1`).
+2. **Project settings → Your apps → Android (`com.thebabyland`)**  
+   Add **both** SHA-1 **and** SHA-256 for debug + release (see table above).
 3. **Download a new `google-services.json`** → replace `android/app/google-services.json`.
 4. [Google Cloud Console](https://console.cloud.google.com/apis/library/playintegrity.googleapis.com?project=thebabyland-6db6d) → enable **Play Integrity API**.
-5. **APIs & Services → Credentials** → Firebase Android API key → if restricted, allow app `com.babyland` + SHA-1 above.
+5. **APIs & Services → Credentials** → Firebase Android API key → if restricted, allow app `com.thebabyland` + SHA-1s above.
 
-## App code (already in repo)
+## App code (otp-v7)
 
-- **Release APK** forces `forceRecaptchaFlow: true` in `main.dart` (no extra flags required).
-- **`tools/build_apk_release.ps1`** passes `APP_BUILD_TAG=otp-v4`.
-- Rebuild and **reinstall** after changing `google-services.json` or SHA keys.
-- Logcat: `adb logcat | findstr "AGENT_DEBUG FirebasePhoneAuth Recaptcha"` — expect `"buildTag":"otp-v4"`, `"forceRecaptchaFlow":true`, `"App Check skipped"`. A **reCAPTCHA browser tab** may open briefly when you tap signup.
+**Critical settings (do not reverse these for real SMS):**
 
-### SHA-256 (required in Firebase Console)
+| Flag | Value for real SMS | Why |
+|------|--------------------|-----|
+| `FIREBASE_FORCE_RECAPTCHA` | `true` | Sideloaded APKs fail Play Integrity |
+| `FIREBASE_AUTH_DISABLE_APP_VERIFICATION` | `false` | `true` turns **off** reCAPTCHA and breaks real numbers |
 
-Add this in Project settings → Android app (in addition to SHA-1):
+Debug no longer auto-disables app verification (that previously blocked real OTP).
 
-`91:BF:3E:D2:3D:E1:B9:B5:E3:14:CD:84:12:59:EA:6F:ED:06:60:90:41:6A:B4:38:BA:B3:0E:25:6E:98:5D:ED`
+- **`tools/build_apk_release.ps1`** → `APP_BUILD_TAG=otp-v7`, recaptcha on, disable-verification off
+- Logcat expect: `"buildTag":"otp-v7"`, `"forceRecaptchaFlow":true`, `"disableAppVerification":false`, `"androidAppId":"...211e354e02114e4a02967c"`
+- A **Chrome / Custom Tabs reCAPTCHA** page may open on signup — complete it
 
-Then **download a new `google-services.json`** and rebuild.
+### SHA-256 (required in Firebase Console for real SMS)
+
+On Android app **`com.thebabyland`** (`1:240228974389:android:211e354e02114e4a02967c`) add:
+
+- Debug SHA-256: `91:BF:3E:D2:3D:E1:B9:B5:E3:14:CD:84:12:59:EA:6F:ED:06:60:90:41:6A:B4:38:BA:B3:0E:25:6E:98:5D:ED`
+- Release SHA-256: `C3:CD:8A:8B:A0:CA:29:77:5C:A6:B7:78:2A:BD:09:48:B7:18:92:F9:4C:64:32:CB:28:A1:EB:80:9F:52:3F:65`
+
+(SHA-1s are already in `google-services.json` for this package.)
 
 ### Quick test without fixing Integrity/reCAPTCHA
 
-Firebase Console → Authentication → Phone → **Phone numbers for testing** → add `+918769626027` with code `123456`, then enter `123456` in the app.
+1. Set `FIREBASE_AUTH_DISABLE_APP_VERIFICATION=true` temporarily  
+2. Firebase → Phone → **Phone numbers for testing** → `+918769626027` / `123456`  
+3. Rebuild, enter that number + code  
 
 ```powershell
 .\tools\build_apk_release.ps1
@@ -78,10 +90,11 @@ adb install -r build\app\outputs\flutter-apk\app-release.apk
 ## Quick test without SMS
 
 Firebase Console → Authentication → Phone → **Phone numbers for testing**  
-Add `+918769626027` with a fixed 6-digit code, then use that code in the app (works best in **debug** builds).
+Add `+918769626027` with a fixed 6-digit code, then use that code in the app.
 
 ## When you ship on Play Store
 
-1. Create a **release keystore** and register its SHA-1 + SHA-256 in Firebase.
-2. Build with that keystore (not `debug`).
-3. Set `FIREBASE_FORCE_RECAPTCHA=false` in `assets/.env` or `--dart-define=FIREBASE_FORCE_RECAPTCHA=false`.
+1. Confirm release SHA-1 + SHA-256 are in Firebase for `com.thebabyland`.
+2. Set `FIREBASE_AUTH_DISABLE_APP_VERIFICATION=false` (or remove) in `assets/.env`.
+3. Build Play bundle with `FIREBASE_FORCE_RECAPTCHA=false` once the app is on Play Store (Play Integrity works).
+4. Use `.\tools\build_appbundle_release.ps1` for Play upload.

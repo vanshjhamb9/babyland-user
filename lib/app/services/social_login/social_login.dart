@@ -100,7 +100,22 @@ class SocialLoginService {
       final responseData = response.data;
       if (responseData is Map && responseData['requirePhone'] == true) {
         print('Backend requires phone. Navigating to AddPhoneView...');
-        // Save the Google idToken so updatePhone can link phone to this account
+        await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
+        if (navigatorKey.currentContext != null) {
+          Navigator.pushReplacementNamed(
+            navigatorKey.currentContext!,
+            AppRoutes.addPhoneView,
+          );
+        }
+        return response;
+      }
+
+      // Backend may return Mongoose validation error instead of requirePhone
+      // when the user record exists but phone is missing.
+      // e.g. "User validation failed: phone: Path 'phone' is required."
+      final msg = (response.message ?? '').toLowerCase();
+      if (msg.contains('validation failed') && msg.contains('phone')) {
+        print('Backend phone validation error detected. Navigating to AddPhoneView...');
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
         if (navigatorKey.currentContext != null) {
           Navigator.pushReplacementNamed(
