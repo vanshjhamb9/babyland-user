@@ -67,82 +67,135 @@ class _PhoneOtpVerifyViewState extends State<PhoneOtpVerifyView> {
       final national = _nationalDigits(phoneAuth.phoneE164);
       print('[OTP-AUDIT] phone national=$national');
 
-      final payload = <String, dynamic>{
-        'phone': national,
-        'idToken': idToken,
-      };
-      // Include Google idToken if this is a Google sign-in flow requiring phone
+      // Check if this is a Google sign-in flow requiring phone
       final googleIdToken = await SecureStorage.getGoogleIdToken();
       print('[OTP-AUDIT] googleIdToken from storage: ${googleIdToken != null ? 'len=${googleIdToken.length}' : 'NULL'}');
+
+      String googleEmail = '';
       if (googleIdToken != null && googleIdToken.isNotEmpty) {
-        payload['googleIdToken'] = googleIdToken;
         final googlePayload = decodeJwtPayload(googleIdToken);
-        final googleEmail = googlePayload?['email']?.toString();
+        googleEmail = googlePayload?['email']?.toString() ?? '';
         print('[OTP-AUDIT] googleEmail from JWT=$googleEmail');
-        if (googleEmail != null && googleEmail.isNotEmpty) {
-          payload['email'] = googleEmail;
+      }
+
+      final bool isGoogleFlow = googleIdToken != null && googleIdToken.isNotEmpty;
+
+      if (isGoogleFlow) {
+        // Google flow: use /auth/signup + /auth/verify-otp (same path as manual signup)
+        // This avoids /auth/update-phone which requires a backend JWT we don't have.
+        print('[OTP-AUDIT] Google flow — calling /auth/signup then /auth/verify-otp');
+
+        // Step 1: Ensure backend user exists (may return "already exists" — that's OK)
+        final signupData = <String, String>{
+          'email': googleEmail.isNotEmpty ? googleEmail : 'user@google.com',
+          'phone': '+91$national',
+          'password': 'Google${national}#1',
+        };
+        print('[OTP-AUDIT] signup payload: ${signupData.keys.toList()}');
+        final signupResult = await repo.signup(signupData);
+        print('[OTP-AUDIT] signup result: success=${signupResult.success} message=${signupResult.message}');
+
+        // Step 2: Verify with backend using Firebase idToken
+        print('[OTP-AUDIT] calling verifyOtpSignup with phone=$national');
+        final verifyData = <String, String>{
+          'phone': national,
+          'idToken': idToken,
+        };
+        final verifyResult = await repo.verifyOtpSignup(verifyData);
+        print('[OTP-AUDIT] verifyOtp result: success=${verifyResult.success} token=${verifyResult.token != null ? "present" : "NULL"} message=${verifyResult.message}');
+
+        if (!mounted) {
+          print('[OTP-AUDIT] NOT mounted after verifyOtp — aborting');
+          return;
         }
-      }
 
-      // The backend /auth/update-phone requires an auth-token header, but in the
-      // requirePhone flow we have no backend JWT yet. Try the Firebase ID token
-      // first (backend likely verifies Firebase tokens), then Google ID token.
-      final authHeaderValue = idToken ?? googleIdToken;
-      print('[OTP-AUDIT] auth header: using ${idToken != null ? "Firebase idToken" : "googleIdToken"}, len=${authHeaderValue?.length}');
-      print('[OTP-AUDIT] calling repo.updatePhone(payload keys=${payload.keys.toList()})');
-      final response = await repo.updatePhone(
-        payload,
-        authHeader: authHeaderValue,
-      );
-      print('[OTP-AUDIT] updatePhone response: success=${response.success} token=${response.token != null ? "present" : "NULL"} message=${response.message}');
-      if (!mounted) {
-        print('[OTP-AUDIT] NOT mounted after updatePhone — aborting');
-        return;
-      }
+        if (verifyResult.success == true) {
+          print('[OTP-AUDIT] SUCCESS path — saving tokens and navigating');
+          await SecureStorage.clearGoogleIdToken();
 
-      if (response.success == true) {
-        print('[OTP-AUDIT] SUCCESS path — saving tokens and navigating');
-        await SecureStorage.clearGoogleIdToken();
-
-        final newToken = response.token ?? "";
-        final newRefreshToken = response.refreshToken ?? "";
-        if (newToken.isNotEmpty) {
-          await SecureStorage.saveToken(newToken);
-          await sl.authService.saveToken(newToken);
-          final uid = extractUserIdFromAccessJwt(newToken);
-          if (uid != null && uid.isNotEmpty) {
-            await SecureStorage.saveUserId(uid);
-            await sl.authService.saveUserId(uid);
+          final newToken = verifyResult.token ?? "";
+          final newRefreshToken = verifyResult.refreshToken ?? "";
+          if (newToken.isNotEmpty) {
+            await SecureStorage.saveToken(newToken);
+            await sl.authService.saveToken(newToken);
+            final uid = extractUserIdFromAccessJwt(newToken);
+            if (uid != null && uid.isNotEmpty) {
+              await SecureStorage.saveUserId(uid);
+              await sl.authService.saveUserId(uid);
+            }
           }
-        }
-        if (newRefreshToken.isNotEmpty) {
-          await SecureStorage.saveRefreshToken(newRefreshToken);
-          await sl.authService.saveRefreshToken(newRefreshToken);
-        }
+          if (newRefreshToken.isNotEmpty) {
+            await SecureStorage.saveRefreshToken(newRefreshToken);
+            await sl.authService.saveRefreshToken(newRefreshToken);
+          }
 
-        await UserLocalData.setNeedsBasicProfile(true);
+          await UserLocalData.setNeedsBasicProfile(true);
 
-        AppPopUp.showToast(message: response.message ?? 'Phone verified');
-        print('[OTP-AUDIT] navigating to basicProfileView');
-        Navigator.pushReplacementNamed(
-          context,
-          AppRoutes.basicProfileView,
-        );
-      } else {
-        print('[OTP-AUDIT] FAILED path — clearing tokens, going to signInView');
-        await SecureStorage.clearAll();
-        await sl.authService.logout();
-        await SecureStorage.clearGoogleIdToken();
-        AppPopUp.showToast(
-          message:
-              response.message ??
-              'Phone verified in Firebase but profile update failed. Please sign in again.',
-        );
-        if (mounted) {
-          Navigator.pushNamedAndRemoveUntil(
+          AppPopUp.showToast(message: verifyResult.message ?? 'Phone verified');
+          print('[OTP-AUDIT] navigating to basicProfileView');
+          Navigator.pushReplacementNamed(
             context,
-            AppRoutes.signInView,
-            (route) => false,
+            AppRoutes.basicProfileView,
+          );
+        } else {
+          print('[OTP-AUDIT] verifyOtp FAILED — ${verifyResult.message}');
+          AppPopUp.showToast(
+            message: verifyResult.message ?? 'Phone verification failed. Please try again.',
+          );
+        }
+      } else {
+        // Non-Google flow: use /auth/signup + /auth/verify-otp (existing manual signup path)
+        print('[OTP-AUDIT] Non-Google flow — calling /auth/signup then /auth/verify-otp');
+        final signupData = <String, String>{
+          'email': '',
+          'phone': '+91$national',
+          'password': 'TempPass_\$national',
+        };
+        final signupResult = await repo.signup(signupData);
+        print('[OTP-AUDIT] signup result: success=${signupResult.success} message=${signupResult.message}');
+
+        final verifyData = <String, String>{
+          'phone': national,
+          'idToken': idToken,
+        };
+        final verifyResult = await repo.verifyOtpSignup(verifyData);
+        print('[OTP-AUDIT] verifyOtp result: success=${verifyResult.success} token=${verifyResult.token != null ? "present" : "NULL"} message=${verifyResult.message}');
+
+        if (!mounted) {
+          print('[OTP-AUDIT] NOT mounted after verifyOtp — aborting');
+          return;
+        }
+
+        if (verifyResult.success == true) {
+          print('[OTP-AUDIT] SUCCESS path — saving tokens and navigating');
+          final newToken = verifyResult.token ?? "";
+          final newRefreshToken = verifyResult.refreshToken ?? "";
+          if (newToken.isNotEmpty) {
+            await SecureStorage.saveToken(newToken);
+            await sl.authService.saveToken(newToken);
+            final uid = extractUserIdFromAccessJwt(newToken);
+            if (uid != null && uid.isNotEmpty) {
+              await SecureStorage.saveUserId(uid);
+              await sl.authService.saveUserId(uid);
+            }
+          }
+          if (newRefreshToken.isNotEmpty) {
+            await SecureStorage.saveRefreshToken(newRefreshToken);
+            await sl.authService.saveRefreshToken(newRefreshToken);
+          }
+
+          await UserLocalData.setNeedsBasicProfile(true);
+
+          AppPopUp.showToast(message: verifyResult.message ?? 'Phone verified');
+          print('[OTP-AUDIT] navigating to basicProfileView');
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.basicProfileView,
+          );
+        } else {
+          print('[OTP-AUDIT] verifyOtp FAILED — ${verifyResult.message}');
+          AppPopUp.showToast(
+            message: verifyResult.message ?? 'Phone verification failed. Please try again.',
           );
         }
       }
