@@ -321,21 +321,31 @@ class FirebasePhoneAuthService extends ChangeNotifier {
           );
           _log('verificationFailed', error: e);
 
-          // Auto-retry once for reCAPTCHA token errors — the token may
-          // expire between the Play Integrity challenge and the response.
+          // Auto-retry once for reCAPTCHA token errors — Play Integrity
+          // fails on devices where the Play App Signing key SHA-256 isn't
+          // registered in Firebase Console. Force reCAPTCHA for the retry.
           final isRecaptchaError = e.code == 'missing-recaptcha-token' ||
               (e.message ?? '').toLowerCase().contains('recaptcha');
           if (isRecaptchaError && !completer.isCompleted) {
-            _log('verificationFailed: reCAPTCHA error — retrying in $_recaptchaRetryDelay');
+            _log('verificationFailed: reCAPTCHA error — forcing reCAPTCHA mode and retrying');
             _otpCodeSent = false;
             _verificationId = null;
             _resendToken = null;
             _endSendOtp();
             _clearOperationTimeout();
-            _userFacingMessage = 'Retrying security verification...';
+            _userFacingMessage = 'Retrying with security verification...';
             notifyListeners();
             await Future.delayed(_recaptchaRetryDelay);
             if (!completer.isCompleted) {
+              // Force reCAPTCHA to bypass Play Integrity (which fails on
+              // devices without the correct SHA-256 registered).
+              try {
+                await _auth.setSettings(
+                  appVerificationDisabledForTesting: false,
+                  forceRecaptchaFlow: true,
+                );
+                _log('setSettings: forceRecaptchaFlow=true for retry');
+              } catch (_) {}
               _beginSendOtp();
               _clearOperationTimeout();
               _auth.verifyPhoneNumber(
@@ -347,10 +357,13 @@ class FirebasePhoneAuthService extends ChangeNotifier {
                     await _auth.signInWithCredential(credential);
                     _endSendOtp();
                     _clearOperationTimeout();
+                    // Reset reCAPTCHA force after success.
+                    _resetRecaptchaSettings();
                     if (!completer.isCompleted) completer.complete();
                   } catch (e2) {
                     _endSendOtp();
                     _clearOperationTimeout();
+                    _resetRecaptchaSettings();
                     if (!completer.isCompleted) completer.completeError(e2);
                   }
                 },
@@ -362,6 +375,7 @@ class FirebasePhoneAuthService extends ChangeNotifier {
                   _setError(e2);
                   _endSendOtp();
                   _clearOperationTimeout();
+                  _resetRecaptchaSettings();
                   if (!completer.isCompleted) completer.completeError(e2);
                 },
                 codeSent: (String verificationId, int? resendToken) {
@@ -372,6 +386,7 @@ class FirebasePhoneAuthService extends ChangeNotifier {
                   _endSendOtp();
                   _clearOperationTimeout();
                   _startResendCooldown();
+                  _resetRecaptchaSettings();
                   if (!completer.isCompleted) completer.complete();
                 },
                 codeAutoRetrievalTimeout: (String verificationId) {
@@ -499,6 +514,18 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       _isVerifyingCode = false;
       notifyListeners();
     }
+  }
+
+  /// Reset forceRecaptchaFlow back to false after a retry so subsequent
+  /// requests use Play Integrity (faster) instead of forcing reCAPTCHA.
+  void _resetRecaptchaSettings() {
+    try {
+      _auth.setSettings(
+        appVerificationDisabledForTesting: false,
+        forceRecaptchaFlow: false,
+      );
+      _log('resetRecaptchaSettings: forceRecaptchaFlow=false');
+    } catch (_) {}
   }
 
   /// Sign out (clears local verification state for UI).

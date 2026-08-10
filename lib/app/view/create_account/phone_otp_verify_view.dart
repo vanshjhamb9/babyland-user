@@ -81,22 +81,13 @@ class _PhoneOtpVerifyViewState extends State<PhoneOtpVerifyView> {
       final bool isGoogleFlow = googleIdToken != null && googleIdToken.isNotEmpty;
 
       if (isGoogleFlow) {
-        // Google flow: use /auth/signup + /auth/verify-otp (same path as manual signup)
-        // This avoids /auth/update-phone which requires a backend JWT we don't have.
-        print('[OTP-AUDIT] Google flow — calling /auth/signup then /auth/verify-otp');
+        // Google flow: go directly to /auth/verify-otp (which creates the
+        // backend user from the Firebase phone token). Skip /auth/signup
+        // because the backend rejects it for various edge cases (empty email,
+        // phone already exists, etc.) — none of which matter since
+        // /auth/verify-otp handles user creation internally.
+        print('[OTP-AUDIT] Google flow — calling /auth/verify-otp directly');
 
-        // Step 1: Ensure backend user exists (may return "already exists" — that's OK)
-        final signupData = <String, String>{
-          'email': googleEmail.isNotEmpty ? googleEmail : 'user@google.com',
-          'phone': '+91$national',
-          'password': 'Google${national}#1',
-        };
-        print('[OTP-AUDIT] signup payload: ${signupData.keys.toList()}');
-        final signupResult = await repo.signup(signupData);
-        print('[OTP-AUDIT] signup result: success=${signupResult.success} message=${signupResult.message}');
-
-        // Step 2: Verify with backend using Firebase idToken
-        print('[OTP-AUDIT] calling verifyOtpSignup with phone=$national');
         final verifyData = <String, String>{
           'phone': national,
           'idToken': idToken,
@@ -144,16 +135,10 @@ class _PhoneOtpVerifyViewState extends State<PhoneOtpVerifyView> {
           );
         }
       } else {
-        // Non-Google flow: use /auth/signup + /auth/verify-otp (existing manual signup path)
-        print('[OTP-AUDIT] Non-Google flow — calling /auth/signup then /auth/verify-otp');
-        final signupData = <String, String>{
-          'email': '',
-          'phone': '+91$national',
-          'password': 'TempPass_\$national',
-        };
-        final signupResult = await repo.signup(signupData);
-        print('[OTP-AUDIT] signup result: success=${signupResult.success} message=${signupResult.message}');
-
+        // Non-Google flow: skip /auth/signup (requires email which we don't
+        // have for phone-only signup). Go straight to /auth/verify-otp which
+        // creates the user on the backend when phone is verified.
+        print('[OTP-AUDIT] Non-Google flow — calling /auth/verify-otp directly');
         final verifyData = <String, String>{
           'phone': national,
           'idToken': idToken,
