@@ -298,8 +298,7 @@ Future<void> _configureFirebaseAuthForDev() async {
     final forceRecaptchaFromEnv =
         dotenv.env['FIREBASE_FORCE_RECAPTCHA']?.toLowerCase() != 'false';
     final forceRecaptchaFlow = !disableAppVerification &&
-        forceRecaptchaFromDefine &&
-        forceRecaptchaFromEnv;
+        (forceRecaptchaFromDefine || forceRecaptchaFromEnv);
 
     await FirebaseAuth.instance.setSettings(
       appVerificationDisabledForTesting: disableAppVerification,

@@ -15,6 +15,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:babyland/app/data/repository/repository.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/core/di/service_locator.dart';
+import 'package:babyland/core/debug/release_logger.dart';
 
 /// Social login: obtain provider tokens, exchange for **backend JWT** via API.
 /// [AuthService] + stored JWT are the source of truth.
@@ -27,6 +28,7 @@ class SocialLoginService {
 
   /// Google: get `idToken` → backend → returns JWT + user payload in [CommonResponseModel.data].
   Future<CommonResponseModel?> signInWithGoogle() async {
+    await ReleaseLogger.log('GOOGLE-FILE', '>>> signInWithGoogle called');
     print('Starting Google Sign-In');
 
     try {
@@ -81,25 +83,33 @@ class SocialLoginService {
         'serverClientId': serverClientId,
       });
 
-      print('=== BACKEND RESPONSE START ===');
-      print('success: ${response.success}');
-      print('message: ${response.message}');
-      print('token: ${response.token != null ? "present (${response.token!.length} chars)" : "NULL"}');
-      print('refreshToken: ${response.refreshToken != null ? "present (${response.refreshToken!.length} chars)" : "NULL"}');
-      print('data: ${response.data}');
-      print('=== BACKEND RESPONSE END ===');
+      await ReleaseLogger.log('GOOGLE-FILE', '=== BACKEND RESPONSE START ===');
+      await ReleaseLogger.log('GOOGLE-FILE', 'success: ${response.success}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'message: ${response.message}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'token: ${response.token != null ? "present (${response.token!.length} chars)" : "NULL"}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'refreshToken: ${response.refreshToken != null ? "present (${response.refreshToken!.length} chars)" : "NULL"}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'data type: ${response.data.runtimeType}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'data: ${response.data}');
+      await ReleaseLogger.log('GOOGLE-FILE', '=== BACKEND RESPONSE END ===');
 
       if (response.success == true) {
-        print('[GOOGLE-AUDIT] success=true. Token prefix: ${response.token != null ? response.token!.substring(0, response.token!.length > 40 ? 40 : response.token!.length) : "NULL"}');
-        print('[GOOGLE-AUDIT] RefreshToken prefix: ${response.refreshToken != null ? response.refreshToken!.substring(0, response.refreshToken!.length > 40 ? 40 : response.refreshToken!.length) : "NULL"}');
+        await ReleaseLogger.log('GOOGLE-FILE', 'success=true, calling _persistSessionAndNavigate');
         await _persistSessionAndNavigate(response);
         return response;
       }
 
+      await ReleaseLogger.log('GOOGLE-FILE', 'success=false, checking requirePhone and phone validation...');
+
       // Handle requirePhone: backend says user exists but needs phone verification
       final responseData = response.data;
+      await ReleaseLogger.log('GOOGLE-FILE', 'responseData type: ${responseData.runtimeType}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'responseData is Map: ${responseData is Map}');
+      if (responseData is Map) {
+        await ReleaseLogger.log('GOOGLE-FILE', 'responseData requirePhone: ${responseData['requirePhone']}');
+      }
+
       if (responseData is Map && responseData['requirePhone'] == true) {
-        print('Backend requires phone. Navigating to AddPhoneView...');
+        await ReleaseLogger.log('GOOGLE-FILE', 'requirePhone=true. Saving Google ID token and navigating to AddPhoneView...');
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
         if (navigatorKey.currentContext != null) {
           Navigator.pushReplacementNamed(
@@ -114,23 +124,53 @@ class SocialLoginService {
       // when the user record exists but phone is missing.
       // e.g. "User validation failed: phone: Path 'phone' is required."
       final msg = (response.message ?? '').toLowerCase();
+      await ReleaseLogger.log('GOOGLE-FILE', 'msg (lowercase): "$msg"');
+      await ReleaseLogger.log('GOOGLE-FILE', 'contains validation failed: ${msg.contains('validation failed')}');
+      await ReleaseLogger.log('GOOGLE-FILE', 'contains phone: ${msg.contains('phone')}');
+
       if (msg.contains('validation failed') && msg.contains('phone')) {
-        print('Backend phone validation error detected. Navigating to AddPhoneView...');
+        await ReleaseLogger.log('GOOGLE-FILE', 'Phone validation error detected!');
+
+        // Check if the response data already contains a user with a phone
+        // (backend may return the existing user alongside the validation error
+        //  when the user already completed signup previously).
+        if (responseData is Map && responseData['user'] is Map) {
+          final userMap = Map<String, dynamic>.from(responseData['user'] as Map);
+          final existingPhone = userMap['phone']?.toString();
+          await ReleaseLogger.log('GOOGLE-FILE', 'Existing user in error response: phone=$existingPhone');
+
+          if (existingPhone != null && existingPhone.isNotEmpty) {
+            // User already has a phone — this is a returning user.
+            // The backend validation error is transient; persist the session
+            // using the user data we received.
+            await ReleaseLogger.log('GOOGLE-FILE', 'Returning user with phone found in error response. Persisting session...');
+            await _persistSessionAndNavigate(response);
+            return response;
+          }
+        }
+
+        // New user (no existing phone) — redirect to AddPhoneView
+        await ReleaseLogger.log('GOOGLE-FILE', 'No existing user/phone found. Navigating to AddPhoneView...');
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
         if (navigatorKey.currentContext != null) {
+          await ReleaseLogger.log('GOOGLE-FILE', 'Navigator context available, pushing AddPhoneView');
           Navigator.pushReplacementNamed(
             navigatorKey.currentContext!,
             AppRoutes.addPhoneView,
           );
+        } else {
+          await ReleaseLogger.log('GOOGLE-FILE', 'Navigator context is NULL! Cannot navigate');
         }
         return response;
       }
 
+      await ReleaseLogger.log('GOOGLE-FILE', 'No matching error handler. Showing toast: ${response.message}');
       AppPopUp.showToast(
         message: response.message ?? 'Google login failed on backend.',
       );
       return response;
     } catch (e) {
+      await ReleaseLogger.log('GOOGLE-FILE', 'EXCEPTION: $e');
       print('Detailed Google Sign-In error: $e');
 
       String errorMsg = 'Google Sign-In failed.';
@@ -223,6 +263,9 @@ class SocialLoginService {
   Future<void> _persistSessionAndNavigate(CommonResponseModel response) async {
     final token = response.token ?? '';
     final refreshToken = response.refreshToken ?? '';
+    await ReleaseLogger.log('GOOGLE-FILE', '_persistSessionAndNavigate called');
+    await ReleaseLogger.log('GOOGLE-FILE', 'Token empty: ${token.isEmpty}');
+    await ReleaseLogger.log('GOOGLE-FILE', 'Response data type: ${response.data.runtimeType}');
     print('[GOOGLE-AUDIT] _persistSessionAndNavigate called');
     print('[GOOGLE-AUDIT] Token empty: ${token.isEmpty}');
     print('[GOOGLE-AUDIT] Response data type: ${response.data.runtimeType}');

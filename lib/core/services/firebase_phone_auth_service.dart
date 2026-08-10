@@ -142,8 +142,7 @@ class FirebasePhoneAuthService extends ChangeNotifier {
             '• Try again in a moment\n'
             '• If persistent, use a Firebase test number';
       case 'missing-recaptcha-token':
-        return 'Security verification required. Please wait for the '
-            'reCAPTCHA verification to complete.';
+        return 'Security verification required. Please wait a moment and try again.';
       case 'session-expired':
       case 'invalid-verification-code':
         return 'Invalid or expired code. Request a new SMS and try again.';
@@ -212,9 +211,12 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  static const Duration _recaptchaRetryDelay = Duration(seconds: 3);
+
   /// Sends or re-sends the SMS OTP via [FirebaseAuth.verifyPhoneNumber].
   ///
   /// [isResend]: pass `true` after first [codeSent] to use [forceResendingToken] when supported.
+  /// Automatically retries once on `missing-recaptcha-token` errors.
   Future<void> sendOtp(
     String phoneRaw, {
     bool isResend = false,
@@ -296,7 +298,7 @@ class FirebasePhoneAuthService extends ChangeNotifier {
             completeErr(e is Exception ? e : Exception(e.toString()));
           }
         },
-        verificationFailed: (FirebaseAuthException e) {
+        verificationFailed: (FirebaseAuthException e) async {
           // #region agent log
           agentDebugLog(
             hypothesisId: 'H10',
@@ -318,6 +320,71 @@ class FirebasePhoneAuthService extends ChangeNotifier {
             'code=${e.code} message=${e.message ?? ""} plugin=${e.plugin}',
           );
           _log('verificationFailed', error: e);
+
+          // Auto-retry once for reCAPTCHA token errors — the token may
+          // expire between the Play Integrity challenge and the response.
+          final isRecaptchaError = e.code == 'missing-recaptcha-token' ||
+              (e.message ?? '').toLowerCase().contains('recaptcha');
+          if (isRecaptchaError && !completer.isCompleted) {
+            _log('verificationFailed: reCAPTCHA error — retrying in $_recaptchaRetryDelay');
+            _otpCodeSent = false;
+            _verificationId = null;
+            _resendToken = null;
+            _endSendOtp();
+            _clearOperationTimeout();
+            _userFacingMessage = 'Retrying security verification...';
+            notifyListeners();
+            await Future.delayed(_recaptchaRetryDelay);
+            if (!completer.isCompleted) {
+              _beginSendOtp();
+              _clearOperationTimeout();
+              _auth.verifyPhoneNumber(
+                phoneNumber: phone,
+                timeout: _verifyPhoneTimeout,
+                forceResendingToken: null,
+                verificationCompleted: (PhoneAuthCredential credential) async {
+                  try {
+                    await _auth.signInWithCredential(credential);
+                    _endSendOtp();
+                    _clearOperationTimeout();
+                    if (!completer.isCompleted) completer.complete();
+                  } catch (e2) {
+                    _endSendOtp();
+                    _clearOperationTimeout();
+                    if (!completer.isCompleted) completer.completeError(e2);
+                  }
+                },
+                verificationFailed: (FirebaseAuthException e2) {
+                  _log('verificationFailed retry also failed: ${e2.code}');
+                  _otpCodeSent = false;
+                  _verificationId = null;
+                  _resendToken = null;
+                  _setError(e2);
+                  _endSendOtp();
+                  _clearOperationTimeout();
+                  if (!completer.isCompleted) completer.completeError(e2);
+                },
+                codeSent: (String verificationId, int? resendToken) {
+                  _log('codeSent (retry) verificationId=$verificationId resendToken=$resendToken');
+                  _otpCodeSent = true;
+                  _verificationId = verificationId;
+                  _resendToken = resendToken;
+                  _endSendOtp();
+                  _clearOperationTimeout();
+                  _startResendCooldown();
+                  if (!completer.isCompleted) completer.complete();
+                },
+                codeAutoRetrievalTimeout: (String verificationId) {
+                  if (!_otpCodeSent && _verificationId == null && verificationId.isNotEmpty) {
+                    _verificationId = verificationId;
+                    notifyListeners();
+                  }
+                },
+              );
+              return;
+            }
+          }
+
           _otpCodeSent = false;
           _verificationId = null;
           _resendToken = null;
