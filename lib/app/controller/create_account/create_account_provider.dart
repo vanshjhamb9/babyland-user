@@ -326,9 +326,9 @@ class CreateAccountProvider extends ChangeNotifier {
     if (phoneAuthMsg != null) return phoneAuthMsg;
     final raw = e.toString();
     if (raw.toLowerCase().contains('recaptcha')) {
-      return 'reCAPTCHA verification failed. Please check your internet connection '
-          'and try again. If the issue persists, the app may need SHA fingerprints '
-          'registered in Firebase Console.';
+      return 'Security verification failed. On iOS, upload an APNs Authentication '
+          'Key in Firebase (Project settings → Cloud Messaging). On Android, '
+          'confirm SHA fingerprints. Then try again.';
     }
     return raw;
   }

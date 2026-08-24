@@ -138,6 +138,7 @@ class FirebasePhoneAuthService extends ChangeNotifier {
 
   /// Maps [FirebaseAuth] error codes to user-readable strings.
   static String mapFirebaseAuthExceptionToMessage(FirebaseAuthException e) {
+    final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
     switch (e.code) {
       case 'invalid-phone-number':
         return 'Invalid phone number. Use country code with + (e.g. +91…).';
@@ -153,12 +154,26 @@ class FirebasePhoneAuthService extends ChangeNotifier {
         return 'Network error. Check your internet connection and try again.';
       case 'missing-client-identifier':
       case 'invalid-app-credential':
+        if (isIos) {
+          return 'Security verification failed on iOS.\n\n'
+              'Phone OTP needs an APNs Authentication Key in Firebase '
+              '(Project settings → Cloud Messaging → Apple apps). '
+              'Without it, SMS verification cannot complete on TestFlight.\n\n'
+              'Also confirm Phone sign-in is enabled and the iOS app '
+              'bundle ID is com.thebabyland.';
+        }
         return 'Security verification failed. This usually happens when:\n'
             '• App is not installed from Play Store (reCAPTCHA required)\n'
             '• SHA-1/SHA-256 not configured in Firebase\n\n'
             'For testing, use Firebase test numbers in Console.\n'
             'For production, ensure SHA fingerprints are registered.';
       case 'captcha-check-failed':
+        if (isIos) {
+          return 'Security check failed on iOS.\n\n'
+              'Upload an APNs key to Firebase Cloud Messaging for '
+              'com.thebabyland, then try again. '
+              'If a browser page opens for verification, complete it and return to the app.';
+        }
         return 'Security check failed. Please:\n'
             '• Ensure Play Services is up to date\n'
             '• Try again in a moment\n'
@@ -175,6 +190,15 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       default:
         final msg = (e.message ?? '').toLowerCase();
         if (msg.contains('recaptcha') || msg.contains('reCAPTCHA')) {
+          if (isIos) {
+            return 'Security verification failed on iOS.\n\n'
+                'Firebase could not verify this TestFlight build.\n'
+                'Most common fix: Firebase Console → Project settings → '
+                'Cloud Messaging → upload APNs Authentication Key (.p8) '
+                'for Apple apps (bundle com.thebabyland).\n\n'
+                'Also check internet and try again. '
+                'If a Safari verification page appears, complete it.';
+          }
           return 'Security verification (reCAPTCHA) failed.\n\n'
               'This happens when the app cannot complete reCAPTCHA verification. '
               'Please check:\n'
