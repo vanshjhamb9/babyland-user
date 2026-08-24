@@ -57,15 +57,24 @@ workflows:
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
             --dart-define=APP_BUILD_TAG=appstore-v1 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
+      - name: Verify IPA exists
+        script: |
+          echo "Looking for IPA..."
+          find build/ios -name "*.ipa" -type f 2>/dev/null || true
+          ls -la build/ios/ipa/ 2>/dev/null || true
+          test -n "$(find build/ios -name '*.ipa' -type f 2>/dev/null | head -1)" \
+            || (echo "ERROR: No .ipa produced under build/ios" && exit 1)
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/**/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+        # Must match App Store Connect → TestFlight → Internal Testing group name exactly.
         beta_groups:
-          - Internal Testers
+          - babyland tester
 
   ios-testflight-manual:
     name: Babyland iOS TestFlight (manual only)
