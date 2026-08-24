@@ -37,13 +37,10 @@ workflows:
             echo "Missing ios/Runner/GoogleService-Info.plist"
             exit 1
           )
-      - name: Fetch App Store signing files
-        script: |
-          app-store-connect fetch-signing-files com.thebabyland \
-            --type IOS_APP_STORE \
-            --create
       - name: Set up code signing
         script: |
+          # Codemagic injects App Store cert/profile from ios_signing + Developer Portal.
+          # Do NOT run fetch-signing-files --create without CERTIFICATE_PRIVATE_KEY.
           xcode-project use-profiles \
             --custom-export-options '{"method":"app-store","destination":"export","signingStyle":"manual"}'
           echo "Generated export options:"
@@ -98,15 +95,11 @@ workflows:
     scripts:
       - name: Verify Firebase iOS config
         script: test -f ios/Runner/GoogleService-Info.plist
-      - name: Fetch App Store signing files
-        script: |
-          app-store-connect fetch-signing-files com.thebabyland \
-            --type IOS_APP_STORE \
-            --create
       - name: Set up code signing
         script: |
           xcode-project use-profiles \
             --custom-export-options '{"method":"app-store","destination":"export","signingStyle":"manual"}'
+          cat "$HOME/export_options.plist"
       - name: Flutter packages
         script: flutter pub get
       - name: CocoaPods
