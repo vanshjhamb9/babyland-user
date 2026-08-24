@@ -35,13 +35,15 @@ class ApiEndpoints {
   static const String chatStream = '/chat/stream';
 
   // ─── AI Assistant (NEW Gateway) ─────────────────────────
-  static const String aiChat = '/ai/chat';
-  static const String aiChatVoice = '/ai/chat/voice';
-  static const String aiFeedback = '/ai/feedback';
-  static const String aiHealth = '/ai/health';
+  /// Production AI platform is mounted at `/api/ai/chat` (no `/v1`).
+  static String get aiChat => '$apiRoot/ai/chat';
+  static const String aiChatV1 = '/ai/chat';
+  static String get aiChatVoice => '$apiRoot/ai/chat/voice';
+  static String get aiFeedback => '$apiRoot/ai/feedback';
+  static String get aiHealth => '$apiRoot/ai/health';
   static const String aiInsights = '/ai/insights';
-  static const String aiMemoryStore = '/ai/memory/store';
-  static const String aiObserverEvent = '/ai/observer/event';
+  static String get aiMemoryStore => '$apiRoot/ai/memory/store';
+  static String get aiObserverEvent => '$apiRoot/ai/observer/event';
 
   // ─── AI Intelligence ────────────────────────────────────
   static const String aiRecommendations = '/ai/recommendations';

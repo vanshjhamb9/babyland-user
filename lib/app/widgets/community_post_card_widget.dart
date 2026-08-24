@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../common_profile_header/get_user_controller.dart';
 import '../theme/app_colors.dart';
 import '../theme/font_family.dart';
 import '../theme/font_style.dart';
 import 'container.dart';
+import 'user_avatar.dart';
 import 'package:intl/intl.dart';
 
 class CommunityPostCardWidget extends StatelessWidget {
@@ -49,9 +52,21 @@ class CommunityPostCardWidget extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundImage: AssetImage('assets/images/girl.png'),
+                Consumer<GetUserProvider>(
+                  builder: (context, userProvider, _) {
+                    final isMe = myUserId != null &&
+                        post?.userId?.sId?.toString() == myUserId;
+                    final avatarUrl = post?.userId?.profilePicture ??
+                        (isMe
+                            ? userProvider
+                                .userData?.data?.user?.user?.profilePicture
+                            : null);
+                    return UserAvatar(
+                      size: 50,
+                      imageUrl: avatarUrl,
+                      name: post?.userId?.name,
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
                 Column(

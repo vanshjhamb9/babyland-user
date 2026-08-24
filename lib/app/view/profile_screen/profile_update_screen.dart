@@ -120,7 +120,45 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     if (isPickingImage) return;
     try {
       isPickingImage = true;
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Change Profile Photo',
+                  style: AppFontStyle.text_16_600(
+                    fontFamily: AppFontFamily.gilroySemiBold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Choose from Gallery'),
+                  onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_outlined),
+                  title: const Text('Take a Photo'),
+                  onTap: () => Navigator.pop(ctx, ImageSource.camera),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (source == null) return;
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        imageQuality: 85,
+      );
       if (pickedFile != null) {
         setState(() {
           profileImage = File(pickedFile.path);

@@ -1,5 +1,7 @@
 import 'dart:io';
-import 'dart:convert';
+
+import 'package:dio/dio.dart';
+import 'profile_photo_url_parser.dart';
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/common_profile_header/get_user_model.dart';
 import 'package:babyland/app/controller/ai_assistant/model/ai_chat_model.dart';
@@ -57,7 +59,12 @@ class Repository extends ChangeNotifier {
     NetworkApiServices(),
   );
 
+  static Future<CommonResponseModel>? _profilePhotoUploadFuture;
+
   factory Repository({NetworkApiServices? apiService}) {
+    if (apiService != null) {
+      return Repository._internal(apiService);
+    }
     return _instance;
   }
 
@@ -181,11 +188,73 @@ class Repository extends ChangeNotifier {
 
   ///--------------Postpartums --------
   Future<PostpartumsAddModel> postpartumsAdd(Map<String, dynamic> data) async {
-    final response = await apiService.post(
-      EndPoints.postpartumsAdd,
-      data: data,
-    );
-    return PostpartumsAddModel.fromJson(response);
+    if (kDebugMode) {
+      print('[POSTPARTUM-AUDIT] POST ${EndPoints.postpartumsAdd} payload=$data');
+    }
+    try {
+      final response = await apiService.post(
+        EndPoints.postpartumsAdd,
+        data: data,
+      );
+      if (kDebugMode) {
+        print(
+          '[POSTPARTUM-AUDIT] /add raw type=${response.runtimeType} body=$response',
+        );
+      }
+      final model = PostpartumsAddModel.fromResponse(response);
+      if (PostpartumsAddModel.isAlreadyExists(model.message) ||
+          PostpartumsAddModel.isAlreadyExists(response?.toString())) {
+        return PostpartumsAddModel(
+          success: true,
+          message: model.message ?? 'already exists',
+          task: model.task,
+        );
+      }
+      return model;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[POSTPARTUM-AUDIT] /add threw: $e');
+      }
+      final recovered = _postpartumAddFromError(e);
+      if (recovered != null) return recovered;
+      return PostpartumsAddModel(
+        success: false,
+        message: e.toString(),
+      );
+    }
+  }
+
+  PostpartumsAddModel? _postpartumAddFromError(Object e) {
+    dynamic body;
+    String? text;
+    if (e is DioException) {
+      body = e.response?.data;
+      text = body?.toString() ?? e.message;
+    } else {
+      text = e.toString();
+    }
+    if (PostpartumsAddModel.isAlreadyExists(text) ||
+        PostpartumsAddModel.isAlreadyExists(body?.toString())) {
+      final model = PostpartumsAddModel.fromResponse(body);
+      return PostpartumsAddModel(
+        success: true,
+        message: model.message ?? 'already exists',
+        task: model.task,
+      );
+    }
+    if (body != null) {
+      final model = PostpartumsAddModel.fromResponse(body);
+      if (model.success == true ||
+          PostpartumsAddModel.isAlreadyExists(model.message)) {
+        return PostpartumsAddModel(
+          success: true,
+          message: model.message ?? 'already exists',
+          task: model.task,
+        );
+      }
+      return model;
+    }
+    return null;
   }
 
   Future<AddAppointment_Data_Model> addAppointmentApi(
@@ -667,33 +736,22 @@ class Repository extends ChangeNotifier {
     if (kDebugMode) {
       print("----- REPOSITORY updateUserProfile CALLED -----");
       print("Has Image: ${profileImage != null}");
+      print("Payload keys: ${data.keys.toList()}");
     }
     if (profileImage != null) {
-      if (kDebugMode) {
-        print("Image path: ${profileImage.path}");
-      }
-      // Send as multipart with file under field name 'photo' (backend expects upload.single("photo"))
-      final fields = <String, dynamic>{};
-      data.forEach((key, value) {
-        if (value is Map) {
-          fields[key] = jsonEncode(value);
-        } else if (value != null) {
-          fields[key] = value;
+      if (_profilePhotoUploadFuture != null) {
+        if (kDebugMode) {
+          print('Coalescing concurrent profile photo upload');
         }
-      });
-      if (kDebugMode) {
-        print("Sending fields: $fields");
+        return _profilePhotoUploadFuture!;
       }
-      final files = <String, File>{'photo': profileImage};
-      final response = await apiService.putApiMultiPart(
-        EndPoints.updateUserProfile,
-        fields,
-        files,
-      );
-      if (kDebugMode) {
-        print("Multipart response: $response");
+      final future = _updateUserProfileWithPhoto(data, profileImage);
+      _profilePhotoUploadFuture = future;
+      try {
+        return await future;
+      } finally {
+        _profilePhotoUploadFuture = null;
       }
-      return CommonResponseModel.fromJson(response);
     } else {
       if (kDebugMode) {
         print("No image, sending fallback JSON PUT");
@@ -703,13 +761,352 @@ class Repository extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> uploadFile(File file) async {
-    final response = await apiService.postApiMultiPart(
-      EndPoints.uploadSingleFile,
-      {},
-      {'file': file},
+  static const _profilePhotoServerUnavailableMessage =
+      'Profile photo upload is temporarily unavailable. '
+      'Our team is fixing the server — please try again later.';
+
+  void _profilePhotoAudit({
+    required String event,
+    String? endpoint,
+    int? status,
+    dynamic body,
+    String? stage,
+    String? reason,
+  }) {
+    if (!kDebugMode) return;
+    final parts = <String>[
+      '[PROFILE-PHOTO]',
+      'event=$event',
+      if (endpoint != null) 'endpoint=$endpoint',
+      if (status != null) 'status=$status',
+      if (stage != null) 'stage=$stage',
+      if (reason != null) 'reason=$reason',
+      if (body != null) 'body=${_profilePhotoBodySnippet(body)}',
+    ];
+    print(parts.join(' '));
+  }
+
+  String _profilePhotoBodySnippet(dynamic body) {
+    if (body == null) return '';
+    final text = body.toString();
+    return text.length <= 200 ? text : '${text.substring(0, 200)}…';
+  }
+
+  Future<CommonResponseModel> _updateUserProfileWithPhoto(
+    Map<String, dynamic> data,
+    File profileImage,
+  ) async {
+    if (kDebugMode) {
+      print("Image path: ${profileImage.path}");
+    }
+    try {
+      final direct =
+          await _updateUserProfileMultipart(data, profileImage);
+      if (direct.success == true) {
+        _profilePhotoAudit(
+          event: 'multipart_success',
+          endpoint: EndPoints.updateUserProfile,
+        );
+        return direct;
+      }
+      _profilePhotoAudit(
+        event: 'multipart_failed',
+        endpoint: EndPoints.updateUserProfile,
+        body: direct.message,
+        reason: 'success_false',
+      );
+    } on DioException catch (e) {
+      _profilePhotoAudit(
+        event: 'multipart_failed',
+        endpoint: EndPoints.updateUserProfile,
+        status: e.response?.statusCode,
+        body: e.response?.data,
+        reason: 'dio_exception',
+      );
+    }
+    return _updateProfilePhotoViaPostUpload(data, profileImage);
+  }
+
+  Future<CommonResponseModel> _updateUserProfileMultipart(
+    Map<String, dynamic> data,
+    File profileImage,
+  ) async {
+    final fields = <String, dynamic>{};
+    data.forEach((key, value) {
+      if (value == null) return;
+      if (value is Map) {
+        value.forEach((nestedKey, nestedValue) {
+          if (nestedValue != null) {
+            fields['$key[$nestedKey]'] = nestedValue;
+          }
+        });
+      } else {
+        fields[key] = value;
+      }
+    });
+    if (kDebugMode) {
+      print("Sending multipart fields: $fields");
+    }
+    final response = await apiService.putApiMultiPart(
+      EndPoints.updateUserProfile,
+      fields,
+      {'photo': profileImage},
     );
-    return response is Map<String, dynamic> ? response : {};
+    if (kDebugMode) {
+      print("Multipart response: $response");
+    }
+    return CommonResponseModel.fromJson(response);
+  }
+
+  Future<CommonResponseModel> _updateProfilePhotoViaPostUpload(
+    Map<String, dynamic> data,
+    File profileImage,
+  ) async {
+    final guard = await _checkBabyPhotoFallbackEligibility();
+    if (guard != null) {
+      return guard;
+    }
+
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _profilePhotoAudit(
+      event: 'baby_fallback_attempt',
+      endpoint: EndPoints.addBabyPhotos,
+    );
+    if (kDebugMode) {
+      print('Fallback POST upload to ${EndPoints.addBabyPhotos}');
+    }
+
+    try {
+      final uploadRes = await apiService.postApiMultiPart(
+        EndPoints.addBabyPhotos,
+        {
+          'caption': 'Profile photo',
+          'date': today,
+        },
+        {'photo': profileImage},
+      );
+      if (kDebugMode) {
+        print('Fallback upload response: $uploadRes');
+      }
+
+      final uploadModel = CommonResponseModel.fromJson(
+        _coerceStringMap(uploadRes),
+      );
+      if (uploadModel.success != true) {
+        if (kDebugMode) {
+          print(
+            'Fallback upload failed: success=${uploadModel.success} '
+            'message=${uploadModel.message}',
+          );
+        }
+        return uploadModel;
+      }
+
+      return _finalizeProfilePhotoJsonUpdate(data, uploadModel.data);
+    } on DioException catch (e) {
+      _profilePhotoAudit(
+        event: 'baby_fallback_failed',
+        endpoint: EndPoints.addBabyPhotos,
+        status: e.response?.statusCode,
+        body: e.response?.data,
+        reason: 'dio_exception',
+      );
+      if (kDebugMode) {
+        print(
+          'Fallback POST DioException status=${e.response?.statusCode} '
+          'body=${e.response?.data}',
+        );
+      }
+      // Upload may have succeeded before server returned 500 — try GET photos.
+      final recoveredUrl = await _fetchLatestBabyPhotoUrl();
+      if (recoveredUrl != null && recoveredUrl.isNotEmpty) {
+        if (kDebugMode) {
+          print('Recovered photo URL after fallback DioException: $recoveredUrl');
+        }
+        return _finalizeProfilePhotoJsonUpdate(data, recoveredUrl);
+      }
+      return CommonResponseModel(
+        success: false,
+        message: _profilePhotoFallbackErrorMessage(e),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Fallback POST unexpected error: $e');
+      }
+      return CommonResponseModel(
+        success: false,
+        message: 'Photo upload failed. Stay on this screen and try again.',
+      );
+    }
+  }
+
+  Future<CommonResponseModel?> _checkBabyPhotoFallbackEligibility() async {
+    try {
+      final userRes = await getUser();
+      final stage = userRes.user?.user?.stage?.toLowerCase();
+
+      if (stage != 'postpregnancy') {
+        _profilePhotoAudit(
+          event: 'baby_fallback_skipped',
+          stage: stage,
+          reason: 'stage_not_postpregnancy',
+        );
+        return CommonResponseModel(
+          success: false,
+          message: _profilePhotoServerUnavailableMessage,
+        );
+      }
+
+      final details = await babygrowthsDetails();
+      if (details.tracker?.sId == null) {
+        _profilePhotoAudit(
+          event: 'baby_fallback_skipped',
+          stage: stage,
+          reason: 'no_baby_tracker',
+        );
+        return CommonResponseModel(
+          success: false,
+          message:
+              'Complete baby profile setup first, then try uploading your photo again.',
+        );
+      }
+
+      _profilePhotoAudit(
+        event: 'baby_fallback_eligible',
+        stage: stage,
+      );
+    } catch (e) {
+      _profilePhotoAudit(
+        event: 'baby_fallback_skipped',
+        reason: 'eligibility_check_error',
+        body: e,
+      );
+      if (kDebugMode) {
+        print('Baby photo fallback eligibility check failed: $e');
+      }
+    }
+    return null;
+  }
+
+  String _profilePhotoFallbackErrorMessage(DioException e) {
+    final body = e.response?.data;
+    if (body is Map && body['message'] != null) {
+      final msg = body['message'].toString();
+      final lower = msg.toLowerCase();
+      if (!lower.contains('internal server error') &&
+          !lower.contains('request_failed')) {
+        return msg;
+      }
+    }
+    switch (e.response?.statusCode) {
+      case 413:
+        return 'Image is too large. Try a smaller photo.';
+      case 500:
+      case 502:
+        return 'Photo upload failed. Stay on this screen and try again.';
+      default:
+        return 'Photo upload failed. Stay on this screen and try again.';
+    }
+  }
+
+  Map<String, dynamic> _coerceStringMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return <String, dynamic>{};
+  }
+
+  Future<CommonResponseModel> _finalizeProfilePhotoJsonUpdate(
+    Map<String, dynamic> data,
+    dynamic uploadPayload,
+  ) async {
+    var url = extractUploadedPhotoUrl(uploadPayload);
+    if (url == null || url.isEmpty) {
+      if (kDebugMode) {
+        print('No URL in upload response — trying GET /babygrowths/get/photos');
+      }
+      url = await _fetchLatestBabyPhotoUrl();
+    }
+    if (kDebugMode) {
+      print('Extracted photo URL: $url');
+    }
+    if (url == null || url.isEmpty) {
+      return CommonResponseModel(
+        success: false,
+        message: 'Photo uploaded but server did not return a URL.',
+      );
+    }
+
+    final jsonPayload = <String, dynamic>{
+      'name': data['name'] ?? 'User',
+    };
+    final phone = data['phone']?.toString().trim();
+    if (phone != null && phone.isNotEmpty) {
+      jsonPayload['phone'] = phone;
+    }
+    jsonPayload['photo'] = url;
+    if (kDebugMode) {
+      print('JSON profile update with uploaded photo URL');
+    }
+    try {
+      final response = await apiService.put(
+        EndPoints.updateUserProfile,
+        data: jsonPayload,
+      );
+      final model = CommonResponseModel.fromJson(response);
+      if (kDebugMode) {
+        print(
+          'JSON profile update result: success=${model.success} '
+          'message=${model.message}',
+        );
+      }
+      return model;
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        print(
+          'JSON profile update DioException status=${e.response?.statusCode} '
+          'body=${e.response?.data}',
+        );
+      }
+      return CommonResponseModel(
+        success: false,
+        message: _profilePhotoFallbackErrorMessage(e),
+      );
+    }
+  }
+
+  Future<String?> _fetchLatestBabyPhotoUrl() async {
+    try {
+      final model = await getBabyGrowthPhotos();
+      final photos = model.photos;
+      if (photos == null || photos.isEmpty) return null;
+      String? latestUrl;
+      DateTime? latestAt;
+      for (final photo in photos) {
+        final url = photo.photoUrl?.trim();
+        if (url == null || url.isEmpty) continue;
+        DateTime? created;
+        final raw = photo.createdAt;
+        if (raw != null && raw.isNotEmpty) {
+          created = DateTime.tryParse(raw);
+        }
+        if (latestUrl == null ||
+            (created != null &&
+                (latestAt == null || created.isAfter(latestAt)))) {
+          latestUrl = url;
+          latestAt = created;
+        }
+      }
+      latestUrl ??= photos.last.photoUrl?.trim();
+      if (kDebugMode && latestUrl != null) {
+        print('Resolved latest baby photo URL from GET /babygrowths/get/photos');
+      }
+      return latestUrl;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to fetch baby photos for profile fallback: $e');
+      }
+      return null;
+    }
   }
 
  Future<CommonResponseModel> addBabygrowths(Map<String, dynamic> data) async {

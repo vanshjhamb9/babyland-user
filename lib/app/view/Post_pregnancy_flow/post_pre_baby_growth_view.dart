@@ -28,9 +28,7 @@ import '../../widgets/custom_image.dart';
 import '../../widgets/feeding_entry_dialog.dart';
 import '../../widgets/feeding_details_dialog.dart';
 import '../../common_profile_header/profile_header.dart';
-import '../../data/storage/user_local_data.dart';
 import '../../controller/pre_pregenancy_flow/model/daily_logs_mentural_model.dart';
-import '../../../features/post_pregnancy/data/postpartum_logs_merge.dart';
 
 /// Resolves today's postpartum log (supports yyyy-MM-dd and legacy formats).
 Data? _postpartumLogForToday(List<Data>? logs) {
@@ -119,15 +117,8 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> with Rout
       final pp = context.read<PostpregnancyProvider>();
       pp.getFeedingApi();
       pp.getDashboardLogsApi();
-      final success = await pp.getRecoveryTaskApi();
+      await pp.getRecoveryTaskApi();
       if (!mounted) return;
-      if (!success) {
-        await UserLocalData.clearPostPregnancySetupComplete();
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRoutes.combinedBabyDetailScreen);
-        }
-        return;
-      }
       await context.read<PostpartumDashboardNotifier>().refresh(
         recoveryTask: pp.getRecoveryApiData?.data,
         dashboardLogs: pp.dashboardLogsApiData?.data,
@@ -170,7 +161,6 @@ class _PostPreBabyGrowthViewState extends State<PostPreBabyGrowthView> with Rout
     final provider = context.watch<GetUserProvider>();
 
     final id = provider.userData?.data?.user?.user?.sId.toString();
-    print("this is the user id $id");
     return Scaffold(
       appBar: ProfileHeader(
         subtitle: "Here is your post pregnancy journey." /*img: false,*/,

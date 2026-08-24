@@ -290,13 +290,14 @@ Future<void> _configureFirebaseAuthForDev() async {
         disableFromDefine || disableFromEnv || skipAppVerification;
 
     // Sideloaded APKs fail Play Integrity -> force reCAPTCHA (needs SHA-1+SHA-256).
-    // When test-number bypass is on, skip reCAPTCHA (Integrity not used).
+    // Play Store AAB must keep this false so Play Integrity owns the session.
+    // Opt-in only: missing env must NOT flip recaptcha on.
     const forceRecaptchaFromDefine = bool.fromEnvironment(
       'FIREBASE_FORCE_RECAPTCHA',
       defaultValue: false,
     );
     final forceRecaptchaFromEnv =
-        dotenv.env['FIREBASE_FORCE_RECAPTCHA']?.toLowerCase() != 'false';
+        dotenv.env['FIREBASE_FORCE_RECAPTCHA']?.toLowerCase() == 'true';
     final forceRecaptchaFlow = !disableAppVerification &&
         (forceRecaptchaFromDefine || forceRecaptchaFromEnv);
 

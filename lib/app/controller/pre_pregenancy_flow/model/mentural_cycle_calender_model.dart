@@ -111,9 +111,14 @@ class FilteredCalendar {
       {this.predictedPeriod, this.fertileWindow, this.ovulationDays});
 
   FilteredCalendar.fromJson(Map<String, dynamic> json) {
-    predictedPeriod = json['predictedPeriod'] != null ? json['predictedPeriod'].cast<String>() : [];
-    fertileWindow = json['fertileWindow'] != null ? json['fertileWindow'].cast<String>() : [];
-    ovulationDays = json['ovulationDays'] != null ? json['ovulationDays'].cast<String>() : [];
+    predictedPeriod = _stringDates(json['predictedPeriod']);
+    fertileWindow = _stringDates(json['fertileWindow']);
+    ovulationDays = _stringDates(json['ovulationDays']);
+  }
+
+  static List<String> _stringDates(dynamic raw) {
+    if (raw is! List) return [];
+    return raw.map((e) => e.toString()).toList();
   }
 
   Map<String, dynamic> toJson() {

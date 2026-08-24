@@ -76,6 +76,9 @@ class AiChatController extends ChangeNotifier {
 
   bool _isDisposed = false;
 
+  static const String _iraFallbackReply =
+      "I couldn't complete that just now. Please try again in a moment.";
+
   AiChatController({
     required AiChatRepository repository,
     required AnalyticsService analytics,
@@ -392,9 +395,15 @@ class AiChatController extends ChangeNotifier {
         extra: extraContext,
       );
 
+      final safeReply = _safeAssistantReply(response.reply);
+      log(
+        '[IRA-AUDIT] send ok=${!_isSystemErrorReply(response.reply)} replyLen=${response.reply.length}',
+        name: 'IRA',
+      );
+
       final aiMsg = AiMessageModel(
         id: _uuid.v4(),
-        content: response.reply,
+        content: safeReply,
         role: MessageRole.assistant,
         timestamp: DateTime.now(),
         traceId: response.traceId,
@@ -408,7 +417,7 @@ class AiChatController extends ChangeNotifier {
 
       final riskAssessment = _repository.detectRisk(
         userText: text,
-        aiText: response.reply,
+        aiText: safeReply,
       );
       if (riskAssessment.requiresUrgentCare) {
         messages.add(
@@ -437,8 +446,10 @@ class AiChatController extends ChangeNotifier {
       // Cache messages
       _cacheCurrentMessages();
     } catch (e) {
+      log('[IRA-AUDIT] send failed: ${e.runtimeType}', name: 'IRA');
       _isLoading = false;
-      _error = 'Failed to get AI response. Please try again.';
+      _error = null;
+      _presentIraFallback();
       notifyListeners();
     }
   }
@@ -469,9 +480,15 @@ class AiChatController extends ChangeNotifier {
         extra: extraContext,
       );
 
+      final safeReply = _safeAssistantReply(response.reply);
+      log(
+        '[IRA-AUDIT] send ok=${!_isSystemErrorReply(response.reply)} replyLen=${response.reply.length}',
+        name: 'IRA',
+      );
+
       // Simulate streaming (character-by-character typing animation)
       String displayedText = '';
-      final fullText = response.reply;
+      final fullText = safeReply;
 
       for (int i = 0; i < fullText.length && !_isDisposed; i++) {
         displayedText += fullText[i];
@@ -511,7 +528,7 @@ class AiChatController extends ChangeNotifier {
 
       final riskAssessment = _repository.detectRisk(
         userText: text,
-        aiText: response.reply,
+        aiText: safeReply,
       );
       if (riskAssessment.requiresUrgentCare) {
         messages.add(
@@ -539,11 +556,51 @@ class AiChatController extends ChangeNotifier {
 
       _cacheCurrentMessages();
     } catch (e) {
+      log('[IRA-AUDIT] send failed: ${e.runtimeType}', name: 'IRA');
       _isStreaming = false;
       _isLoading = false;
-      _error = 'Failed to get AI response. Please try again.';
+      _error = null;
+      _presentIraFallback();
       notifyListeners();
     }
+  }
+
+  String _safeAssistantReply(String reply) {
+    if (_isSystemErrorReply(reply)) return _iraFallbackReply;
+    return reply;
+  }
+
+  bool _isSystemErrorReply(String text) {
+    final t = text.trim().toLowerCase();
+    if (t.isEmpty) return true;
+    return t.contains('encountered an error') ||
+        t.contains('error processing your message') ||
+        t.contains('failed to get ai') ||
+        t.contains('unable to get ai') ||
+        t.contains('ai gateway');
+  }
+
+  void _presentIraFallback() {
+    final streamingIndex = messages.lastIndexWhere(
+      (m) =>
+          m.role == MessageRole.assistant &&
+          (m.isStreaming || m.content.trim().isEmpty),
+    );
+    if (streamingIndex != -1) {
+      messages[streamingIndex] = messages[streamingIndex].copyWith(
+        content: _iraFallbackReply,
+        isStreaming: false,
+      );
+      return;
+    }
+    messages.add(
+      AiMessageModel(
+        id: _uuid.v4(),
+        content: _iraFallbackReply,
+        role: MessageRole.assistant,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   // ─── Quick Actions ──────────────────────────────────────
@@ -728,7 +785,7 @@ class AiChatController extends ChangeNotifier {
       messages.add(
         AiMessageModel(
           id: _uuid.v4(),
-          content: response.reply,
+          content: _safeAssistantReply(response.reply),
           role: MessageRole.assistant,
           timestamp: DateTime.now(),
           traceId: response.traceId,

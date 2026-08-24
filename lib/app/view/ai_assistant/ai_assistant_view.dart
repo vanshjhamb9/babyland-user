@@ -418,20 +418,35 @@ class _AiAssistantViewState extends State<AiAssistantView> {
   }
 
   Widget _buildUserMessage(String content) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(60, 8, 16, 8),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: IntrinsicWidth(
-          child: AppContainer(
-            borderColor: AppColors.transparent,
-            radius: 8,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            gradient: AppColors.backGroundColor,
-            child: SafeMarkdownFormatter.format(content),
+    return Consumer<GetUserProvider>(
+      builder: (context, provider, _) {
+        final user = provider.userData?.data?.user?.user;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: AppContainer(
+                  borderColor: AppColors.transparent,
+                  radius: 8,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  gradient: AppColors.backGroundColor,
+                  child: SafeMarkdownFormatter.format(content),
+                ),
+              ),
+              const SizedBox(width: 8),
+              UserAvatar(
+                size: 32,
+                imageUrl: user?.profilePicture,
+                name: user?.name,
+                stage: user?.stage,
+              ),
+            ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

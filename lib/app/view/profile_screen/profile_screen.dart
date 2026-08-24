@@ -11,9 +11,9 @@ import 'package:babyland/app/theme/font_style.dart';
 import 'package:babyland/app/view/basic_information/stages_view.dart';
 import 'package:babyland/app/widgets/button.dart';
 import 'package:babyland/app/widgets/container.dart';
-import 'package:babyland/app/data/network/end_points.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
-import 'package:babyland/app/widgets/custom_image.dart';
+import 'package:babyland/app/widgets/profile_photo_picker.dart';
+import 'package:babyland/app/widgets/user_avatar.dart';
 import 'package:babyland/core/auth/app_google_sign_in.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
@@ -87,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: SafeArea(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  provider.getUser();
+                  provider.getUser(force: true);
                 },
                 child: ListView(
                   padding: const EdgeInsets.all(16),
@@ -107,18 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ---------------- PROFILE CARD ----------------
   Widget buildProfileCard(GetUserProvider provider) {
-    String? profilePic = provider.userData?.data?.user?.user?.profilePicture;
-    if (profilePic != null && profilePic.isNotEmpty && !profilePic.startsWith('http')) {
-      // Construct full URL for relative paths
-      final uri = Uri.parse(EndPoints.baseUrl);
-      final rootUrl = "${uri.scheme}://${uri.host}"; 
-      // replace backslashes if any
-      String cleanPath = profilePic.replaceAll('\\', '/');
-      if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
-      profilePic = "$rootUrl/$cleanPath";
-      // Add cache buster if needed, but usually not ideal for cached images. 
-      // CachedNetworkImage handles caching. If the URL changes (which it should on new upload), it fetches new one.
-    }
+    final user = provider.userData?.data?.user?.user;
 
     return InkWell(
       onTap: () => Navigator.pushNamed(context, AppRoutes.profileUpdateScreen),
@@ -137,59 +126,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 35,
-              backgroundColor: AppColors.textLightClr.withAlpha(40),
-              child: ClipOval(
-                child: profilePic != null && profilePic.isNotEmpty
-                    ? CustomImage(
-                        path: profilePic,
-                        w: 70,
-                        h: 70,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => Center(
-                          child: Text(
-                            provider.userData?.data?.user?.user?.name?[0] ?? '',
-                            style: AppFontStyle.text_40_600(
-                              color: AppColors.black,
-                              fontFamily: AppFontFamily.gilroyRegular,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          provider.userData?.data?.user?.user?.name?[0] ?? '',
-                          style: AppFontStyle.text_40_600(
-                            color: AppColors.black,
-                            fontFamily: AppFontFamily.gilroyRegular,
-                          ),
-                        ),
-                      ),
+            GestureDetector(
+              onTap: () => showProfilePhotoPicker(context),
+              child: Stack(
+                children: [
+                  UserAvatar(
+                    size: 70,
+                    imageUrl: user?.profilePicture,
+                    name: user?.name,
+                    stage: user?.stage,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: ProfilePhotoBadge(size: 24),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 16),
 
             // USER DETAILS
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  provider.userData?.data?.user?.user?.name ?? "",
-                  style: AppFontStyle.text_20_500(
-                    color: AppColors.black,
-                    fontFamily: AppFontFamily.gilroyMedium,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    provider.userData?.data?.user?.user?.name ?? "",
+                    style: AppFontStyle.text_20_500(
+                      color: AppColors.black,
+                      fontFamily: AppFontFamily.gilroyMedium,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  provider.userData?.data?.user?.user?.email ?? "",
-                  style: AppFontStyle.text_14_400(
-                    color: AppColors.textLightClr,
-                    fontFamily: AppFontFamily.gilroyMedium,
+                  const SizedBox(height: 4),
+                  Text(
+                    provider.userData?.data?.user?.user?.email ?? "",
+                    style: AppFontStyle.text_14_400(
+                      color: AppColors.textLightClr,
+                      fontFamily: AppFontFamily.gilroyMedium,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
 
             const Spacer(),

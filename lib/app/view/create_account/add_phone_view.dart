@@ -46,13 +46,15 @@ class _AddPhoneViewState extends State<AddPhoneView> {
         defaultCountryCallingCode: _countryCallingCode,
       );
       if (!mounted) return;
-      if (!phoneAuth.hasPendingPhoneVerification) {
+      if (!phoneAuth.hasPendingPhoneVerification && !phoneAuth.isAutoVerified) {
         AppPopUp.showToast(
           message: phoneAuth.userFacingMessage ??
               'Could not send SMS. Check Firebase configuration.',
         );
         return;
       }
+      // Instant Play Store auto-verify still goes to OTP so that screen can
+      // attach the phone to the Google user via /auth/verify-otp.
       await Navigator.pushNamed(context, AppRoutes.phoneOtpVerifyView);
     } catch (e) {
       if (!mounted) return;

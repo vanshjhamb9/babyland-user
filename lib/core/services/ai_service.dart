@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/user_ai_context.dart';
@@ -211,11 +212,19 @@ class AIService {
         extra: extra,
       );
 
+      final conversationId = await _authService.getConversationId();
       final response = await _gatewayService.sendChatMessage(
         message: message,
         context: effectiveContext,
         userId: userId,
+        conversationId: conversationId,
       );
+
+      if (kDebugMode) {
+        debugPrint(
+          '[IRA-AUDIT] POST ${ApiEndpoints.aiChat} success=${response['success']}',
+        );
+      }
 
       final parsed = _responseParser.parseChatResponse(response);
       if (parsed.reply.isEmpty) {
@@ -263,36 +272,63 @@ class AIService {
         'latency': DateTime.now().difference(startedAt).inMilliseconds,
       });
 
-      // Fallback to legacy endpoint
+      if (kDebugMode) {
+        debugPrint('[IRA-AUDIT] gateway error type=${e.runtimeType}');
+      }
+
+      if (e is AIServiceException && e.code == 'RATE_LIMIT_EXCEEDED') {
+        rethrow;
+      }
+
+      // `/api/v1/ai/chat` often returns a structured error envelope even for
+      // "hello". Fall through to production `/aichats/send-message`.
       return _sendMessageLegacy(message);
     }
   }
 
-  /// Fallback: sends message via legacy endpoint.
+  /// Fallback: production `POST /aichats/send-message` (`chatInput` contract).
   Future<AIChatResponse> _sendMessageLegacy(String message) async {
     try {
-      final conversationId = await _authService.getConversationId();
+      var conversationId = await _authService.getConversationId();
+      if (conversationId == null || conversationId.isEmpty) {
+        conversationId = await createChatRoom();
+      }
+
+      if (kDebugMode) {
+        debugPrint(
+          '[IRA-AUDIT] POST ${ApiEndpoints.legacyAiSendMessage} hasConversation=${conversationId != null && conversationId.isNotEmpty}',
+        );
+      }
 
       final response = await _apiClient.post(
         ApiEndpoints.legacyAiSendMessage,
         data: {
-          'conversationId': conversationId ?? '',
+          if (conversationId != null && conversationId.isNotEmpty)
+            'conversationId': conversationId,
+          'chatInput': message,
           'message': message,
         },
         timeout: AppConstants.aiApiTimeout,
       );
 
-      if (response is Map<String, dynamic> && response['success'] == true) {
-        final chat = response['chat'];
-        return AIChatResponse(
-          reply: chat?['aiMessage']?.toString() ?? '',
-          traceId: chat?['chatId']?.toString() ?? _uuid.v4(),
-        );
+      if (response is Map) {
+        final map = Map<String, dynamic>.from(response);
+        if (map['success'] == false) {
+          throw AIServiceException(
+            map['message']?.toString() ?? 'Legacy AI error',
+            code: 'AI_GATEWAY_ERROR',
+          );
+        }
+        final parsed = _responseParser.parseChatResponse(map);
+        if (parsed.reply.isNotEmpty) {
+          return AIChatResponse(
+            reply: parsed.reply,
+            traceId: parsed.traceId.isEmpty ? _uuid.v4() : parsed.traceId,
+          );
+        }
       }
 
-      throw AIServiceException(
-        response?['message']?.toString() ?? 'Legacy AI error',
-      );
+      throw const AIServiceException('Legacy AI returned an empty response');
     } catch (e) {
       if (e is AIServiceException) rethrow;
       throw AIServiceException('Failed to send message: $e');
@@ -304,12 +340,24 @@ class AIService {
     try {
       final response = await _apiClient.post(ApiEndpoints.legacyAiCreateRoom);
 
-      if (response is Map<String, dynamic> && response['success'] == true) {
-        final chatId = response['chat']?['_id']?.toString();
-        if (chatId != null) {
-          await _authService.saveConversationId(chatId);
+      if (response is Map) {
+        final map = Map<String, dynamic>.from(response);
+        if (map['success'] == true) {
+          final data = map['data'] is Map
+              ? Map<String, dynamic>.from(map['data'] as Map)
+              : const <String, dynamic>{};
+          final chat = map['chat'] is Map
+              ? Map<String, dynamic>.from(map['chat'] as Map)
+              : const <String, dynamic>{};
+          final chatId = chat['_id']?.toString() ??
+              data['_id']?.toString() ??
+              data['conversationId']?.toString() ??
+              map['conversationId']?.toString();
+          if (chatId != null && chatId.isNotEmpty) {
+            await _authService.saveConversationId(chatId);
+            return chatId;
+          }
         }
-        return chatId;
       }
       return null;
     } catch (e) {

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../app/common_profile_header/get_user_controller.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/font_family.dart';
 import '../../../app/theme/font_style.dart';
 import '../../../app/widgets/container.dart';
+import '../../../app/widgets/user_avatar.dart';
 import '../models/ai_message_model.dart';
 import 'ira_avatar.dart';
 
@@ -82,19 +85,30 @@ class AiMessageBubble extends StatelessWidget {
   }
 
   Widget _buildUserMessage(BuildContext context) {
+    final user = context.watch<GetUserProvider>().userData?.data?.user?.user;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(60, 6, 16, 6),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: IntrinsicWidth(
-          child: AppContainer(
-            borderColor: AppColors.transparent,
-            radius: 12,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            gradient: AppColors.backGroundColor,
-            child: _buildContent(),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(
+            child: AppContainer(
+              borderColor: AppColors.transparent,
+              radius: 12,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              gradient: AppColors.backGroundColor,
+              child: _buildContent(),
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          UserAvatar(
+            size: 32,
+            imageUrl: user?.profilePicture,
+            name: user?.name,
+            stage: user?.stage,
+          ),
+        ],
       ),
     );
   }

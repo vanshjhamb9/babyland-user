@@ -451,7 +451,7 @@ class CycleCalenderProvider extends ChangeNotifier {
           fertileWindow = _sanitizeDates(
             value.data!.filteredCalendar!.fertileWindow ?? [], limit: 10);
           ovulationDays = _sanitizeDates(
-            value.data!.filteredCalendar!.ovulationDays ?? [], limit: 3);
+            value.data!.filteredCalendar!.ovulationDays ?? []);
         } else {
           predictedPeriod = [];
           fertileWindow = [];
@@ -476,25 +476,36 @@ class CycleCalenderProvider extends ChangeNotifier {
     }
   }
 
-  /// Prunes invalid dates and limits consecutive ranges to prevent "All-Red-Month" bugs
-  List<String> _sanitizeDates(List<String> dates, {int limit = 10}) {
+  /// Prunes invalid dates and optionally limits consecutive ranges to prevent
+  /// "all-red-month" bugs. Ovulation must not be truncated.
+  List<String> _sanitizeDates(List<String> dates, {int? limit}) {
     if (dates.isEmpty) return [];
-    
-    // 1. Remove impossible years (handle backend 1970 bug)
-    final validYearDates = dates.where((d) {
-      try {
-        final year = DateTime.parse(d).year;
-        return year > 2000 && year < 2100;
-      } catch(_) { return false; }
-    }).toList();
 
-    // 2. Limit length if it's unnaturally long for a period/fertile window
-    // If more than 'limit' days in a single month are marked, it's likely a calculation error
-    if (validYearDates.length > limit) {
-       return validYearDates.take(limit).toList();
+    final normalized = <String>[];
+    for (final raw in dates) {
+      final ymd = _toYmd(raw);
+      if (ymd == null) continue;
+      if (!normalized.contains(ymd)) normalized.add(ymd);
     }
 
-    return validYearDates;
+    if (limit != null && normalized.length > limit) {
+      return normalized.take(limit).toList();
+    }
+
+    return normalized;
+  }
+
+  String? _toYmd(String raw) {
+    try {
+      final parsed = DateTime.parse(raw);
+      if (parsed.year <= 2000 || parsed.year >= 2100) return null;
+      return _format(parsed);
+    } catch (_) {
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
+        return raw.substring(0, 10);
+      }
+      return null;
+    }
   }
 
 
@@ -554,16 +565,15 @@ class CycleCalenderProvider extends ChangeNotifier {
   // -------------------------------------------------------
   // ⛳ DOT COLOR FUNCTION (FINAL)
   // -------------------------------------------------------
-  /// Ovulation is checked before fertile window so the ovulation day (usually
-  /// inside the fertile range) still shows the ovulation color per legend.
+  /// Ovulation is painted first so it is never hidden under predicted/fertile days.
   Color? getDotColor(DateTime date) {
     String f = _format(date);
 
-    if (predictedPeriod.contains(f)) {
-      return Colors.red; // Period
-    }
     if (ovulationDays.contains(f)) {
       return Colors.yellow; // Ovulation
+    }
+    if (predictedPeriod.contains(f)) {
+      return Colors.red; // Period
     }
     if (fertileWindow.contains(f)) {
       return Colors.green; // Fertile

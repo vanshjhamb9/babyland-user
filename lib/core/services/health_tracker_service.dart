@@ -11,6 +11,10 @@ class HealthTrackerService {
 
   HealthTrackerService({required ApiClient apiClient}) : _apiClient = apiClient;
 
+  static const Duration _hydCacheTtl = Duration(seconds: 10);
+  final Map<String, _CachedHydration> _hydCache = {};
+  final Map<String, Future<PaginatedResponse<HydrationLog>>> _hydInFlight = {};
+
   // ─── Hydration Tracker ────────────────────────────────────
 
   /// Create a hydration log
@@ -22,6 +26,7 @@ class HealthTrackerService {
       );
 
       if (response is Map<String, dynamic> && response['success'] == true) {
+        _hydCache.clear();
         return HydrationLog.fromJson(response['data'] ?? response);
       }
       throw HealthTrackerException('Failed to create hydration log');
@@ -33,6 +38,33 @@ class HealthTrackerService {
 
   /// Get hydration logs with pagination
   Future<PaginatedResponse<HydrationLog>> getHydrationLogs({
+    DateTime? from,
+    DateTime? to,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final cacheKey =
+        '${from?.toIso8601String() ?? ""}|${to?.toIso8601String() ?? ""}|$page|$limit';
+
+    final cached = _hydCache[cacheKey];
+    if (cached != null && DateTime.now().difference(cached.fetchedAt) < _hydCacheTtl) {
+      return cached.response;
+    }
+
+    final inFlight = _hydInFlight[cacheKey];
+    if (inFlight != null) return inFlight;
+
+    final future = _fetchHydrationLogs(cacheKey, from: from, to: to, page: page, limit: limit);
+    _hydInFlight[cacheKey] = future;
+    try {
+      return await future;
+    } finally {
+      _hydInFlight.remove(cacheKey);
+    }
+  }
+
+  Future<PaginatedResponse<HydrationLog>> _fetchHydrationLogs(
+    String cacheKey, {
     DateTime? from,
     DateTime? to,
     int page = 1,
@@ -53,13 +85,15 @@ class HealthTrackerService {
       );
 
       if (response is Map<String, dynamic> && response['success'] == true) {
-        // Contract-alignment debugging: print the backend payload (`data`).
-        // ignore: avoid_print
-        print("API RESPONSE: ${response['data']}");
-        return PaginatedResponse.fromJson(
+        final result = PaginatedResponse.fromJson(
           response,
           (json) => HydrationLog.fromJson(json),
         );
+        _hydCache[cacheKey] = _CachedHydration(result, DateTime.now());
+        if (_hydCache.length > 12) {
+          _hydCache.remove(_hydCache.keys.first);
+        }
+        return result;
       }
       throw HealthTrackerException('Failed to fetch hydration logs');
     } catch (e) {
@@ -762,5 +796,12 @@ class HealthTrackerService {
       throw HealthTrackerException('Error fetching patient logs: $e');
     }
   }
+}
+
+class _CachedHydration {
+  final PaginatedResponse<HydrationLog> response;
+  final DateTime fetchedAt;
+
+  _CachedHydration(this.response, this.fetchedAt);
 }
 

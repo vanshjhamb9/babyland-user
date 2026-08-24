@@ -366,7 +366,8 @@ class AddEmailView extends StatelessWidget {
                 if (provider.verifyOtpSignupData?.status == ApiStatus.LOADING) {
                   return;
                 }
-                if (provider.otpController.text.length < 6) {
+                final auto = provider.isPhoneAutoVerified;
+                if (!auto && provider.otpController.text.length < 6) {
                   AppPopUp.showToast(
                       message: "Please enter a valid 6 digit otp.");
                 } else {

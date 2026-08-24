@@ -312,7 +312,8 @@ class AiAssistantProvider extends ChangeNotifier {
 
     Map<String, dynamic> data = {
       "conversationId": createCharRoom?.data?.chat?.sId ?? await SecureStorage.getConversationId(),
-      "message": userMessage
+      "chatInput": userMessage,
+      "message": userMessage,
     };
 
     // Clear message immediately

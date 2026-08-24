@@ -7,8 +7,12 @@ class CreateAiChatRoomModel {
 
   CreateAiChatRoomModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
-    chat = json['chat'] != null ? Chat.fromJson(json['chat']) : null;
     message = json['message']?.toString();
+    if (json['chat'] is Map) {
+      chat = Chat.fromJson(Map<String, dynamic>.from(json['chat'] as Map));
+    } else if (json['data'] is Map) {
+      chat = Chat.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+    }
   }
 
   Map<String, dynamic> toJson() {

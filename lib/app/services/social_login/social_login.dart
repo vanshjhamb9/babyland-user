@@ -1,4 +1,5 @@
 import 'package:babyland/app/common_model/common_model.dart';
+import 'package:babyland/app/common_profile_header/get_user_model.dart';
 import 'package:babyland/app/data/network/end_points.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
@@ -108,9 +109,16 @@ class SocialLoginService {
         await ReleaseLogger.log('GOOGLE-FILE', 'responseData requirePhone: ${responseData['requirePhone']}');
       }
 
-      if (responseData is Map && responseData['requirePhone'] == true) {
-        await ReleaseLogger.log('GOOGLE-FILE', 'requirePhone=true. Saving Google ID token and navigating to AddPhoneView...');
+      if (_requiresPhone(response)) {
+        await ReleaseLogger.log(
+          'GOOGLE-FILE',
+          'requirePhone=true. Token present=${response.token != null && response.token!.isNotEmpty}',
+        );
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
+        final routedExisting = await _tryRouteExistingGoogleUser(response);
+        if (routedExisting) {
+          return response;
+        }
         if (navigatorKey.currentContext != null) {
           Navigator.pushReplacementNamed(
             navigatorKey.currentContext!,
@@ -251,6 +259,70 @@ class SocialLoginService {
     }
   }
 
+  bool _requiresPhone(CommonResponseModel response) {
+    final data = response.data;
+    if (data is Map && data['requirePhone'] == true) return true;
+    final msg = (response.message ?? '').toLowerCase();
+    return msg.contains('phone number required') || msg.contains('requirephone');
+  }
+
+  Future<void> _saveAuthTokens(String token, String? refreshToken) async {
+    await SecureStorage.saveToken(token);
+    await sl.authService.saveToken(token);
+    final uid = extractUserIdFromAccessJwt(token);
+    if (uid != null && uid.isNotEmpty) {
+      await SecureStorage.saveUserId(uid);
+      await sl.authService.saveUserId(uid);
+    }
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await SecureStorage.saveRefreshToken(refreshToken);
+      await sl.authService.saveRefreshToken(refreshToken);
+    }
+  }
+
+  /// If Google returned a JWT for an account that already has a phone (and
+  /// possibly a completed stage), skip Add Phone and reuse existing data.
+  Future<bool> _tryRouteExistingGoogleUser(CommonResponseModel response) async {
+    final token = response.token ?? '';
+    if (token.isEmpty) return false;
+    await _saveAuthTokens(token, response.refreshToken);
+    try {
+      final existing = await _repo.getUser();
+      final phone = existing.user?.user?.phone?.trim();
+      if (existing.success == true && phone != null && phone.isNotEmpty) {
+        print(
+          '[GOOGLE-AUDIT] requirePhone but getUser already has phone=$phone — routing existing account',
+        );
+        await _routeFromValidatedUser(existing);
+        return true;
+      }
+    } catch (e) {
+      print('[GOOGLE-AUDIT] requirePhone getUser failed: $e');
+    }
+    return false;
+  }
+
+  /// After tokens are already saved (OTP / social), fetch getUser and route
+  /// returning users to splash/dashboard instead of repeating onboarding.
+  Future<void> routeAfterAuthSession() async {
+    GetUserModel? validatedUser;
+    try {
+      validatedUser = await _repo.getUser();
+      print(
+        '[AUTH-ROUTE] getUser success=${validatedUser.success} '
+        'stage=${validatedUser.user?.user?.stage} '
+        'completion=${validatedUser.user?.profileCompletion} '
+        'phone=${validatedUser.user?.user?.phone}',
+      );
+      if (validatedUser.success != true) {
+        print('[AUTH-ROUTE] getUser failed — falling through to basic profile');
+      }
+    } catch (e) {
+      print('[AUTH-ROUTE] getUser exception: $e');
+    }
+    await _routeFromValidatedUser(validatedUser);
+  }
+
   String? _emailFromUser(dynamic user) {
     if (user is! Map) return null;
     final m = Map<String, dynamic>.from(user);
@@ -299,8 +371,10 @@ class SocialLoginService {
     //    (e.g. token format mismatch, account issue), redirect to login
     //    instead of proceeding with a broken session.
     print('[GOOGLE-AUDIT] Validating token via getUser()...');
+    GetUserModel? validatedUser;
     try {
       final validateResponse = await _repo.getUser();
+      validatedUser = validateResponse;
       print('[GOOGLE-AUDIT] Token validation result: success=${validateResponse.success}, message=${validateResponse.message}');
       print('[GOOGLE-AUDIT] User from validation: ${validateResponse.user?.user?.sId}');
       if (validateResponse.success != true) {
@@ -351,64 +425,58 @@ class SocialLoginService {
       }
     }
 
-    bool hasPhone = false;
-    bool hasCompletedOnboarding = false;
-    if (response.data != null && response.data is Map) {
-      final Map<String, dynamic> dataMap =
-          Map<String, dynamic>.from(response.data as Map);
-      if (dataMap.containsKey('user') && dataMap['user'] != null) {
-        final Map<String, dynamic> userMap =
-            Map<String, dynamic>.from(dataMap['user'] as Map);
-        final userPhone = userMap['phone'];
-        if (userPhone != null && userPhone.toString().isNotEmpty) {
-          hasPhone = true;
-        }
-        // Check if user already completed onboarding on the backend.
-        final lpd = userMap['lastPeriodStartDate']?.toString().trim();
-        if (lpd != null && lpd.isNotEmpty && lpd != 'null') {
-          hasCompletedOnboarding = true;
-        }
-      }
-    }
+    await _routeFromValidatedUser(validatedUser);
+  }
+
+  Future<void> _routeFromValidatedUser(GetUserModel? validatedUser) async {
+    final userData = validatedUser?.user?.user;
+    final phone = userData?.phone?.trim();
+    final hasPhone = phone != null && phone.isNotEmpty;
+    final backendStage = userData?.stage;
+    final hasCompletedOnboarding = ExistingAccount.isReturning(
+      userData,
+      profileCompletion: validatedUser?.user?.profileCompletion,
+    );
 
     if (!hasPhone) {
       await UserLocalData.setNeedsPhoneProfile(true);
+    } else {
+      await UserLocalData.clearNeedsPhoneProfile();
     }
 
-    print('[GOOGLE-AUDIT] hasPhone: $hasPhone, hasCompletedOnboarding: $hasCompletedOnboarding');
-    print('[GOOGLE-AUDIT] needsPhoneProfile set: ${!hasPhone}');
-    print('[GOOGLE-AUDIT] Routing decision: hasPhone=$hasPhone, hasCompletedOnboarding=$hasCompletedOnboarding');
+    print(
+      '[AUTH-ROUTE] hasPhone=$hasPhone hasCompletedOnboarding=$hasCompletedOnboarding '
+      'stage=$backendStage completion=${validatedUser?.user?.profileCompletion}',
+    );
 
-    if (navigatorKey.currentContext != null) {
-      if (!hasPhone) {
-        // New user needs phone verification → addPhone → then onboarding
-        await UserLocalData.setNeedsBasicProfile(true);
-        print('[GOOGLE-AUDIT] → addPhoneView (no phone)');
-        Navigator.pushReplacementNamed(
-          navigatorKey.currentContext!,
-          AppRoutes.addPhoneView,
-        );
-      } else if (!hasCompletedOnboarding) {
-        // Existing phone but no onboarding completed → basic profile
-        await UserLocalData.setNeedsBasicProfile(true);
-        print('[GOOGLE-AUDIT] → basicProfileView (phone but no onboarding)');
-        Navigator.pushNamedAndRemoveUntil(
-          navigatorKey.currentContext!,
-          AppRoutes.basicProfileView,
-          (route) => false,
-        );
-      } else {
-        // Returning user with completed profile → skip onboarding → stage
-        await UserLocalData.setNeedsBasicProfile(false);
-        print('[GOOGLE-AUDIT] → stagesView (returning user)');
-        Navigator.pushNamedAndRemoveUntil(
-          navigatorKey.currentContext!,
-          AppRoutes.stagesView,
-          (route) => false,
-          arguments: {"fromLoginScreen": true, "back": false},
-        );
-      }
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+
+    if (!hasPhone) {
+      await UserLocalData.setNeedsBasicProfile(true);
+      print('[AUTH-ROUTE] → addPhoneView (no phone)');
+      Navigator.pushReplacementNamed(ctx, AppRoutes.addPhoneView);
+      return;
     }
+
+    if (hasCompletedOnboarding) {
+      await UserLocalData.setNeedsBasicProfile(false);
+      print('[AUTH-ROUTE] → splashView (existing account, stage=$backendStage)');
+      Navigator.pushNamedAndRemoveUntil(
+        ctx,
+        AppRoutes.splashView,
+        (route) => false,
+      );
+      return;
+    }
+
+    await UserLocalData.setNeedsBasicProfile(true);
+    print('[AUTH-ROUTE] → basicProfileView (new / incomplete profile)');
+    Navigator.pushNamedAndRemoveUntil(
+      ctx,
+      AppRoutes.basicProfileView,
+      (route) => false,
+    );
   }
 
   /// Clears Google session on device. Apple has no client sign-out API.

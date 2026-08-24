@@ -38,7 +38,11 @@ class CommonPinput extends StatelessWidget {
     return Pinput(
       length: 6,
       controller: controller,
-
+      // Firebase Phone Auth already retrieves SMS on Play Store. Android
+      // AutofillHints.oneTimeCode would fill the PIN and submit a second
+      // signInWithCredential → session-expired.
+      autofillHints: const [],
+      enableSuggestions: false,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly
       ],

@@ -19,18 +19,18 @@ class CommonResponseModel {
 
     // Some controllers return refreshToken both at top-level and inside `data`.
     if (refreshToken == null || refreshToken!.isEmpty) {
-      final dataMap = data is Map ? data as Map<String, dynamic> : null;
+      final dataMap = data is Map ? Map<String, dynamic>.from(data as Map) : null;
       refreshToken = dataMap?['refreshToken']?.toString();
     }
 
     // Also check inside `data` for token/authToken if still null
     // Backend may nest: { success: true, data: { authToken: "...", refreshToken: "...", user: {...} } }
     if (token == null || token!.isEmpty) {
-      final dataMap = data is Map ? data as Map<String, dynamic> : null;
+      final dataMap = data is Map ? Map<String, dynamic>.from(data as Map) : null;
       token = (dataMap?['authToken'] ?? dataMap?['token'])?.toString();
     }
     if (refreshToken == null || refreshToken!.isEmpty) {
-      final dataMap = data is Map ? data as Map<String, dynamic> : null;
+      final dataMap = data is Map ? Map<String, dynamic>.from(data as Map) : null;
       refreshToken = dataMap?['refreshToken']?.toString();
     }
   }

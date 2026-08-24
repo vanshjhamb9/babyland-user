@@ -33,19 +33,29 @@ class FirebasePhoneAuthService extends ChangeNotifier {
   String? _userFacingMessage;
 
   String? _verificationId;
+  String? _codeSentVerificationId;
+  String? _timeoutVerificationId;
   int? _resendToken;
   String? _e164Phone;
 
   /// Set only after a successful [codeSent] for the current send attempt.
   bool _otpCodeSent = false;
 
+  /// Play Store SMS retriever signed in without the user typing the code.
+  bool _isAutoVerified = false;
+  UserCredential? _lastUserCredential;
+  Future<UserCredential>? _signInInFlight;
+  bool _sendFailed = false;
+
   /// Countdown seconds until resend is allowed (0 = allowed).
   int _resendCooldownSeconds = 0;
   Timer? _cooldownTimer;
   Timer? _operationTimeoutTimer;
 
-  static const Duration _verifyPhoneTimeout = Duration(seconds: 60);
-  static const Duration _operationHardTimeout = Duration(seconds: 120);
+  /// Auto-retrieval window. Play Integrity SMS retriever needs more than 60s
+  /// or the session id is invalidated before the user (or autofill) submits.
+  static const Duration _verifyPhoneTimeout = Duration(seconds: 120);
+  static const Duration _operationHardTimeout = Duration(seconds: 150);
   static const int _defaultResendCooldown = 60;
 
   bool get isSendingOtp => _isSendingOtp;
@@ -59,10 +69,17 @@ class FirebasePhoneAuthService extends ChangeNotifier {
   String? get verificationId => _verificationId;
   int get resendCooldownSeconds => _resendCooldownSeconds;
 
-  /// True after [codeSent] (or timeout callback) — safe gate before OTP UI.
-  bool get hasPendingPhoneVerification => _verificationId != null;
+  /// True after [codeSent], auto-retrieval timeout, or Play Store auto-verify.
+  bool get hasPendingPhoneVerification =>
+      _verificationId != null || _isAutoVerified;
 
-  bool get canResendOtp => _resendCooldownSeconds == 0 && !_isSendingOtp && _e164Phone != null;
+  /// Play Integrity / SMS retriever already consumed the one-time code.
+  bool get isAutoVerified => _isAutoVerified;
+
+  UserCredential? get lastUserCredential => _lastUserCredential;
+
+  bool get canResendOtp =>
+      _resendCooldownSeconds == 0 && !_isSendingOtp && _e164Phone != null;
 
   /// E.164 number used for the current / last OTP request (for UI labels).
   String? get phoneE164 => _e164Phone;
@@ -70,9 +87,14 @@ class FirebasePhoneAuthService extends ChangeNotifier {
   /// Clears SMS verification state (e.g. before a new number).
   void resetVerificationState() {
     _verificationId = null;
+    _codeSentVerificationId = null;
+    _timeoutVerificationId = null;
     _resendToken = null;
     _e164Phone = null;
     _otpCodeSent = false;
+    _isAutoVerified = false;
+    _lastUserCredential = null;
+    _sendFailed = false;
     _cooldownTimer?.cancel();
     _resendCooldownSeconds = 0;
     _clearError();
@@ -180,6 +202,37 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     );
   }
 
+  static bool _phonesMatch(String a, String b) {
+    final da = PhoneNormalize.digitsOnly(a);
+    final db = PhoneNormalize.digitsOnly(b);
+    if (da.isEmpty || db.isEmpty) return false;
+    if (da == db) return true;
+    final tail = da.length >= 10 ? da.substring(da.length - 10) : da;
+    final tailB = db.length >= 10 ? db.substring(db.length - 10) : db;
+    return tail == tailB;
+  }
+
+  bool _phoneMatchesCurrentUser() {
+    final expected = _e164Phone;
+    final actual = _auth.currentUser?.phoneNumber;
+    if (expected == null || actual == null) return false;
+    return _phonesMatch(expected, actual);
+  }
+
+  UserCredential? _existingVerifiedCredential() {
+    final last = _lastUserCredential;
+    if (last == null) return null;
+    if (_isAutoVerified) return last;
+    final lastPhone = last.user?.phoneNumber;
+    if (lastPhone != null &&
+        _e164Phone != null &&
+        _phonesMatch(lastPhone, _e164Phone!)) {
+      return last;
+    }
+    if (_phoneMatchesCurrentUser()) return last;
+    return null;
+  }
+
   void _startResendCooldown([int seconds = _defaultResendCooldown]) {
     _cooldownTimer?.cancel();
     _resendCooldownSeconds = seconds;
@@ -229,8 +282,13 @@ class FirebasePhoneAuthService extends ChangeNotifier {
 
     final phone = normalizeToE164(phoneRaw, defaultCountryCallingCode: defaultCountryCallingCode);
     _e164Phone = phone;
+    _sendFailed = false;
+    _isAutoVerified = false;
+    _lastUserCredential = null;
     if (!isResend) {
       _verificationId = null;
+      _codeSentVerificationId = null;
+      _timeoutVerificationId = null;
       _resendToken = null;
       _otpCodeSent = false;
     }
@@ -251,6 +309,17 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       },
     );
     // #endregion
+
+    // Drop a leftover Firebase session (previous OTP / Google mix) so the
+    // new phone credential is the only auth user after verify.
+    try {
+      if (_auth.currentUser != null) {
+        _log('sendOtp: signing out leftover uid=${_auth.currentUser?.uid}');
+        await _auth.signOut();
+      }
+    } catch (e) {
+      _log('sendOtp: leftover signOut failed', error: e);
+    }
 
     _beginSendOtp();
     _clearOperationTimeout();
@@ -278,170 +347,13 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     }
 
     try {
-      // Do not rely on the Future from verifyPhoneNumber alone — use callbacks.
-      _auth.verifyPhoneNumber(
-        phoneNumber: phone,
-        timeout: _verifyPhoneTimeout,
+      _startVerifyPhoneNumber(
+        phone: phone,
         forceResendingToken: isResend ? _resendToken : null,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          _log('verificationCompleted (auto) — signing in');
-          try {
-            await _auth.signInWithCredential(credential);
-            _log('verificationCompleted: signIn success uid=${_auth.currentUser?.uid}');
-            _endSendOtp();
-            _clearOperationTimeout();
-            completeOk();
-          } catch (e, st) {
-            _log('verificationCompleted signIn failed', error: e, stack: st);
-            _endSendOtp();
-            _clearOperationTimeout();
-            completeErr(e is Exception ? e : Exception(e.toString()));
-          }
-        },
-        verificationFailed: (FirebaseAuthException e) async {
-          // #region agent log
-          agentDebugLog(
-            hypothesisId: 'H10',
-            location: 'firebase_phone_auth_service:verificationFailed',
-            message: 'Phone OTP verificationFailed',
-            runId: const String.fromEnvironment(
-              'APP_BUILD_TAG',
-              defaultValue: 'otp-v5',
-            ),
-            data: {
-              'code': e.code,
-              'message': e.message ?? '',
-              'phone': phone,
-            },
-          );
-          // #endregion
-          _logAuthCallback(
-            'verificationFailed',
-            'code=${e.code} message=${e.message ?? ""} plugin=${e.plugin}',
-          );
-          _log('verificationFailed', error: e);
-
-          // Auto-retry once for reCAPTCHA token errors — Play Integrity
-          // fails on devices where the Play App Signing key SHA-256 isn't
-          // registered in Firebase Console. Force reCAPTCHA for the retry.
-          final isRecaptchaError = e.code == 'missing-recaptcha-token' ||
-              (e.message ?? '').toLowerCase().contains('recaptcha');
-          if (isRecaptchaError && !completer.isCompleted) {
-            _log('verificationFailed: reCAPTCHA error — forcing reCAPTCHA mode and retrying');
-            _otpCodeSent = false;
-            _verificationId = null;
-            _resendToken = null;
-            _endSendOtp();
-            _clearOperationTimeout();
-            _userFacingMessage = 'Retrying with security verification...';
-            notifyListeners();
-            await Future.delayed(_recaptchaRetryDelay);
-            if (!completer.isCompleted) {
-              // Force reCAPTCHA to bypass Play Integrity (which fails on
-              // devices without the correct SHA-256 registered).
-              try {
-                await _auth.setSettings(
-                  appVerificationDisabledForTesting: false,
-                  forceRecaptchaFlow: true,
-                );
-                _log('setSettings: forceRecaptchaFlow=true for retry');
-              } catch (_) {}
-              _beginSendOtp();
-              _clearOperationTimeout();
-              _auth.verifyPhoneNumber(
-                phoneNumber: phone,
-                timeout: _verifyPhoneTimeout,
-                forceResendingToken: null,
-                verificationCompleted: (PhoneAuthCredential credential) async {
-                  try {
-                    await _auth.signInWithCredential(credential);
-                    _endSendOtp();
-                    _clearOperationTimeout();
-                    // Reset reCAPTCHA force after success.
-                    _resetRecaptchaSettings();
-                    if (!completer.isCompleted) completer.complete();
-                  } catch (e2) {
-                    _endSendOtp();
-                    _clearOperationTimeout();
-                    _resetRecaptchaSettings();
-                    if (!completer.isCompleted) completer.completeError(e2);
-                  }
-                },
-                verificationFailed: (FirebaseAuthException e2) {
-                  _log('verificationFailed retry also failed: ${e2.code}');
-                  _otpCodeSent = false;
-                  _verificationId = null;
-                  _resendToken = null;
-                  _setError(e2);
-                  _endSendOtp();
-                  _clearOperationTimeout();
-                  _resetRecaptchaSettings();
-                  if (!completer.isCompleted) completer.completeError(e2);
-                },
-                codeSent: (String verificationId, int? resendToken) {
-                  _log('codeSent (retry) verificationId=$verificationId resendToken=$resendToken');
-                  _otpCodeSent = true;
-                  _verificationId = verificationId;
-                  _resendToken = resendToken;
-                  _endSendOtp();
-                  _clearOperationTimeout();
-                  _startResendCooldown();
-                  _resetRecaptchaSettings();
-                  if (!completer.isCompleted) completer.complete();
-                },
-                codeAutoRetrievalTimeout: (String verificationId) {
-                  if (!_otpCodeSent && _verificationId == null && verificationId.isNotEmpty) {
-                    _verificationId = verificationId;
-                    notifyListeners();
-                  }
-                },
-              );
-              return;
-            }
-          }
-
-          _otpCodeSent = false;
-          _verificationId = null;
-          _resendToken = null;
-          _setError(e);
-          _endSendOtp();
-          _clearOperationTimeout();
-          try {
-            FirebaseCrashlytics.instance.recordError(
-              e,
-              null,
-              reason: 'Firebase PhoneAuth verificationFailed ${e.code}',
-              fatal: false,
-            );
-          } catch (_) {}
-          completeErr(e);
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          _logAuthCallback(
-            'codeSent',
-            'verificationIdLen=${verificationId.length} resendToken=${resendToken ?? "null"}',
-          );
-          _log('codeSent verificationId=$verificationId resendToken=$resendToken');
-          _otpCodeSent = true;
-          _verificationId = verificationId;
-          _resendToken = resendToken;
-          _endSendOtp();
-          _clearOperationTimeout();
-          _startResendCooldown();
-          completeOk();
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _logAuthCallback('codeAutoRetrievalTimeout', 'verificationIdLen=${verificationId.length}');
-          _log('codeAutoRetrievalTimeout verificationId=$verificationId');
-          // Backup: some devices deliver timeout before codeSent is processed.
-          // Never accept after verificationFailed — that would reuse a stale ID.
-          if (!_otpCodeSent &&
-              _verificationId == null &&
-              verificationId.isNotEmpty) {
-            _verificationId = verificationId;
-            notifyListeners();
-          }
-        },
+        completer: completer,
+        completeOk: completeOk,
+        completeErr: completeErr,
+        allowRecaptchaRetry: true,
       );
 
       await completer.future;
@@ -463,6 +375,206 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     }
   }
 
+  void _startVerifyPhoneNumber({
+    required String phone,
+    required int? forceResendingToken,
+    required Completer<void> completer,
+    required void Function() completeOk,
+    required void Function(Object e) completeErr,
+    required bool allowRecaptchaRetry,
+  }) async {
+    _auth.verifyPhoneNumber(
+      phoneNumber: phone,
+      timeout: _verifyPhoneTimeout,
+      forceResendingToken: forceResendingToken,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _handleVerificationCompleted(
+          credential,
+          completeOk: completeOk,
+          completeErr: completeErr,
+        );
+      },
+      verificationFailed: (FirebaseAuthException e) async {
+        agentDebugLog(
+          hypothesisId: 'H10',
+          location: 'firebase_phone_auth_service:verificationFailed',
+          message: 'Phone OTP verificationFailed',
+          runId: const String.fromEnvironment(
+            'APP_BUILD_TAG',
+            defaultValue: 'otp-v5',
+          ),
+          data: {
+            'code': e.code,
+            'message': e.message ?? '',
+            'phone': phone,
+            'allowRecaptchaRetry': allowRecaptchaRetry,
+          },
+        );
+        _logAuthCallback(
+          'verificationFailed',
+          'code=${e.code} message=${e.message ?? ""} plugin=${e.plugin}',
+        );
+        _log('verificationFailed', error: e);
+
+        final isRecaptchaError = e.code == 'missing-recaptcha-token' ||
+            (e.message ?? '').toLowerCase().contains('recaptcha');
+        if (isRecaptchaError && allowRecaptchaRetry && !completer.isCompleted) {
+          _log('verificationFailed: reCAPTCHA error — retrying with recaptcha flow');
+          _otpCodeSent = false;
+          _verificationId = null;
+          _codeSentVerificationId = null;
+          _timeoutVerificationId = null;
+          _resendToken = null;
+          _endSendOtp();
+          _clearOperationTimeout();
+          _userFacingMessage = 'Retrying with security verification...';
+          notifyListeners();
+          await Future.delayed(_recaptchaRetryDelay);
+          if (completer.isCompleted) return;
+          try {
+            await _auth.setSettings(
+              appVerificationDisabledForTesting: false,
+              forceRecaptchaFlow: true,
+            );
+            _log('setSettings: forceRecaptchaFlow=true for retry');
+          } catch (_) {}
+          _beginSendOtp();
+          _clearOperationTimeout();
+          _operationTimeoutTimer = Timer(_operationHardTimeout, () {
+            if (!completer.isCompleted) {
+              _log('sendOtp HARD TIMEOUT after recaptcha retry');
+              if (_isSendingOtp) {
+                _endSendOtp();
+                _userFacingMessage =
+                    'Request timed out. Check network, Firebase config (SHA-1), and try again.';
+                notifyListeners();
+              }
+              completer.completeError(TimeoutException('verifyPhoneNumber'));
+            }
+          });
+          _startVerifyPhoneNumber(
+            phone: phone,
+            forceResendingToken: null,
+            completer: completer,
+            completeOk: completeOk,
+            completeErr: completeErr,
+            allowRecaptchaRetry: false,
+          );
+          return;
+        }
+
+        _sendFailed = true;
+        _otpCodeSent = false;
+        _verificationId = null;
+        _codeSentVerificationId = null;
+        _timeoutVerificationId = null;
+        _resendToken = null;
+        _isAutoVerified = false;
+        _setError(e);
+        _endSendOtp();
+        _clearOperationTimeout();
+        try {
+          FirebaseCrashlytics.instance.recordError(
+            e,
+            null,
+            reason: 'Firebase PhoneAuth verificationFailed ${e.code}',
+            fatal: false,
+          );
+        } catch (_) {}
+        completeErr(e);
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        _logAuthCallback(
+          'codeSent',
+          'verificationIdLen=${verificationId.length} resendToken=${resendToken ?? "null"}',
+        );
+        _log('codeSent verificationId=$verificationId resendToken=$resendToken');
+        _otpCodeSent = true;
+        _verificationId = verificationId;
+        _codeSentVerificationId = verificationId;
+        _timeoutVerificationId = null;
+        _resendToken = resendToken;
+        _endSendOtp();
+        _clearOperationTimeout();
+        _startResendCooldown();
+        completeOk();
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _handleAutoRetrievalTimeout(verificationId);
+      },
+    );
+  }
+
+  Future<void> _handleVerificationCompleted(
+    PhoneAuthCredential credential, {
+    required void Function() completeOk,
+    required void Function(Object e) completeErr,
+  }) async {
+    _log('verificationCompleted (auto) — signing in');
+    try {
+      final userCred = await _signInWithCredentialOnce(credential);
+      _isAutoVerified = true;
+      _otpCodeSent = true;
+      _lastUserCredential = userCred;
+      final vid = credential.verificationId;
+      if (vid != null && vid.isNotEmpty) {
+        _verificationId = vid;
+        _codeSentVerificationId = vid;
+      }
+      _log('verificationCompleted: signIn success uid=${userCred.user?.uid}');
+      _endSendOtp();
+      _clearOperationTimeout();
+      notifyListeners();
+      completeOk();
+    } catch (e, st) {
+      _log('verificationCompleted signIn failed', error: e, stack: st);
+      _endSendOtp();
+      _clearOperationTimeout();
+      completeErr(e is Exception ? e : Exception(e.toString()));
+    }
+  }
+
+  void _handleAutoRetrievalTimeout(String verificationId) {
+    _logAuthCallback(
+      'codeAutoRetrievalTimeout',
+      'verificationIdLen=${verificationId.length}',
+    );
+    _log('codeAutoRetrievalTimeout verificationId=$verificationId');
+    if (_sendFailed || _isAutoVerified) return;
+    // Play Store may mint a new session id when auto-retrieval ends.
+    // Sticking with the codeSent id causes session-expired on manual entry.
+    if (verificationId.isNotEmpty) {
+      _timeoutVerificationId = verificationId;
+      _verificationId = verificationId;
+      _otpCodeSent = true;
+      notifyListeners();
+    }
+  }
+
+  Future<UserCredential> _signInWithCredentialOnce(
+    PhoneAuthCredential credential,
+  ) async {
+    final existing = _existingVerifiedCredential();
+    if (existing != null) {
+      _log('_signInWithCredentialOnce: already signed in as ${existing.user?.uid}');
+      return existing;
+    }
+    final inFlight = _signInInFlight;
+    if (inFlight != null) {
+      _log('_signInWithCredentialOnce: awaiting in-flight sign-in');
+      return inFlight;
+    }
+    final future = _auth.signInWithCredential(credential);
+    _signInInFlight = future;
+    try {
+      final userCred = await future;
+      _lastUserCredential = userCred;
+      return userCred;
+    } finally {
+      _signInInFlight = null;
+    }
+  }
+
   /// Resend SMS using stored [forceResendingToken] when available.
   Future<void> resendOtp({String defaultCountryCallingCode = '91'}) async {
     if (_e164Phone == null) {
@@ -480,7 +592,25 @@ class FirebasePhoneAuthService extends ChangeNotifier {
   }
 
   /// Verifies the 6-digit SMS code and signs in.
+  ///
+  /// Play Store auto-verify may have already signed in; this must not call
+  /// [FirebaseAuth.signInWithCredential] a second time (session-expired).
   Future<UserCredential> verifySmsCode(String smsCode) async {
+    final inFlight = _signInInFlight;
+    if (inFlight != null) {
+      _log('verifySmsCode: waiting for in-flight auto sign-in');
+      try {
+        await inFlight;
+      } catch (_) {}
+    }
+
+    final already = _existingVerifiedCredential();
+    if (already != null) {
+      _log('verifySmsCode: already verified uid=${already.user?.uid}');
+      _isAutoVerified = true;
+      return already;
+    }
+
     if (_isVerifyingCode) {
       _log('verifySmsCode ignored: already in progress');
       throw FirebaseAuthException(
@@ -489,8 +619,12 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       );
     }
 
-    final vid = _verificationId;
-    if (vid == null || !_otpCodeSent) {
+    if (!_otpCodeSent) {
+      throw StateError('No verification in progress. Request OTP first.');
+    }
+
+    final trimmed = smsCode.trim();
+    if (trimmed.isEmpty) {
       throw StateError('No verification in progress. Request OTP first.');
     }
 
@@ -499,15 +633,57 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: vid,
-        smsCode: smsCode.trim(),
-      );
-      _log('verifySmsCode: calling signInWithCredential');
-      final userCred = await _auth.signInWithCredential(credential);
-      _log('verifySmsCode: success uid=${userCred.user?.uid}');
-      return userCred;
+      final candidates = <String>[
+        if (_verificationId != null && _verificationId!.isNotEmpty)
+          _verificationId!,
+        if (_codeSentVerificationId != null &&
+            _codeSentVerificationId!.isNotEmpty &&
+            _codeSentVerificationId != _verificationId)
+          _codeSentVerificationId!,
+        if (_timeoutVerificationId != null &&
+            _timeoutVerificationId!.isNotEmpty &&
+            _timeoutVerificationId != _verificationId &&
+            _timeoutVerificationId != _codeSentVerificationId)
+          _timeoutVerificationId!,
+      ];
+      if (candidates.isEmpty) {
+        throw StateError('No verification in progress. Request OTP first.');
+      }
+
+      FirebaseAuthException? lastAuthError;
+      for (final vid in candidates) {
+        try {
+          _log('verifySmsCode: trying verificationId=${vid.substring(0, vid.length > 8 ? 8 : vid.length)}...');
+          final credential = PhoneAuthProvider.credential(
+            verificationId: vid,
+            smsCode: trimmed,
+          );
+          final userCred = await _signInWithCredentialOnce(credential);
+          _verificationId = vid;
+          _log('verifySmsCode: success uid=${userCred.user?.uid}');
+          return userCred;
+        } on FirebaseAuthException catch (e) {
+          lastAuthError = e;
+          final recoverable = e.code == 'session-expired' ||
+              e.code == 'invalid-verification-code' ||
+              e.code == 'invalid-verification-id';
+          if (!recoverable) rethrow;
+          _log('verifySmsCode: candidate failed code=${e.code}; trying next candidate');
+          continue;
+        }
+      }
+      if (lastAuthError != null) throw lastAuthError;
+      throw StateError('No verification in progress. Request OTP first.');
     } on FirebaseAuthException catch (e) {
+      final recovered = _existingVerifiedCredential();
+      if (recovered != null &&
+          (e.code == 'session-expired' ||
+              e.code == 'invalid-verification-code' ||
+              e.code == 'invalid-verification-id')) {
+        _log('verifySmsCode: recovered after ${e.code} (already signed in)');
+        _isAutoVerified = true;
+        return recovered;
+      }
       _setError(e);
       rethrow;
     } finally {
@@ -516,25 +692,18 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     }
   }
 
-  /// Reset forceRecaptchaFlow back to false after a retry so subsequent
-  /// requests use Play Integrity (faster) instead of forcing reCAPTCHA.
-  void _resetRecaptchaSettings() {
-    try {
-      _auth.setSettings(
-        appVerificationDisabledForTesting: false,
-        forceRecaptchaFlow: false,
-      );
-      _log('resetRecaptchaSettings: forceRecaptchaFlow=false');
-    } catch (_) {}
-  }
-
   /// Sign out (clears local verification state for UI).
   Future<void> signOut() async {
     await _auth.signOut();
     _verificationId = null;
+    _codeSentVerificationId = null;
+    _timeoutVerificationId = null;
     _resendToken = null;
     _e164Phone = null;
     _otpCodeSent = false;
+    _isAutoVerified = false;
+    _lastUserCredential = null;
+    _sendFailed = false;
     _clearError();
     notifyListeners();
   }

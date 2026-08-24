@@ -127,18 +127,22 @@ class PostData {
 class UserId {
   String? sId;
   String? name;
+  String? profilePicture;
 
-  UserId({this.sId, this.name});
+  UserId({this.sId, this.name, this.profilePicture});
 
   UserId.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     name = json['name'];
+    profilePicture =
+        (json['photo'] ?? json['profilePicture'])?.toString();
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> dataMap = {};
     dataMap['_id'] = sId;
     dataMap['name'] = name;
+    dataMap['photo'] = profilePicture;
     return dataMap;
   }
 }

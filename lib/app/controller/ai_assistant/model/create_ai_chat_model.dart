@@ -7,8 +7,12 @@ class CreateAiChatModel {
 
   CreateAiChatModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
-    chat = json['chat'] != null ? Chat.fromJson(json['chat']) : null;
-    message = json['message'];
+    message = json['message']?.toString();
+    if (json['chat'] is Map) {
+      chat = Chat.fromJson(Map<String, dynamic>.from(json['chat'] as Map));
+    } else if (json['data'] is Map) {
+      chat = Chat.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -33,8 +37,12 @@ class Chat {
   Chat.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     userMessage = json['userMessage']?.toString();
-    aiMessage = json['aiMessage']?.toString();
-    chatId = json['chatId']?.toString();
+    aiMessage = json['aiMessage']?.toString() ??
+        json['aiResponse']?.toString() ??
+        json['reply']?.toString();
+    chatId = json['chatId']?.toString() ??
+        json['conversationId']?.toString() ??
+        json['_id']?.toString();
   }
 
   Map<String, dynamic> toJson() {

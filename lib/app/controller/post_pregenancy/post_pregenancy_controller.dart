@@ -6,6 +6,7 @@ import 'package:babyland/app/widgets/subscription_dialog.dart';
 import 'package:babyland/app/widgets/validation.dart';
 import 'package:babyland/features/trackers/utils/tracker_math.dart';
 import 'package:babyland/features/post_pregnancy/state/postpartum_dashboard_notifier.dart';
+import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -285,15 +286,26 @@ class PostpregnancyProvider extends ChangeNotifier {
   }
 
   Future<void> pregnancyInfo() async {
+    final deliveryDate = formatDateForApiYMD(dateController.text);
+    final babyDate = formatDateForApiYMD(dobController.text);
+    if (deliveryDate.isEmpty || babyDate.isEmpty) {
+      const msg =
+          'Please enter a valid delivery date and baby date of birth.';
+      setPregnancyData(ApiResponse.error(msg));
+      AppPopUp.showToast(message: msg);
+      notifyListeners();
+      return;
+    }
+
     setPregnancyData(ApiResponse.loading());
     notifyListeners();
 
     final data = {
-      "deliveryDate": formatDateForApiYMD(dateController.text),
+      "deliveryDate": deliveryDate,
       "deliveryType": _normalizeDeliveryType(selectedDeliveryType),
       "babyDetails": {
-        "name": babyNameController.text,
-        "date": formatDateForApiYMD(dobController.text),
+        "name": babyNameController.text.trim(),
+        "date": babyDate,
         "gender": selectedGender?.toLowerCase() == "boy"
             ? "Male"
             : selectedGender?.toLowerCase() == "girl"
@@ -302,32 +314,74 @@ class PostpregnancyProvider extends ChangeNotifier {
       }
     };
 
+    pt('[POSTPARTUM-AUDIT] pregnancyInfo payload=$data');
+
     try {
       final value = await repository.postpartumsAdd(data);
-      if (value.success == true) {
+      pt(
+        '[POSTPARTUM-AUDIT] pregnancyInfo result success=${value.success} message=${value.message}',
+      );
+      if (value.success == true ||
+          PostpartumsAddModel.isAlreadyExists(value.message)) {
         setPregnancyData(ApiResponse.completed(value));
-        await UserLocalData.saveBabyDetails(
-          name: babyNameController.text,
-          dob: dobController.text,
-          gender: selectedGender,
-        );
-        await UserLocalData.savePostPregnancySetupComplete();
-        Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
+        await _completePostpartumSetupAndGoToDashboard();
       } else {
-        setPregnancyData(ApiResponse.error(value.message ?? "Something went wrong!"));
-        if (value.message == "Postpartum tracker already exists for this user") {
-          await UserLocalData.savePostPregnancySetupComplete();
-          Navigator.pushNamed(navigatorKey.currentContext!, AppRoutes.postPregnancyNavbarView);
-        } else {
-          AppPopUp.showToast(message: value.message ?? "Something went wrong!");
-        }
+        final msg = value.message?.trim();
+        setPregnancyData(
+          ApiResponse.error(
+            (msg != null && msg.isNotEmpty) ? msg : 'Something went wrong!',
+          ),
+        );
+        AppPopUp.showToast(
+          message: (msg != null && msg.isNotEmpty)
+              ? msg
+              : 'Something went wrong!',
+        );
       }
-    } catch (error) {
-      setPregnancyData(ApiResponse.error(error.toString()));
-      AppPopUp.showToast(message: "Something went wrong. Please try again.");
+    } catch (error, stackTrace) {
+      pt('[POSTPARTUM-AUDIT] pregnancyInfo error: $error');
+      pt('Stack trace: $stackTrace');
+      if (PostpartumsAddModel.isAlreadyExists(error.toString())) {
+        setPregnancyData(ApiResponse.completed(null));
+        await _completePostpartumSetupAndGoToDashboard();
+      } else {
+        setPregnancyData(ApiResponse.error(error.toString()));
+        final apiMessage = _userFacingPostpartumError(error);
+        AppPopUp.showToast(message: apiMessage);
+      }
     } finally {
       notifyListeners();
     }
+  }
+
+  Future<void> _completePostpartumSetupAndGoToDashboard() async {
+    await UserLocalData.saveBabyDetails(
+      name: babyNameController.text,
+      dob: dobController.text,
+      gender: selectedGender,
+    );
+    await UserLocalData.savePostPregnancySetupComplete();
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+    Navigator.pushNamedAndRemoveUntil(
+      ctx,
+      AppRoutes.postPregnancyNavbarView,
+      (route) => false,
+    );
+  }
+
+  String _userFacingPostpartumError(Object error) {
+    final raw = error.toString();
+    const prefix = 'AppException(UNKNOWN): ';
+    if (raw.startsWith(prefix)) {
+      final inner = raw.substring(prefix.length).trim();
+      if (inner.isNotEmpty) return inner;
+    }
+    if (raw.contains('Exception:')) {
+      final inner = raw.split('Exception:').last.trim();
+      if (inner.isNotEmpty && inner.length < 180) return inner;
+    }
+    return 'Something went wrong. Please try again.';
   }
 
   String _normalizeDeliveryType(String type) {
@@ -507,9 +561,9 @@ class PostpregnancyProvider extends ChangeNotifier {
         AppPopUp.showToast(message: value.message ?? "Please try again.");
         return false;
       }
-    } catch (e) {
+    } catch (e, s) {
+      pt("getRecoveryTaskApi error: $e\n$s");
       setGetRecoveryTaskApiData(ApiResponse.error(e.toString()));
-      AppPopUp.showToast(message: "Something went wrong. Please try again.");
       return false;
     } finally {
       notifyListeners();

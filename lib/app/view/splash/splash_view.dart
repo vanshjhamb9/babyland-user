@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:babyland/app/common_profile_header/get_user_controller.dart';
+import 'package:babyland/app/common_profile_header/get_user_model.dart';
 import 'package:babyland/app/constants/images.dart';
 import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
@@ -88,6 +89,7 @@ class _SplashViewState extends State<SplashView> {
 
   Future<void> routing() async {
     bool isFirstTime = UserPreference.getIsFirstTime() ?? true;
+    String? backendStage;
 
     await sl.authService.checkAuthState();
 
@@ -137,6 +139,7 @@ class _SplashViewState extends State<SplashView> {
 
             final userPhone = userData?.data?.user?.user?.phone?.trim();
             pt('[SPLASH-AUDIT] userPhone: $userPhone');
+            backendStage = userData?.data?.user?.user?.stage;
 
             final needsPhone = await UserLocalData.needsPhoneProfile();
             final needsBasic = await UserLocalData.needsBasicProfile();
@@ -159,21 +162,38 @@ class _SplashViewState extends State<SplashView> {
             }
 
             if (needsBasic) {
-              pt('[SPLASH-AUDIT] → needsBasic=true → basicInfoView');
-              final target = navigatorKey.currentContext;
-              if (target != null && target.mounted) {
-                if (!mounted) return;
-                setState(() => _checkingAuth = false);
-                Navigator.pushNamedAndRemoveUntil(
-                  target,
-                  AppRoutes.basicInfoView,
-                  (route) => false,
+              final returning = ExistingAccount.isReturning(
+                userData?.data?.user?.user,
+                profileCompletion: userData?.data?.user?.profileCompletion,
+              );
+              if (returning) {
+                pt(
+                  '[SPLASH-AUDIT] needsBasic=true but existing account '
+                  '(stage=$backendStage) — skipping basicInfoView',
                 );
-                return;
+                await UserLocalData.setNeedsBasicProfile(false);
+              } else {
+                pt('[SPLASH-AUDIT] → needsBasic=true → basicInfoView');
+                final target = navigatorKey.currentContext;
+                if (target != null && target.mounted) {
+                  if (!mounted) return;
+                  setState(() => _checkingAuth = false);
+                  Navigator.pushNamedAndRemoveUntil(
+                    target,
+                    AppRoutes.basicInfoView,
+                    (route) => false,
+                  );
+                  return;
+                }
               }
             }
 
             pt('[SPLASH-AUDIT] getUser succeeded, no onboarding flags → fall through to stage/dashboard routing');
+
+            // getUser() syncs the local step from backend stage (e.g. postpregnancy).
+            // Diagnostics only — the actual re-read happens in the routing branch below.
+            final syncedStep = await UserLocalData.getStep();
+            pt('[SPLASH-AUDIT] step after getUser (backend-synced): $syncedStep');
           }
         } catch (e) {
           pt('[SPLASH-AUDIT] ⚠️ getUser() THREW: $e');
@@ -204,12 +224,26 @@ class _SplashViewState extends State<SplashView> {
       }
 
       final shouldShowStageScreen = await UserLocalData.shouldShowStageScreen();
-      pt('[SPLASH-AUDIT] shouldShowStageScreen: $shouldShowStageScreen');
+
+      // Backend `stage` is the source of truth for returning users. If it is
+      // already set, route directly to that dashboard and skip the stage-selection
+      // screen (which would otherwise intercept every launch until 30 days pass).
+      pt('[SPLASH-AUDIT] backendStage: $backendStage');
+
+      final resolvedStep = backendStage == "postpregnancy"
+          ? "2"
+          : backendStage == "pregnancy"
+              ? "1"
+              : backendStage == "prepregnancy"
+                  ? "0"
+                  : null;
 
       if (!mounted) return;
       setState(() => _checkingAuth = false);
 
-      if (shouldShowStageScreen) {
+      if (resolvedStep != null) {
+        pt('[SPLASH-AUDIT] backend stage known ($backendStage) → step=$resolvedStep, skipping stagesView');
+      } else if (shouldShowStageScreen) {
         pt('[SPLASH-AUDIT] → stagesView (stageScreen)');
         await UserLocalData.saveLastStageScreenShown();
         Navigator.pushNamedAndRemoveUntil(
@@ -218,10 +252,18 @@ class _SplashViewState extends State<SplashView> {
           (route) => false,
           arguments: {"fromLoginScreen": true, "back": false},
         );
+        return;
       } else {
-        pt('[SPLASH-AUDIT] step=$step → routing to step-based screen');
-        if (step != null && step.isNotEmpty) {
-          switch (step) {
+        pt('[SPLASH-AUDIT] no backend stage & stage screen not due → fall through to step routing');
+      }
+
+      {
+        // Re-read step AFTER getUser() sync so backend stage (pregnancy/postpregnancy)
+        // drives routing instead of stale local value from before login.
+        final routedStep = resolvedStep ?? await UserLocalData.getStep();
+        pt('[SPLASH-AUDIT] step=$routedStep → routing to step-based screen');
+        if (routedStep != null && routedStep.isNotEmpty) {
+          switch (routedStep) {
             case "0":
               pt('[SPLASH-AUDIT] → navbarPrePregancyView');
               Navigator.pushNamedAndRemoveUntil(

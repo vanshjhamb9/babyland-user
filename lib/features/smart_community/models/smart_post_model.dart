@@ -38,7 +38,9 @@ class SmartPostModel {
       authorName: json['user']?['name']?.toString() ??
           json['authorName']?.toString() ??
           'Community Member',
-      authorAvatar: json['user']?['profilePicture']?.toString(),
+      authorAvatar: (json['user']?['photo'] ??
+              json['user']?['profilePicture'])
+          ?.toString(),
       likes: (json['likes'] as num?)?.toInt() ??
           (json['likesCount'] as num?)?.toInt() ?? 0,
       comments: (json['comments'] as num?)?.toInt() ??

@@ -245,3 +245,32 @@ class Conditions {
     return data;
   }
 }
+
+/// Detects a backend user that already finished (or substantially started)
+/// onboarding so sign-in can skip phone/profile/stage screens.
+class ExistingAccount {
+  static const knownStages = {
+    'prepregnancy',
+    'pregnancy',
+    'postpregnancy',
+  };
+
+  static bool isKnownStage(String? stage) => knownStages.contains(stage);
+
+  static int profileCompletionPercent(String? raw) =>
+      int.tryParse(raw ?? '') ?? 0;
+
+  static bool isReturning(Users? user, {String? profileCompletion}) {
+    if (user == null) return false;
+    if (isKnownStage(user.stage)) return true;
+    if (profileCompletionPercent(profileCompletion) > 0) return true;
+    final name = user.name?.trim();
+    if (name != null && name.isNotEmpty) return true;
+    final lpd = user.lastPeriodStartDate?.trim();
+    if (lpd != null && lpd.isNotEmpty && lpd != 'null') return true;
+    if (user.cycleType == 'regular' || user.cycleType == 'irregular') {
+      return true;
+    }
+    return false;
+  }
+}

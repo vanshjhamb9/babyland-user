@@ -4,6 +4,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/font_family.dart';
 import '../../../app/theme/font_style.dart';
 import '../../../app/widgets/container.dart';
+import '../../../app/widgets/user_avatar.dart';
 import '../../../core/constants/app_constants.dart';
 import '../models/smart_post_model.dart';
 
@@ -41,18 +42,10 @@ class _SmartPostCardState extends State<SmartPostCard> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.buttonClr2.withValues(alpha: 0.15),
-                child: Text(
-                  post.authorName.isNotEmpty
-                      ? post.authorName[0].toUpperCase()
-                      : '?',
-                  style: AppFontStyle.text_14_600(
-                    fontFamily: AppFontFamily.gilroySemiBold,
-                    color: AppColors.buttonClr2,
-                  ),
-                ),
+              UserAvatar(
+                size: 36,
+                imageUrl: post.authorAvatar,
+                name: post.authorName,
               ),
               const SizedBox(width: 10),
               Expanded(

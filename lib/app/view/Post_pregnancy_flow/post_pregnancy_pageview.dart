@@ -53,38 +53,51 @@ class _CombinedBabyDetailScreenState extends State<CombinedBabyDetailScreen> {
       return;
     }
 
-    // Fallback: Check backend if local flag is false
-    // We use babygrowthsDetails as a proxy to check if post-pregnancy setup is done
+    // Existing tracker or recovery log means this account already finished setup.
     try {
       final response = await repository.babygrowthsDetails();
-      // FIXED: Added null safety checks for response and tracker data
-      if (response.success == true &&
-          response.tracker != null) {
-        // Data exists! Mark local flag and redirect
-        await UserLocalData.savePostPregnancySetupComplete();
-        if (mounted) {
-          Navigator.pushReplacementNamed(
-            context,
-            AppRoutes.postPregnancyNavbarView,
-          );
-        }
-      } else {
-        // No data, show form
-        if (mounted) {
-          setState(() {
-            isLoading = false;
-          });
-        }
+      if (response.success == true && response.tracker != null) {
+        await _goToPostPregnancyDashboard();
+        return;
       }
     } catch (e, stackTrace) {
-      pt("Error checking existing data: $e\n$stackTrace");
-      // On error, assume no data (or let user try submitting form which handles "exists" error)
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      pt("Error checking babygrowths: $e\n$stackTrace");
     }
+
+    try {
+      final recovery = await repository.getRecoveryTask({
+        "date": DateTime.now().toIso8601String().split('T').first,
+      });
+      final tasks = recovery.tasks;
+      final completed = int.tryParse(tasks?.completedTasks ?? '') ?? 0;
+      final hasExistingLog = recovery.success == true &&
+          tasks != null &&
+          (completed > 0 ||
+              (tasks.logDate?.isNotEmpty ?? false) ||
+              (tasks.mood?.isNotEmpty ?? false) ||
+              (tasks.feedings?.isNotEmpty ?? false));
+      if (hasExistingLog) {
+        await _goToPostPregnancyDashboard();
+        return;
+      }
+    } catch (e, stackTrace) {
+      pt("Error checking recovery tasks: $e\n$stackTrace");
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _goToPostPregnancyDashboard() async {
+    await UserLocalData.savePostPregnancySetupComplete();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.postPregnancyNavbarView,
+    );
   }
 
   @override

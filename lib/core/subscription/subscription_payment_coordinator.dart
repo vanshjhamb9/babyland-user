@@ -26,7 +26,9 @@ class SubscriptionPaymentCoordinator extends ChangeNotifier {
   DateTime? _pendingCreatedAtUtc;
   Timer? _pollTimer;
   int _pollTicks = 0;
-  static const int _maxPollTicks = 90;
+  int _consecutiveFailures = 0;
+  static const int _maxPollTicks = 60;
+  static const int _maxConsecutiveFailures = 3;
 
   SubscriptionPaymentState get state => _state;
   String? get merchantTransactionId => _merchantTransactionId;
@@ -100,27 +102,35 @@ class SubscriptionPaymentCoordinator extends ChangeNotifier {
   }) {
     _pollTimer?.cancel();
     _pollTicks = 0;
+    _consecutiveFailures = 0;
     unawaited(() async {
       await refreshEntitlements();
       await syncAfterRefresh(canUsePremiumFeature: canUsePremiumFeature);
     }());
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
       if (_state != SubscriptionPaymentState.pendingVerification) {
         _pollTimer?.cancel();
         return;
       }
       _pollTicks++;
-      if (_pollTicks > _maxPollTicks) {
+      if (_pollTicks > _maxPollTicks ||
+          _consecutiveFailures >= _maxConsecutiveFailures) {
         _pollTimer?.cancel();
         AppAuditLog.instance.log(
           'subscription_payment_poll_exhausted',
           component: 'SubscriptionPaymentCoordinator',
           merchantTransactionId: _merchantTransactionId,
+          reason: 'ticks=$_pollTicks failures=$_consecutiveFailures',
         );
         notifyListeners();
         return;
       }
-      await refreshEntitlements();
+      try {
+        await refreshEntitlements();
+        _consecutiveFailures = 0;
+      } catch (_) {
+        _consecutiveFailures++;
+      }
       await syncAfterRefresh(canUsePremiumFeature: canUsePremiumFeature);
     });
   }

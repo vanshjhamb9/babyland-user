@@ -4,8 +4,8 @@ import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/controller/create_account/model/request_verification_model.dart';
 import 'package:babyland/app/data/repository/repository.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
-import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
+import 'package:babyland/app/services/social_login/social_login.dart';
 import 'package:babyland/core/auth/jwt_utils.dart';
 import 'package:babyland/core/auth/phone_normalize.dart';
 import 'package:babyland/core/di/service_locator.dart';
@@ -108,12 +108,19 @@ class CreateAccountProvider extends ChangeNotifier {
 
   void _onPhoneAuthStateChanged() {
     _safeNotify();
+    if (_disposed) return;
+    if (_currentIndex != _otpPageIndex) return;
+    if (_verifyOtpInFlight || _autoVerifyHandled) return;
+    if (!sl.firebasePhoneAuthService.isAutoVerified) return;
+    _autoVerifyHandled = true;
+    verifyOtpSignup();
   }
 
   bool get isSendingPhoneOtp => sl.firebasePhoneAuthService.isSendingOtp;
   int get resendCooldownSeconds => sl.firebasePhoneAuthService.resendCooldownSeconds;
   bool get canResendPhoneOtp => sl.firebasePhoneAuthService.canResendOtp;
   String? get phoneAuthMessage => sl.firebasePhoneAuthService.userFacingMessage;
+  bool get isPhoneAutoVerified => sl.firebasePhoneAuthService.isAutoVerified;
 
   //--------------------------request verification
   ApiResponse<RequestVerificationModel>? _forgotPassRequestOtpData = ApiResponse.completed(null);
@@ -372,8 +379,15 @@ class CreateAccountProvider extends ChangeNotifier {
         CommonResponseModel(success: true, message: 'OTP sent'),
       );
       await _goToPhoneOtpStep();
-      AppPopUp.showToast(message: 'OTP sent. Please verify.');
-      _safeNotify();
+      if (sl.firebasePhoneAuthService.isAutoVerified) {
+        AppPopUp.showToast(message: 'Phone verified. Finishing signup…');
+        _safeNotify();
+        _autoVerifyHandled = true;
+        await verifyOtpSignup();
+      } else {
+        AppPopUp.showToast(message: 'OTP sent. Please verify.');
+        _safeNotify();
+      }
     } catch (e, s) {
       pt("Error signup $e $s ");
       if (_disposed) return;
@@ -390,6 +404,7 @@ class CreateAccountProvider extends ChangeNotifier {
   ApiResponse<CommonResponseModel>? _verifyOtpSignupData = ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get verifyOtpSignupData => _verifyOtpSignupData;
   bool _verifyOtpInFlight = false;
+  bool _autoVerifyHandled = false;
 
   /// Step 2 of signup: Firebase SMS verify → backend create account → verify-otp → onboarding.
   Future<void> verifyOtpSignup() async {
@@ -400,9 +415,9 @@ class CreateAccountProvider extends ChangeNotifier {
     
     try {
       // 1. Verify SMS with Firebase — phone claim on idToken is source of truth.
-      final userCredential = await sl.firebasePhoneAuthService.verifySmsCode(
-        otpController.text.trim(),
-      );
+      // Play Store auto-verify may already have signed in; empty code is fine.
+      final sms = otpController.text.trim();
+      final userCredential = await sl.firebasePhoneAuthService.verifySmsCode(sms);
       // Force refresh so phone_number claim is present for backend verify.
       final idToken = await userCredential.user?.getIdToken(true);
       
@@ -471,14 +486,8 @@ class CreateAccountProvider extends ChangeNotifier {
           await sl.authService.saveRefreshToken(refreshToken);
         }
 
-        // 4. Onboarding (basic profile) after successful verified signup.
-        await UserLocalData.setNeedsBasicProfile(true);
-        if (navigatorKey.currentContext != null) {
-          Navigator.pushReplacementNamed(
-            navigatorKey.currentContext!,
-            AppRoutes.basicProfileView,
-          );
-        }
+        // 4. Route from existing backend data — skip onboarding if already complete.
+        await SocialLoginService().routeAfterAuthSession();
       } else if (_isNoAccountForPhone(value.message)) {
         final conflictHint = _lastSignupWasConflict
             ? ' Server said: "${_lastSignupConflictMessage ?? 'already exists'}". '
@@ -513,6 +522,7 @@ class CreateAccountProvider extends ChangeNotifier {
 
   Future<void> resendSignupOtp() async {
     try {
+      _autoVerifyHandled = false;
       await sl.firebasePhoneAuthService.resendOtp();
       AppPopUp.showToast(message: "OTP resent successfully");
       otpController.clear();
