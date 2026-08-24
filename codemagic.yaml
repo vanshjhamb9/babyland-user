@@ -48,6 +48,8 @@ workflows:
           cd ..
       - name: Build IPA
         script: |
+          # ExportOptions.plist must use destination=export so a local .ipa is created.
+          # Codemagic publishing then uploads that IPA to TestFlight.
           flutter build ipa \
             --release \
             --no-tree-shake-icons \
@@ -57,13 +59,10 @@ workflows:
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
             --dart-define=APP_BUILD_TAG=appstore-v1 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
-      - name: Verify IPA exists
-        script: |
-          echo "Looking for IPA..."
-          find build/ios -name "*.ipa" -type f 2>/dev/null || true
-          ls -la build/ios/ipa/ 2>/dev/null || true
-          test -n "$(find build/ios -name '*.ipa' -type f 2>/dev/null | head -1)" \
-            || (echo "ERROR: No .ipa produced under build/ios" && exit 1)
+          echo "IPA outputs:"
+          find build/ios -name "*.ipa" -type f
+          test -n "$(find build/ios -name '*.ipa' -type f | head -1)" \
+            || (echo "ERROR: No .ipa after flutter build ipa" && exit 1)
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/**/*.ipa
@@ -109,6 +108,9 @@ workflows:
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
             --dart-define=APP_BUILD_TAG=appstore-v1 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
+          find build/ios -name "*.ipa" -type f
+          test -n "$(find build/ios -name '*.ipa' -type f | head -1)" \
+            || (echo "ERROR: No .ipa after flutter build ipa" && exit 1)
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
