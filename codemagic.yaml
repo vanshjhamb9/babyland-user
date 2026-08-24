@@ -4,7 +4,8 @@
 # One-time Codemagic setup (web UI):
 # 1. Sign up at https://codemagic.io and connect this Git repository.
 # 2. Team settings → Integrations → Apple Developer Portal → connect your account.
-# 3. Team settings → Integrations → App Store Connect → add API key (.p8).
+# 3. Team settings → Integrations → Developer Portal → add App Store Connect API key (.p8).
+#    The "API key name" you type there MUST match integrations.app_store_connect below.
 # 4. Create a Codemagic application → select workflow "babyland-ios-testflight".
 # 5. Start build. Codemagic creates signing certs/profiles for com.thebabyland automatically.
 
@@ -13,6 +14,10 @@ workflows:
     name: Babyland iOS TestFlight
     max_build_duration: 120
     instance_type: mac_mini_m2
+
+    # Must match the App Store Connect API key name in Codemagic → Integrations.
+    integrations:
+      app_store_connect: Babyland
 
     environment:
       ios_signing:
@@ -85,6 +90,9 @@ workflows:
     name: Babyland iOS TestFlight (manual only)
     max_build_duration: 120
     instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: Babyland
 
     environment:
       ios_signing:
