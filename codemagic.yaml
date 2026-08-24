@@ -23,7 +23,7 @@ workflows:
       cocoapods: default
       vars:
         # Xcode 26 altool cannot map bundle ID → Apple ID. Pass ASC Apple ID explicitly.
-        APP_STORE_CONNECT_ALTOOL_ADDITIONAL_ARGUMENTS: "--apple-id 6717596091 --use-old-altool"
+        APP_STORE_CONNECT_ALTOOL_ADDITIONAL_ARGUMENTS: "--use-old-altool"
     triggering:
       events:
         - push
@@ -96,7 +96,7 @@ workflows:
       xcode: latest
       cocoapods: default
       vars:
-        APP_STORE_CONNECT_ALTOOL_ADDITIONAL_ARGUMENTS: "--apple-id 6717596091 --use-old-altool"
+        APP_STORE_CONNECT_ALTOOL_ADDITIONAL_ARGUMENTS: "--use-old-altool"
     scripts:
       - name: Verify Firebase iOS config
         script: test -f ios/Runner/GoogleService-Info.plist
