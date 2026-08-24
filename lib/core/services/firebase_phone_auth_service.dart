@@ -5,6 +5,7 @@ import 'package:babyland/core/auth/phone_normalize.dart';
 import 'package:babyland/core/debug/agent_debug_log.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 /// Firebase Phone Authentication with logging, resend, loading state, and timeouts.
@@ -288,6 +289,38 @@ class FirebasePhoneAuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Waits for the APNs device token required by Firebase Phone Auth on iOS.
+  /// Returns false if no token after retries (usually missing APNs key in Firebase).
+  Future<bool> _ensureIosApnsTokenReady() async {
+    try {
+      // Ensure iOS has registered for remote notifications.
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: true,
+      );
+    } catch (e) {
+      _log('iOS notification permission request failed', error: e);
+    }
+
+    for (var attempt = 1; attempt <= 8; attempt++) {
+      try {
+        final token = await FirebaseMessaging.instance.getAPNSToken();
+        if (token != null && token.isNotEmpty) {
+          _log('iOS APNs token ready (attempt $attempt, len=${token.length})');
+          return true;
+        }
+        _log('iOS APNs token null (attempt $attempt/8)');
+      } catch (e) {
+        _log('iOS getAPNSToken failed (attempt $attempt)', error: e);
+      }
+      await Future.delayed(Duration(milliseconds: 400 * attempt));
+    }
+    _log('iOS APNs token unavailable after retries');
+    return false;
+  }
+
   static const Duration _recaptchaRetryDelay = Duration(seconds: 3);
 
   /// Sends or re-sends the SMS OTP via [FirebaseAuth.verifyPhoneNumber].
@@ -345,6 +378,24 @@ class FirebasePhoneAuthService extends ChangeNotifier {
       _log('sendOtp: leftover signOut failed', error: e);
     }
 
+    // iOS Phone Auth needs an APNs device token before verifyPhoneNumber.
+    // Without it Firebase falls back to reCAPTCHA and often fails on TestFlight.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final apnsReady = await _ensureIosApnsTokenReady();
+      if (!apnsReady) {
+        _userFacingMessage =
+            'Phone verification needs Apple Push (APNs).\n\n'
+            'In Firebase Console → Project settings → Cloud Messaging → '
+            'Apple apps, upload an APNs Authentication Key for '
+            'com.thebabyland (Key ID + Team ID + .p8).\n\n'
+            'Then force-quit the app and try Send code again. '
+            'A new TestFlight build is required only if this message keeps appearing after the key is uploaded.';
+        _sendFailed = true;
+        notifyListeners();
+        return;
+      }
+    }
+
     _beginSendOtp();
     _clearOperationTimeout();
 
@@ -354,8 +405,12 @@ class FirebasePhoneAuthService extends ChangeNotifier {
         _log('sendOtp HARD TIMEOUT after $_operationHardTimeout');
         if (_isSendingOtp) {
           _endSendOtp();
-          _userFacingMessage =
-              'Request timed out. Check network, Firebase config (SHA-1), and try again.';
+          final isIos =
+              !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+          _userFacingMessage = isIos
+              ? 'Request timed out. Confirm the APNs key is uploaded in '
+                  'Firebase Cloud Messaging for com.thebabyland, then try again.'
+              : 'Request timed out. Check network, Firebase config (SHA-1), and try again.';
           notifyListeners();
         }
         completer.completeError(TimeoutException('verifyPhoneNumber'));
