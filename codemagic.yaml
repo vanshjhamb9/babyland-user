@@ -37,8 +37,17 @@ workflows:
             echo "Missing ios/Runner/GoogleService-Info.plist"
             exit 1
           )
+      - name: Fetch App Store signing files
+        script: |
+          app-store-connect fetch-signing-files com.thebabyland \
+            --type IOS_APP_STORE \
+            --create
       - name: Set up code signing
-        script: xcode-project use-profiles
+        script: |
+          xcode-project use-profiles \
+            --custom-export-options '{"method":"app-store","destination":"export","signingStyle":"manual"}'
+          echo "Generated export options:"
+          cat "$HOME/export_options.plist"
       - name: Flutter packages
         script: flutter pub get
       - name: CocoaPods
@@ -48,12 +57,10 @@ workflows:
           cd ..
       - name: Build IPA
         script: |
-          # ExportOptions.plist must use destination=export so a local .ipa is created.
-          # Codemagic publishing then uploads that IPA to TestFlight.
           flutter build ipa \
             --release \
             --no-tree-shake-icons \
-            --export-options-plist=ios/ExportOptions.plist \
+            --export-options-plist="$HOME/export_options.plist" \
             --dart-define=API_BASE_URL=http://164.52.197.176/api/v1 \
             --dart-define=API_ROOT_URL=http://164.52.197.176/api \
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
@@ -91,8 +98,15 @@ workflows:
     scripts:
       - name: Verify Firebase iOS config
         script: test -f ios/Runner/GoogleService-Info.plist
+      - name: Fetch App Store signing files
+        script: |
+          app-store-connect fetch-signing-files com.thebabyland \
+            --type IOS_APP_STORE \
+            --create
       - name: Set up code signing
-        script: xcode-project use-profiles
+        script: |
+          xcode-project use-profiles \
+            --custom-export-options '{"method":"app-store","destination":"export","signingStyle":"manual"}'
       - name: Flutter packages
         script: flutter pub get
       - name: CocoaPods
@@ -102,7 +116,7 @@ workflows:
           flutter build ipa \
             --release \
             --no-tree-shake-icons \
-            --export-options-plist=ios/ExportOptions.plist \
+            --export-options-plist="$HOME/export_options.plist" \
             --dart-define=API_BASE_URL=http://164.52.197.176/api/v1 \
             --dart-define=API_ROOT_URL=http://164.52.197.176/api \
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \

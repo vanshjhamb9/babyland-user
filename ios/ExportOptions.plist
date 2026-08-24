@@ -12,5 +12,10 @@
 	<string>manual</string>
 	<key>teamID</key>
 	<string>JLL9Z2C4AZ</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.thebabyland</key>
+		<string>Babyland distribution</string>
+	</dict>
 </dict>
 </plist>
