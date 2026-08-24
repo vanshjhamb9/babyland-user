@@ -77,8 +77,10 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
-        # Must match App Store Connect → TestFlight → Internal Testing group name exactly.
+        # Internal testing only: do not submit for external beta review
+        # (that requires Feedback Email + Beta App Review contact info).
+        submit_to_testflight: false
+        # Exact Internal Testing group name on the NEW Babyland User app.
         beta_groups:
           - babyland tester
 
@@ -128,7 +130,9 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        submit_to_testflight: false
+        beta_groups:
+          - babyland tester
 
   qa-full:
     name: Babyland Full QA
