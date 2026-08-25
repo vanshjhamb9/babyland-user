@@ -193,12 +193,13 @@ class FirebasePhoneAuthService extends ChangeNotifier {
         if (msg.contains('recaptcha') || msg.contains('reCAPTCHA')) {
           if (isIos) {
             return 'Security verification failed on iOS.\n\n'
-                'Firebase could not verify this TestFlight build.\n'
-                'Most common fix: Firebase Console → Project settings → '
-                'Cloud Messaging → upload APNs Authentication Key (.p8) '
-                'for Apple apps (bundle com.thebabyland).\n\n'
-                'Also check internet and try again. '
-                'If a Safari verification page appears, complete it.';
+                'Firebase error: ${e.code}\n'
+                '${(e.message ?? "").isNotEmpty ? e.message! : ""}\n\n'
+                'Checklist:\n'
+                '1. Firebase → Cloud Messaging → Production APNs key uploaded\n'
+                '2. Authentication → Sign-in method → Phone = Enabled\n'
+                '3. Delete & reinstall the TestFlight app after uploading the key\n'
+                '4. Or use a Firebase test phone number while fixing this';
           }
           return 'Security verification (reCAPTCHA) failed.\n\n'
               'This happens when the app cannot complete reCAPTCHA verification. '
@@ -293,7 +294,6 @@ class FirebasePhoneAuthService extends ChangeNotifier {
   /// Returns false if no token after retries (usually missing APNs key in Firebase).
   Future<bool> _ensureIosApnsTokenReady() async {
     try {
-      // Ensure iOS has registered for remote notifications.
       await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
@@ -309,6 +309,12 @@ class FirebasePhoneAuthService extends ChangeNotifier {
         final token = await FirebaseMessaging.instance.getAPNSToken();
         if (token != null && token.isNotEmpty) {
           _log('iOS APNs token ready (attempt $attempt, len=${token.length})');
+          // Warm FCM registration so Auth can use the APNs token for silent push.
+          try {
+            await FirebaseMessaging.instance.getToken();
+          } catch (e) {
+            _log('iOS FCM getToken failed after APNs ready', error: e);
+          }
           return true;
         }
         _log('iOS APNs token null (attempt $attempt/8)');
@@ -432,7 +438,8 @@ class FirebasePhoneAuthService extends ChangeNotifier {
         completer: completer,
         completeOk: completeOk,
         completeErr: completeErr,
-        allowRecaptchaRetry: true,
+        allowRecaptchaRetry:
+            kIsWeb || defaultTargetPlatform == TargetPlatform.android,
       );
 
       await completer.future;
@@ -497,7 +504,12 @@ class FirebasePhoneAuthService extends ChangeNotifier {
 
         final isRecaptchaError = e.code == 'missing-recaptcha-token' ||
             (e.message ?? '').toLowerCase().contains('recaptcha');
-        if (isRecaptchaError && allowRecaptchaRetry && !completer.isCompleted) {
+        // forceRecaptchaFlow is Android-oriented and often makes TestFlight OTP worse.
+        final canRetryRecaptcha = isRecaptchaError &&
+            allowRecaptchaRetry &&
+            !completer.isCompleted &&
+            defaultTargetPlatform == TargetPlatform.android;
+        if (canRetryRecaptcha) {
           _log('verificationFailed: reCAPTCHA error — retrying with recaptcha flow');
           _otpCodeSent = false;
           _verificationId = null;

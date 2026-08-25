@@ -28,21 +28,23 @@ Apple Developer already has APNs key **`babylandfilep8`** (Key ID **`FTHTQMX7DW`
    - App: `GOOGLE_APP_ID` `1:240228974389:ios:c31a03551c6dc9a502967c`
 5. Save → force-quit Babyland on the phone → **Send code** again (no new IPA required for the key alone).
 
-### Confirm checklist (must all be yes)
+## Confirm checklist (must all be yes)
 
 | Check | Expected |
 |--------|----------|
-| Firebase → Cloud Messaging → Apple apps → APNs key uploaded | Key ID + Team ID shown for `com.thebabyland` |
-| Firebase → Authentication → Sign-in method → Phone | Enabled |
+| Firebase → Cloud Messaging → **Production** APNs key | Key ID + Team ID shown (Dev alone is not enough for TestFlight) |
+| Firebase → Cloud Messaging → Development APNs key | Optional but OK if present |
+| Firebase → Authentication → Sign-in method → Phone | **Enabled** |
 | Firebase → Project settings → Your apps → iOS | Bundle `com.thebabyland` |
-| `ios/Runner/GoogleService-Info.plist` | Same bundle + project |
-| App Store Connect app | Bundle `com.thebabyland` (Babyland User) |
-| Push capability | Enabled on App ID + profile (already done for TestFlight) |
+| After uploading Production key | **Delete app from phone → reinstall from TestFlight** (old installs can keep a bad push registration) |
+| Wait | 5–15 minutes after first Production key upload for Apple/Firebase to propagate |
 
-## Optional: Firebase test numbers (bypass SMS while fixing APNs)
+APNs **certificates** can stay empty — Auth Keys are preferred and sufficient.
+
+## Optional: Firebase test numbers (bypass SMS / app verification while fixing)
 
 Authentication → Sign-in method → Phone → **Phone numbers for testing**  
-Add e.g. `+916283075131` with a fixed code `123456`.
+Add e.g. `+916283075131` with a fixed code `123456`, then enter that code in the app (no SMS needed).
 
 ## Not the cause of this OTP error
 
