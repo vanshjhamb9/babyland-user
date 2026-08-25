@@ -190,16 +190,30 @@ class FirebasePhoneAuthService extends ChangeNotifier {
         return 'This account has been disabled.';
       default:
         final msg = (e.message ?? '').toLowerCase();
-        if (msg.contains('recaptcha') || msg.contains('reCAPTCHA')) {
+        if (msg.contains('recaptcha') ||
+            msg.contains('reCAPTCHA') ||
+            e.code == 'recaptcha-sdk-not-linked') {
           if (isIos) {
+            if (e.code == 'recaptcha-sdk-not-linked') {
+              return 'Firebase error: recaptcha-sdk-not-linked\n\n'
+                  'reCAPTCHA Enterprise is ON for this Firebase project, '
+                  'but the iOS app does not include that SDK.\n\n'
+                  'Fix (no app rebuild):\n'
+                  '1. Open Firebase → Authentication → Settings → App verification / reCAPTCHA\n'
+                  '2. Turn OFF enforcement for Phone (or SMS defense)\n'
+                  '3. Or run Identity Platform updateConfig with '
+                  'phoneEnforcementState=OFF for project thebabyland-6db6d '
+                  '(see docs/FIREBASE_PHONE_AUTH_IOS.md)\n\n'
+                  'Then force-quit the app and try Send code again.';
+            }
             return 'Security verification failed on iOS.\n\n'
                 'Firebase error: ${e.code}\n'
                 '${(e.message ?? "").isNotEmpty ? e.message! : ""}\n\n'
                 'Checklist:\n'
                 '1. Firebase → Cloud Messaging → Production APNs key uploaded\n'
                 '2. Authentication → Sign-in method → Phone = Enabled\n'
-                '3. Delete & reinstall the TestFlight app after uploading the key\n'
-                '4. Or use a Firebase test phone number while fixing this';
+                '3. Authentication → Settings → turn OFF reCAPTCHA Enterprise for Phone\n'
+                '4. Delete & reinstall TestFlight app if still failing';
           }
           return 'Security verification (reCAPTCHA) failed.\n\n'
               'This happens when the app cannot complete reCAPTCHA verification. '

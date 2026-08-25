@@ -1,54 +1,76 @@
 # Firebase Phone Auth — iOS (TestFlight)
 
-## Symptom
+## Current known error (Aug 2026)
 
-TestFlight build opens, but **Send OTP / Send code** shows:
+```
+firebase_auth/recaptcha-sdk-not-linked
+The reCAPTCHA SDK is not linked to your app.
+```
 
-> Security verification (reCAPTCHA) failed …
+This is **not** an APNs key problem anymore (Production + Development keys are uploaded).
 
-Older builds also mentioned **SHA-1** and **Play Services**. Those are **Android** checks and do **not** apply to iPhone. Ignore them.
+It means **reCAPTCHA Enterprise / SMS defense was turned on** for project `thebabyland-6db6d`, so the iOS SDK expects the Recaptcha Enterprise library. Babyland does not ship that SDK. Phone OTP fails until Enterprise enforcement is **OFF**.
+
+### Fix A — Firebase Console (try first)
+
+1. [Firebase Console](https://console.firebase.google.com/project/thebabyland-6db6d/authentication/settings) → **Authentication** → **Settings**
+2. Open **App verification** / **reCAPTCHA** / **SMS defense** (wording varies)
+3. Set Phone / SMS defense to **Off** / **Disabled** (not Enforce or Audit)
+4. Save → force-quit Babyland → **Send code** again  
+   **No new TestFlight build required.**
+
+### Fix B — Identity Platform API (if Console toggle does not stick)
+
+Open this link while logged into the Google account that owns the Firebase project (replace is already filled for Babyland):
+
+[Identity Platform `projects.updateConfig` (API Explorer)](https://cloud.google.com/identity-platform/docs/reference/rest/v2/projects/updateConfig?apix_params=%7B%22name%22%3A%22projects%2Fthebabyland-6db6d%2Fconfig%22%2C%22updateMask%22%3A%22recaptchaConfig%22%2C%22resource%22%3A%7B%22recaptchaConfig%22%3A%7B%22phoneEnforcementState%22%3A%22OFF%22%2C%22useSmsTollFraudProtection%22%3Afalse%7D%7D%7D)
+
+1. Confirm **name** = `projects/thebabyland-6db6d/config`
+2. Confirm **updateMask** = `recaptchaConfig`
+3. Request body includes:
+   ```json
+   {
+     "recaptchaConfig": {
+       "phoneEnforcementState": "OFF",
+       "useSmsTollFraudProtection": false
+     }
+   }
+   ```
+4. Click **Execute** (authorize Google Cloud if asked)
+5. Force-quit the app → **Send code** again
+
+This is the fix reported by FlutterFire / Firebase iOS SDK issues for `ERROR_RECAPTCHA_SDK_NOT_LINKED`.
+
+### Optional unblock while fixing
+
+Authentication → Sign-in method → Phone → **Phone numbers for testing**  
+Add `+916283075131` / code `123456`.
+
+---
+
+## APNs checklist (already done for Babyland)
+
+| Check | Expected |
+|--------|----------|
+| Cloud Messaging → **Production** APNs auth key | Key `FTHTQMX7DW`, Team `JLL9Z2C4AZ` |
+| Cloud Messaging → Development APNs auth key | Same key OK |
+| APNs certificates | Can stay empty (Auth Key is enough) |
+| Authentication → Phone provider | Enabled |
+| Bundle ID | `com.thebabyland` |
+
+---
 
 ## How iOS Phone Auth works
 
 1. **Primary:** silent push via **APNs** (no reCAPTCHA UI).
-2. **Fallback:** reCAPTCHA in Safari / in-app browser.
+2. **Fallback:** reCAPTCHA — either classic (Safari) or Enterprise (requires SDK).
 
-If no APNs key is uploaded to Firebase, OTP almost always falls back to reCAPTCHA and often fails on TestFlight.
+If Enterprise enforcement is ON without the SDK → `recaptcha-sdk-not-linked`.
 
-## Required console fix (no app rebuild needed for this alone)
+---
 
-Apple Developer already has APNs key **`babylandfilep8`** (Key ID **`FTHTQMX7DW`**, Team **`JLL9Z2C4AZ`**, Sandbox & Production). That key must also exist in **Firebase** — Apple alone is not enough.
+## Not the cause of this specific error
 
-1. If you still have the `.p8` for `FTHTQMX7DW`, use it. If not: [Apple Developer → Keys](https://developer.apple.com/account/resources/authkeys/list) → **+** → enable **APNs** → download **`.p8`** once → note new Key ID.
-2. [Firebase Console](https://console.firebase.google.com/) → project **`thebabyland-6db6d`**
-3. ⚙️ **Project settings** → **Cloud Messaging** → **Apple app configuration**
-4. Upload APNs Auth Key for iOS app bundle **`com.thebabyland`**
-   - Key ID: `FTHTQMX7DW` (or the new Key ID)
-   - Team ID: `JLL9Z2C4AZ`
-   - App: `GOOGLE_APP_ID` `1:240228974389:ios:c31a03551c6dc9a502967c`
-5. Save → force-quit Babyland on the phone → **Send code** again (no new IPA required for the key alone).
-
-## Confirm checklist (must all be yes)
-
-| Check | Expected |
-|--------|----------|
-| Firebase → Cloud Messaging → **Production** APNs key | Key ID + Team ID shown (Dev alone is not enough for TestFlight) |
-| Firebase → Cloud Messaging → Development APNs key | Optional but OK if present |
-| Firebase → Authentication → Sign-in method → Phone | **Enabled** |
-| Firebase → Project settings → Your apps → iOS | Bundle `com.thebabyland` |
-| After uploading Production key | **Delete app from phone → reinstall from TestFlight** (old installs can keep a bad push registration) |
-| Wait | 5–15 minutes after first Production key upload for Apple/Firebase to propagate |
-
-APNs **certificates** can stay empty — Auth Keys are preferred and sufficient.
-
-## Optional: Firebase test numbers (bypass SMS / app verification while fixing)
-
-Authentication → Sign-in method → Phone → **Phone numbers for testing**  
-Add e.g. `+916283075131` with a fixed code `123456`, then enter that code in the app (no SMS needed).
-
-## Not the cause of this OTP error
-
-- SHA-1 / SHA-256 (Android only)
-- Play Services (Android only)
-- Codemagic IPA / TestFlight install (already working if you see this screen)
-- `FIREBASE_APP_CHECK_ENABLED=false` on the TestFlight build (App Check is off; OK for now)
+- Missing Production APNs key (you already uploaded it)
+- SHA-1 / Play Services (Android only)
+- Empty APNs certificates section
