@@ -13,11 +13,13 @@ It means **reCAPTCHA Enterprise / SMS defense was turned on** for project `theba
 
 ### Fix A — Firebase Console (try first)
 
-1. [Firebase Console](https://console.firebase.google.com/project/thebabyland-6db6d/authentication/settings) → **Authentication** → **Settings**
-2. Open **App verification** / **reCAPTCHA** / **SMS defense** (wording varies)
-3. Set Phone / SMS defense to **Off** / **Disabled** (not Enforce or Audit)
-4. Save → force-quit Babyland → **Send code** again  
-   **No new TestFlight build required.**
+1. [Firebase Console](https://console.firebase.google.com/project/thebabyland-6db6d/authentication/settings) → **Authentication** → **Settings** → **reCAPTCHA**
+2. **Phone authentication enforcement mode** must be **`OFF`** (not `AUDIT`, not `ENFORCE`)
+3. Click **Save**
+4. Force-quit Babyland → **Send code** again  
+   **No new TestFlight build required for this console change.**
+
+`AUDIT` still triggers reCAPTCHA Enterprise fallback and causes `recaptcha-sdk-not-linked` on iOS without the Enterprise SDK.
 
 ### Fix B — Identity Platform API (if Console toggle does not stick)
 
