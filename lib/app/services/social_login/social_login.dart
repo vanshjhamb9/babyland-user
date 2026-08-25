@@ -119,6 +119,8 @@ class SocialLoginService {
         if (routedExisting) {
           return response;
         }
+        // Incomplete Google signup: no full session until /auth/verify-otp.
+        await UserLocalData.setNeedsPhoneProfile(true);
         if (navigatorKey.currentContext != null) {
           Navigator.pushReplacementNamed(
             navigatorKey.currentContext!,
@@ -160,6 +162,7 @@ class SocialLoginService {
         // New user (no existing phone) — redirect to AddPhoneView
         await ReleaseLogger.log('GOOGLE-FILE', 'No existing user/phone found. Navigating to AddPhoneView...');
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
+        await UserLocalData.setNeedsPhoneProfile(true);
         if (navigatorKey.currentContext != null) {
           await ReleaseLogger.log('GOOGLE-FILE', 'Navigator context available, pushing AddPhoneView');
           Navigator.pushReplacementNamed(
@@ -282,6 +285,9 @@ class SocialLoginService {
 
   /// If Google returned a JWT for an account that already has a phone (and
   /// possibly a completed stage), skip Add Phone and reuse existing data.
+  ///
+  /// Tokens are only kept when getUser confirms a non-empty phone. Otherwise
+  /// they are cleared so a failed OTP cannot leave a dashboard session.
   Future<bool> _tryRouteExistingGoogleUser(CommonResponseModel response) async {
     final token = response.token ?? '';
     if (token.isEmpty) return false;
@@ -293,12 +299,20 @@ class SocialLoginService {
         print(
           '[GOOGLE-AUDIT] requirePhone but getUser already has phone=$phone — routing existing account',
         );
+        await UserLocalData.clearNeedsPhoneProfile();
         await _routeFromValidatedUser(existing);
         return true;
       }
+      print(
+        '[GOOGLE-AUDIT] requirePhone getUser has no phone — clearing premature JWT',
+      );
     } catch (e) {
-      print('[GOOGLE-AUDIT] requirePhone getUser failed: $e');
+      print('[GOOGLE-AUDIT] requirePhone getUser failed: $e — clearing premature JWT');
     }
+    await SecureStorage.clearToken();
+    await SecureStorage.clearRefreshToken();
+    await SecureStorage.clearUserId();
+    await sl.authService.logout();
     return false;
   }
 
