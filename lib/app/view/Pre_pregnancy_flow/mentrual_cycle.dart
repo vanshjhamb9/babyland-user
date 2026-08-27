@@ -145,12 +145,13 @@ class _MentrualCycleState extends State<MentrualCycle> with RouteAware {
                   child: menstrualDashboardShimmer());
 
             case ApiStatus.ERROR:
-              return GeneralExceptionWidget(onPress: (){
-                provider.dashboardData();
-                provider.aiInsightsApi('nutrition');
-                provider.dashboardMoodData().then((_) {
-                  if (mounted) _syncPreDashboard(provider);
-                });
+              return GeneralExceptionWidget(onPress: () async {
+                final now = DateTime.now();
+                await provider.dashboardData();
+                await provider.cycleCalender(year: now.year, month: now.month);
+                provider.getDashBoardAiInsights();
+                await provider.dashboardMoodData();
+                if (mounted) _syncPreDashboard(provider);
               },);
 
             case ApiStatus.COMPLETED:

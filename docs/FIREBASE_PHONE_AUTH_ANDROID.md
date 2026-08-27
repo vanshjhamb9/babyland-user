@@ -67,6 +67,14 @@ Debug no longer auto-disables app verification (that previously blocked real OTP
 - Logcat expect: `"buildTag":"otp-v7"`, `"forceRecaptchaFlow":true`, `"disableAppVerification":false`, `"androidAppId":"...211e354e02114e4a02967c"`
 - A **Chrome / Custom Tabs reCAPTCHA** page may open on signup — complete it
 
+### CAPTCHA return must not show "No route defined for /link"
+
+Firebase returns via `/link?deep_link_id=…`. The app now:
+
+- Ignores those routes in `AppRoutes` (pops immediately)
+- Sets `flutter_deeplinking_enabled=false` so Flutter does not steal the Auth callback
+- Skips resume API reconcile while phone OTP/`isBusy` is true
+
 ### SHA-256 (required in Firebase Console for real SMS)
 
 On Android app **`com.thebabyland`** (`1:240228974389:android:211e354e02114e4a02967c`) add:

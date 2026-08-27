@@ -331,7 +331,7 @@ class PregnancyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> getPregnancyApiData() async {
+  Future<void> getPregnancyApiData({bool allowRetry = true}) async {
     setLoadingPreg(true);
     setPregnancyApiData(ApiResponse.loading());
 
@@ -346,6 +346,20 @@ class PregnancyController extends ChangeNotifier {
       }
     } catch (e, s) {
       pt("Error in getPregnancyApiData: $e\n$s");
+      final msg = e.toString().toLowerCase();
+      final isTransient = msg.contains('timeout') ||
+          msg.contains('socket') ||
+          msg.contains('connection') ||
+          msg.contains('network') ||
+          msg.contains('401') ||
+          msg.contains('503') ||
+          msg.contains('502');
+      if (allowRetry && isTransient) {
+        pt('getPregnancyApiData: transient failure — auto-retry once');
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        await getPregnancyApiData(allowRetry: false);
+        return;
+      }
       setPregnancyApiData(ApiResponse.error(e.toString()));
     } finally {
       setLoadingPreg(false);

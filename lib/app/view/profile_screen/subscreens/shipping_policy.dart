@@ -45,7 +45,7 @@ class _ShippingPolicyScreenState extends State<ShippingPolicyScreen> {
               child: Text('No privacy policy content available'),
             ) :  body(fixedContent),
             ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi('shipping'),),
-            null => throw GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi('shipping'),),
+            null => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi('shipping'),),
           };
         },
       ),

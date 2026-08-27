@@ -69,6 +69,13 @@ Add `+916283075131` / code `123456`.
 
 If Enterprise enforcement is ON without the SDK → `recaptcha-sdk-not-linked`.
 
+### App-side CAPTCHA return (Aug 2026)
+
+If Safari/Custom Tabs returns and the app shows **"No route defined for /link?deep_link_id=…"**, that was Flutter treating Firebase’s auth callback as a Navigator route. Fixed by:
+
+- Ignoring `/link` / `deep_link_id` / `__/auth/` routes in `AppRoutes`
+- `FlutterDeepLinkingEnabled=false` (iOS) and `flutter_deeplinking_enabled=false` (Android)
+
 ---
 
 ## Not the cause of this specific error

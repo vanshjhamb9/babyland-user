@@ -78,27 +78,26 @@ class _PregnancyHomeViewState extends State<PregnancyHomeView> with RouteAware {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final controller = Provider.of<PregnancyController>(context, listen: false);
       await controller.getPregnancyApiData();
+      if (!mounted) return;
 
       final response = controller.pregnancyApiData;
-      final data = response?.data?.data?.data;
-
-      if (data == null && mounted) {
-        AppPopUp.showToast(message: "Session error: Please sign in again.");
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.signInView,
-          (route) => false,
-        );
+      // Transient API/network failures must not force sign-out after long sessions.
+      if (response?.status == ApiStatus.ERROR) {
         return;
       }
-      if (mounted) {
-        setState(() {
-          _dashboardFuture = enrichDashboardData(
-            sl.dashboardService.refresh(),
-            pregnancyController: controller,
-          );
-        });
+
+      final data = response?.data?.data?.data;
+      if (data == null) {
+        AppPopUp.showToast(message: "Unable to load pregnancy data. Pull to retry.");
+        return;
       }
+
+      setState(() {
+        _dashboardFuture = enrichDashboardData(
+          sl.dashboardService.refresh(),
+          pregnancyController: controller,
+        );
+      });
     });
   }
 
@@ -122,10 +121,21 @@ class _PregnancyHomeViewState extends State<PregnancyHomeView> with RouteAware {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Text(
-                    provider.pregnancyApiData?.message ?? "Something went wrong!",
-                    style: const TextStyle(fontSize: 16, color: Colors.red),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        provider.pregnancyApiData?.message ??
+                            "Something went wrong!",
+                        style: const TextStyle(fontSize: 16, color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => provider.getPregnancyApiData(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 ),
               );

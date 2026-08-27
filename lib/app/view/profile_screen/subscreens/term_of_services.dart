@@ -45,7 +45,7 @@ class _TermOfServicesScreenState extends State<TermOfServicesScreen> {
               child: Text('No privacy policy content available'),
             ) :  body(fixedContent),
             ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi("terms"),),
-            null => throw GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi("terms"),),
+            null => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi("terms"),),
           };
         },
       ),

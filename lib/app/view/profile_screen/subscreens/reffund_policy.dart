@@ -45,7 +45,7 @@ class _RefundPolicyScreenState extends State<RefundPolicyScreen> {
               child: Text('No privacy policy content available'),
             ) :  body(fixedContent),
             ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi('return'),),
-            null => throw GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi('return'),),
+            null => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi('return'),),
           };
         },
       ),

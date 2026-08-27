@@ -8,10 +8,31 @@ class AppPopUp{
         Color lineColor = Colors.green,
         Duration duration = const Duration(seconds: 2),
       }) {
-    final overlay = Navigator.of(navigatorKey.currentContext!, rootNavigator: true).overlay;
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
+    OverlayState? overlay;
+    try {
+      overlay = Navigator.of(context, rootNavigator: true).overlay;
+    } catch (_) {
+      return;
+    }
     if (overlay == null) return;
 
-    final overlayEntry = OverlayEntry(
+    late final OverlayEntry overlayEntry;
+    var removed = false;
+
+    void safeRemove() {
+      if (removed) return;
+      removed = true;
+      try {
+        if (overlayEntry.mounted) {
+          overlayEntry.remove();
+        }
+      } catch (_) {}
+    }
+
+    overlayEntry = OverlayEntry(
       builder: (context) {
         return Positioned(
           top: MediaQuery.of(context).padding.top + 15,
@@ -69,11 +90,13 @@ class AppPopUp{
       },
     );
 
-    overlay.insert(overlayEntry);
+    try {
+      overlay.insert(overlayEntry);
+    } catch (_) {
+      return;
+    }
 
-    Future.delayed(duration, () {
-      overlayEntry.remove();
-    });
+    Future.delayed(duration, safeRemove);
   }
 
 }

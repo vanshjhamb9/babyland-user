@@ -45,7 +45,7 @@ class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
               child: Text('No privacy policy content available'),
             ) :  body(fixedContent),
             ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi("privacy"),),
-            null => throw GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi("privacy"),),
+            null => GeneralExceptionWidget(onPress: () => provider.privacyPolicyApi("privacy"),),
           };
         },
       ),

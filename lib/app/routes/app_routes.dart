@@ -170,8 +170,50 @@ class AppRoutes{
 
   static const String postpartumRecoveryLogView = 'postpartumRecoveryLogView';
 
+  /// Firebase Phone Auth reCAPTCHA / app-verify returns as `/link?deep_link_id=…`.
+  /// Flutter's navigator must not treat that as an app screen or CAPTCHA hangs.
+  static bool _isFirebaseAuthDeepLink(String? name) {
+    if (name == null || name.isEmpty) return false;
+    final n = name.toLowerCase();
+    return n.startsWith('/link') ||
+        n.contains('deep_link_id=') ||
+        n.contains('__/auth/') ||
+        n.contains('recaptchatoken') ||
+        n.contains('authtype=verifyapp') ||
+        n.contains('firebaseapp.com');
+  }
+
+  /// Pop immediately so the signup/OTP stack stays under the Custom Tabs return.
+  static Route<dynamic> _noopAuthCallbackRoute(RouteSettings settings) {
+    return PageRouteBuilder<void>(
+      settings: settings,
+      opaque: false,
+      barrierColor: const Color(0x00000000),
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (context, animation, secondaryAnimation) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+          }
+        });
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
   static Route<dynamic> generateRoute(RouteSettings settings){
     pt(settings.name.toString(),name: "Routes--------------->>>>>>>>");
+
+    if (_isFirebaseAuthDeepLink(settings.name)) {
+      final raw = settings.name ?? '';
+      final preview = raw.length > 96 ? '${raw.substring(0, 96)}…' : raw;
+      pt('Ignoring Firebase Auth deep link (CAPTCHA return): $preview',
+          name: 'Routes');
+      return _noopAuthCallbackRoute(settings);
+    }
+
     switch(settings.name){
       // Some Android intents / embedders deliver `/` as a route name; treat as cold entry.
       case '/':
@@ -434,6 +476,10 @@ class AppRoutes{
       return MaterialPageRoute(builder: (_) => const ConversationMemoryScreen());
 
       default:
+        // Defensive: query-string variants may not match the early check above.
+        if (_isFirebaseAuthDeepLink(settings.name)) {
+          return _noopAuthCallbackRoute(settings);
+        }
         return MaterialPageRoute(
           builder: (_) => Scaffold(
             body: Center(child: Text('No route defined for ${settings.name}')),

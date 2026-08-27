@@ -76,7 +76,7 @@ class CycleCalenderProvider extends ChangeNotifier {
 
   }
 
-  Future<void> dashboardData() async {
+  Future<void> dashboardData({bool allowRetry = true}) async {
     setDashboardApiData(ApiResponse.loading());
     notifyListeners();
     final userId = await SecureStorage.getUserId();
@@ -101,8 +101,22 @@ class CycleCalenderProvider extends ChangeNotifier {
         if (!handled) AppPopUp.showToast(message: value.message ?? "Something went wrong!");
       }
       notifyListeners();
-    },).onError((error, stackTrace) {
+    },).onError((error, stackTrace) async {
       pt("Error in pregnancyInfo: $error\n$stackTrace");
+      final msg = error.toString().toLowerCase();
+      final isTransient = msg.contains('timeout') ||
+          msg.contains('socket') ||
+          msg.contains('connection') ||
+          msg.contains('network') ||
+          msg.contains('401') ||
+          msg.contains('503') ||
+          msg.contains('502');
+      if (allowRetry && isTransient) {
+        pt('dashboardData: transient failure — auto-retry once');
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        await dashboardData(allowRetry: false);
+        return;
+      }
       setDashboardApiData(ApiResponse.error(error.toString()));
       notifyListeners();
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
