@@ -17,7 +17,7 @@ It means **reCAPTCHA Enterprise / SMS defense was turned on** for project `theba
 2. **Phone authentication enforcement mode** must be **`OFF`** (not `AUDIT`, not `ENFORCE`)
 3. Click **Save**
 4. Force-quit Babyland → **Send code** again  
-   **No new TestFlight build required for this console change.**
+   *  cncdj*No new TestFlight build required for this console change.**
 
 `AUDIT` still triggers reCAPTCHA Enterprise fallback and causes `recaptcha-sdk-not-linked` on iOS without the Enterprise SDK.
 
@@ -71,10 +71,16 @@ If Enterprise enforcement is ON without the SDK → `recaptcha-sdk-not-linked`.
 
 ### App-side CAPTCHA return (Aug 2026)
 
-If Safari/Custom Tabs returns and the app shows **"No route defined for /link?deep_link_id=…"**, that was Flutter treating Firebase’s auth callback as a Navigator route. Fixed by:
+If Safari/Custom Tabs returns and the app shows **"No route defined for /link?deep_link_id=…"**, Flutter ate Firebase’s auth callback as a Navigator route.
 
-- Ignoring `/link` / `deep_link_id` / `__/auth/` routes in `AppRoutes`
-- `FlutterDeepLinkingEnabled=false` (iOS) and `flutter_deeplinking_enabled=false` (Android)
+**Proper fix (1.0.30+):**
+
+1. Android `MainActivity.shouldHandleDeeplinking() = false` (manifest flag alone is unreliable)
+2. Block `/link` / Auth callbacks from becoming Flutter routes in `onNewIntent`
+3. Dart `AppRoutes` discards Auth deep links without blank/error UI
+4. `FlutterDeepLinkingEnabled=false` in Info.plist
+
+Must install a **new** TestFlight/APK build — old binaries still show the error.
 
 ---
 

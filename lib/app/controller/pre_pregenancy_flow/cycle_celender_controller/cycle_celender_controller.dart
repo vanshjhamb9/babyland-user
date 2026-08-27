@@ -3,6 +3,7 @@ import 'package:babyland/app/controller/pre_pregenancy_flow/model/dashboard_curr
 import 'package:babyland/app/controller/pre_pregenancy_flow/model/menstrual_dashboard_Predict_model.dart';
 import 'package:babyland/app/controller/pre_pregenancy_flow/model/mentural_ai_insights_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
+import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/print.dart';
 import 'package:babyland/app/widgets/subscription_dialog.dart';
@@ -77,8 +78,14 @@ class CycleCalenderProvider extends ChangeNotifier {
   }
 
   Future<void> dashboardData({bool allowRetry = true}) async {
-    setDashboardApiData(ApiResponse.loading());
-    notifyListeners();
+    final previous = _dashboardApiData;
+    final hasGoodData =
+        previous?.status == ApiStatus.COMPLETED && previous?.data != null;
+    // Keep last good home visible during refresh — avoids Oops flash after idle.
+    if (!hasGoodData) {
+      setDashboardApiData(ApiResponse.loading());
+      notifyListeners();
+    }
     final userId = await SecureStorage.getUserId();
 
     Map<String,dynamic> data = {
@@ -94,7 +101,18 @@ class CycleCalenderProvider extends ChangeNotifier {
       if(value.success == false) {
         if(value.message == "Tracker not found"){
           setDashboardApiData(ApiResponse.completed(value));
-        }else {
+        }else if (hasGoodData) {
+          // Soft-fail: toast only, keep existing dashboard.
+          setDashboardApiData(previous!);
+          final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
+          if (!handled) {
+            AppPopUp.showToast(
+              message: value.message ?? "Couldn't refresh. Showing last data.",
+            );
+          }
+          notifyListeners();
+          return;
+        } else {
           setDashboardApiData(ApiResponse.error(value.message ?? "Something went wrong!"));
         }
         final handled = await SubscriptionDialog.showDialogIfSubscriptionRequired(value.message);
@@ -115,6 +133,12 @@ class CycleCalenderProvider extends ChangeNotifier {
         pt('dashboardData: transient failure — auto-retry once');
         await Future<void>.delayed(const Duration(milliseconds: 600));
         await dashboardData(allowRetry: false);
+        return;
+      }
+      if (hasGoodData) {
+        setDashboardApiData(previous!);
+        notifyListeners();
+        AppPopUp.showToast(message: "Couldn't refresh. Showing last data.");
         return;
       }
       setDashboardApiData(ApiResponse.error(error.toString()));

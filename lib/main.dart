@@ -470,6 +470,7 @@ class Babyland extends StatelessWidget {
                 colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
               ),
               onGenerateRoute: AppRoutes.generateRoute,
+              onUnknownRoute: AppRoutes.unknownRouteFallback,
               initialRoute: AppRoutes.splashView,
             ),
           ),

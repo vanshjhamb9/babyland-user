@@ -172,7 +172,7 @@ class AppRoutes{
 
   /// Firebase Phone Auth reCAPTCHA / app-verify returns as `/link?deep_link_id=…`.
   /// Flutter's navigator must not treat that as an app screen or CAPTCHA hangs.
-  static bool _isFirebaseAuthDeepLink(String? name) {
+  static bool isFirebaseAuthDeepLink(String? name) {
     if (name == null || name.isEmpty) return false;
     final n = name.toLowerCase();
     return n.startsWith('/link') ||
@@ -183,35 +183,32 @@ class AppRoutes{
         n.contains('firebaseapp.com');
   }
 
-  /// Pop immediately so the signup/OTP stack stays under the Custom Tabs return.
-  static Route<dynamic> _noopAuthCallbackRoute(RouteSettings settings) {
-    return PageRouteBuilder<void>(
-      settings: settings,
-      opaque: false,
-      barrierColor: const Color(0x00000000),
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-      pageBuilder: (context, animation, secondaryAnimation) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final nav = Navigator.of(context);
-          if (nav.canPop()) {
-            nav.pop();
-          }
-        });
-        return const SizedBox.shrink();
-      },
+  /// Discard Auth callbacks without blank screens or "No route defined" UI.
+  /// Prefer [MainActivity.shouldHandleDeeplinking] so this rarely runs.
+  static Route<dynamic> discardAuthDeepLinkRoute(RouteSettings settings) {
+    return _DiscardDeepLinkRoute(settings: settings);
+  }
+
+  static Route<dynamic> unknownRouteFallback(RouteSettings settings) {
+    if (isFirebaseAuthDeepLink(settings.name)) {
+      return discardAuthDeepLinkRoute(settings);
+    }
+    // Never dump raw deep-link tokens / paths on screen in production.
+    return MaterialPageRoute(
+      settings: const RouteSettings(name: splashView),
+      builder: (_) => const SplashView(),
     );
   }
 
   static Route<dynamic> generateRoute(RouteSettings settings){
     pt(settings.name.toString(),name: "Routes--------------->>>>>>>>");
 
-    if (_isFirebaseAuthDeepLink(settings.name)) {
+    if (isFirebaseAuthDeepLink(settings.name)) {
       final raw = settings.name ?? '';
       final preview = raw.length > 96 ? '${raw.substring(0, 96)}…' : raw;
-      pt('Ignoring Firebase Auth deep link (CAPTCHA return): $preview',
+      pt('Discarding Firebase Auth deep link (CAPTCHA return): $preview',
           name: 'Routes');
-      return _noopAuthCallbackRoute(settings);
+      return discardAuthDeepLinkRoute(settings);
     }
 
     switch(settings.name){
@@ -476,16 +473,67 @@ class AppRoutes{
       return MaterialPageRoute(builder: (_) => const ConversationMemoryScreen());
 
       default:
-        // Defensive: query-string variants may not match the early check above.
-        if (_isFirebaseAuthDeepLink(settings.name)) {
-          return _noopAuthCallbackRoute(settings);
-        }
-        return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            body: Center(child: Text('No route defined for ${settings.name}')),
-          ),
-        );
+        return unknownRouteFallback(settings);
     }
 
+  }
+}
+
+/// Removes itself from the stack without showing UI. On cold start (nothing to
+/// pop), replaces with splash so the user never sees a blank screen.
+class _DiscardDeepLinkRoute extends PageRoute<void> {
+  _DiscardDeepLinkRoute({required RouteSettings settings})
+      : super(settings: settings);
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  bool get opaque => false;
+
+  @override
+  bool get barrierDismissible => false;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => false;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return const SizedBox.shrink();
+  }
+
+  @override
+  TickerFuture didPush() {
+    final result = super.didPush();
+    result.whenComplete(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final nav = navigator;
+        if (nav == null) return;
+        if (nav.canPop()) {
+          nav.removeRoute(this);
+        } else {
+          nav.pushReplacement(
+            MaterialPageRoute(
+              settings: const RouteSettings(name: AppRoutes.splashView),
+              builder: (_) => const SplashView(),
+            ),
+          );
+        }
+      });
+    });
+    return result;
   }
 }

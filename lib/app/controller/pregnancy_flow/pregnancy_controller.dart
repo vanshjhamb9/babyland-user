@@ -5,6 +5,7 @@ import 'package:babyland/app/controller/pregnancy_flow/model/communities_data_mo
 import 'package:babyland/app/controller/pregnancy_flow/model/pregnancy_data_model.dart';
 import 'package:babyland/app/controller/pregnancy_flow/pregnancy_info_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
+import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/navbar/pregnancy/navbar.dart';
@@ -332,8 +333,14 @@ class PregnancyController extends ChangeNotifier {
   }
 
   Future<void> getPregnancyApiData({bool allowRetry = true}) async {
-    setLoadingPreg(true);
-    setPregnancyApiData(ApiResponse.loading());
+    final previous = _pregnancyApiData;
+    final hasGoodData =
+        previous?.status == ApiStatus.COMPLETED && previous?.data != null;
+
+    if (!hasGoodData) {
+      setLoadingPreg(true);
+      setPregnancyApiData(ApiResponse.loading());
+    }
 
     try {
       final value = await repository.getPregnancyDataApi();
@@ -341,6 +348,9 @@ class PregnancyController extends ChangeNotifier {
       if (value.success == true) {
         setPregnancyApiData(ApiResponse.completed(value));
         pt(name: "response", "${value.data}");
+      } else if (hasGoodData) {
+        setPregnancyApiData(previous!);
+        pt('getPregnancyApiData soft-fail — keeping last good data');
       } else {
         setPregnancyApiData(ApiResponse.error(value.message ?? "Tracker not found"));
       }
@@ -360,7 +370,11 @@ class PregnancyController extends ChangeNotifier {
         await getPregnancyApiData(allowRetry: false);
         return;
       }
-      setPregnancyApiData(ApiResponse.error(e.toString()));
+      if (hasGoodData) {
+        setPregnancyApiData(previous!);
+      } else {
+        setPregnancyApiData(ApiResponse.error(e.toString()));
+      }
     } finally {
       setLoadingPreg(false);
     }

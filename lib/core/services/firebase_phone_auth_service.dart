@@ -63,6 +63,11 @@ class FirebasePhoneAuthService extends ChangeNotifier {
   bool get isVerifyingCode => _isVerifyingCode;
   bool get isBusy => _isSendingOtp || _isVerifyingCode;
 
+  /// True while Custom Tabs/Safari CAPTCHA or OTP entry may still be in flight.
+  /// Used to defer resume API storms that wipe the signup stack.
+  bool get shouldDeferAppReconcile =>
+      isBusy || hasPendingPhoneVerification;
+
   String? get lastErrorCode => _lastErrorCode;
   String? get lastErrorMessage => _lastErrorMessage;
   String? get userFacingMessage => _userFacingMessage;

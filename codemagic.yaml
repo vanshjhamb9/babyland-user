@@ -64,7 +64,7 @@ workflows:
             --dart-define=API_BASE_URL=http://164.52.197.176/api/v1 \
             --dart-define=API_ROOT_URL=http://164.52.197.176/api \
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
-            --dart-define=APP_BUILD_TAG=appstore-v2 \
+            --dart-define=APP_BUILD_TAG=appstore-v3 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
           echo "IPA outputs:"
           find build/ios -name "*.ipa" -type f
@@ -118,7 +118,7 @@ workflows:
             --dart-define=API_BASE_URL=http://164.52.197.176/api/v1 \
             --dart-define=API_ROOT_URL=http://164.52.197.176/api \
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
-            --dart-define=APP_BUILD_TAG=appstore-v2 \
+            --dart-define=APP_BUILD_TAG=appstore-v3 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
           find build/ios -name "*.ipa" -type f
           test -n "$(find build/ios -name '*.ipa' -type f | head -1)" \

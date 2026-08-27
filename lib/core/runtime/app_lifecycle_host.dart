@@ -125,11 +125,11 @@ class _AppLifecycleHostState extends State<AppLifecycleHost>
         reason: state.name,
       );
 
-      // Custom Tabs / Safari reCAPTCHA resumes the app — do not storm APIs mid-OTP.
-      if (sl.firebasePhoneAuthService.isBusy) {
+      // Custom Tabs / Safari reCAPTCHA (and OTP entry) — do not storm APIs.
+      if (sl.firebasePhoneAuthService.shouldDeferAppReconcile) {
         AppRuntimeAuditTrail.log(
           AppRuntimeEvent.reconcileDone,
-          reason: 'appResume_skipped_phone_auth_busy',
+          reason: 'appResume_skipped_phone_auth_flow',
         );
         return;
       }
