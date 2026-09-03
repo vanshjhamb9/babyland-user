@@ -178,7 +178,10 @@ class VideoCallProvider with ChangeNotifier {
     required BuildContext context,
     required AgoraRtcSessionDto dto,
   }) async {
-    if (_channelBusy) return;
+    if (_channelBusy) {
+      log('⚠️ joinConsultationWithBackendRtc blocked: _channelBusy=true');
+      throw StateError('Video call is already being established. Please wait.');
+    }
     if (dto.isExpired || dto.expiresTooSoon) {
       AppAuditLog.instance.log(
         'token_expired',
@@ -204,10 +207,14 @@ class VideoCallProvider with ChangeNotifier {
 
     try {
       _activeBackendSession = dto;
+      log('📡 Step 1: Requesting permissions...');
       await _requestPermissions();
+      log('📡 Step 2: Resolving Agora App ID...');
       final agoraAppId = _resolveAgoraAppId(dto);
+      log('📡 Step 3: Preparing engine (App ID: ${agoraAppId.substring(0, math.min(8, agoraAppId.length))})...');
 
       await _prepareEngineForJoin(context, agoraAppId: agoraAppId);
+      log('📡 Step 4: Engine ready. Joining channel...');
 
       await joinChannel(
         channelName: dto.channelName,
@@ -215,6 +222,7 @@ class VideoCallProvider with ChangeNotifier {
         numericUid: dto.uid,
         token: dto.token,
       );
+      log('📡 Step 5: Channel joined successfully');
 
       _scheduleTokenRenewal(dto.consultationId);
 
@@ -452,20 +460,51 @@ class VideoCallProvider with ChangeNotifier {
 
   Future<void> _requestPermissions() async {
     try {
-      final permissions = <Permission>[
-        Permission.microphone,
-        Permission.camera,
-      ];
-      if (Platform.isAndroid) {
-        permissions.add(Permission.bluetoothConnect);
-      }
-      final statuses = await permissions.request();
+      log('🔐 Requesting permissions (Platform: ${Platform.isIOS ? "iOS" : "Android"})');
 
-      if (statuses[Permission.microphone]?.isGranted != true ||
-          statuses[Permission.camera]?.isGranted != true) {
-        throw StateError(
-          'Camera and microphone access are required to join the video consultation.',
+      if (Platform.isIOS) {
+        final cameraStatus = await Permission.camera.request().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            log('⚠️ Camera permission request timed out');
+            return PermissionStatus.denied;
+          },
         );
+        log('🔐 Camera permission: $cameraStatus');
+
+        final micStatus = await Permission.microphone.request().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            log('⚠️ Microphone permission request timed out');
+            return PermissionStatus.denied;
+          },
+        );
+        log('🔐 Microphone permission: $micStatus');
+
+        if (cameraStatus.isDenied || micStatus.isDenied) {
+          throw StateError(
+            'Camera and microphone access are required to join the video consultation.',
+          );
+        }
+      } else {
+        final statuses = await [
+          Permission.microphone,
+          Permission.camera,
+          Permission.bluetoothConnect,
+        ].request().timeout(
+          const Duration(seconds: 15),
+          onTimeout: () {
+            log('⚠️ Permission request timed out on Android');
+            return <Permission, PermissionStatus>{};
+          },
+        );
+
+        if (statuses[Permission.microphone]?.isGranted != true ||
+            statuses[Permission.camera]?.isGranted != true) {
+          throw StateError(
+            'Camera and microphone access are required to join the video consultation.',
+          );
+        }
       }
 
       log('✅ Camera and microphone permissions granted');

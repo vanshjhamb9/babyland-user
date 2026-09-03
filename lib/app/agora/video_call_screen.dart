@@ -47,6 +47,12 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       await videoCallProvider.joinConsultationWithBackendRtc(
         context: context,
         dto: dto,
+      ).timeout(
+        const Duration(seconds: 45),
+        onTimeout: () {
+          log('⚠️ joinConsultationWithBackendRtc timed out after 45s');
+          throw StateError('Video call connection timed out. Please try again.');
+        },
       );
     } catch (e) {
       log('Error initializing video call: $e');
