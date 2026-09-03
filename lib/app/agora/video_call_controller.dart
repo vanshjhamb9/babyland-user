@@ -178,6 +178,10 @@ class VideoCallProvider with ChangeNotifier {
     required BuildContext context,
     required AgoraRtcSessionDto dto,
   }) async {
+    if (_channelBusy && !_sessionJoinInFlight) {
+      log('⚠️ _channelBusy stuck true (stale from previous attempt), resetting');
+      _channelBusy = false;
+    }
     if (_channelBusy) {
       log('⚠️ joinConsultationWithBackendRtc blocked: _channelBusy=true');
       throw StateError('Video call is already being established. Please wait.');
@@ -462,49 +466,38 @@ class VideoCallProvider with ChangeNotifier {
     try {
       log('🔐 Requesting permissions (Platform: ${Platform.isIOS ? "iOS" : "Android"})');
 
-      if (Platform.isIOS) {
-        final cameraStatus = await Permission.camera.request().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            log('⚠️ Camera permission request timed out');
-            return PermissionStatus.denied;
-          },
-        );
-        log('🔐 Camera permission: $cameraStatus');
+      final camStatus = await Permission.camera.status;
+      final micStatus = await Permission.microphone.status;
+      log('🔐 Current status — camera: $camStatus, mic: $micStatus');
 
-        final micStatus = await Permission.microphone.request().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            log('⚠️ Microphone permission request timed out');
-            return PermissionStatus.denied;
-          },
-        );
-        log('🔐 Microphone permission: $micStatus');
+      if (camStatus.isGranted && micStatus.isGranted) {
+        log('✅ Permissions already granted, skipping request');
+        return;
+      }
 
-        if (cameraStatus.isDenied || micStatus.isDenied) {
-          throw StateError(
-            'Camera and microphone access are required to join the video consultation.',
-          );
-        }
-      } else {
-        final statuses = await [
-          Permission.microphone,
-          Permission.camera,
-          Permission.bluetoothConnect,
-        ].request().timeout(
-          const Duration(seconds: 15),
-          onTimeout: () {
-            log('⚠️ Permission request timed out on Android');
-            return <Permission, PermissionStatus>{};
-          },
-        );
+      final permissions = <Permission>[
+        Permission.microphone,
+        Permission.camera,
+      ];
+      if (Platform.isAndroid) {
+        permissions.add(Permission.bluetoothConnect);
+      }
 
-        if (statuses[Permission.microphone]?.isGranted != true ||
-            statuses[Permission.camera]?.isGranted != true) {
-          throw StateError(
-            'Camera and microphone access are required to join the video consultation.',
-          );
-        }
+      final statuses = await permissions.request().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          log('⚠️ Permission request timed out');
+          return <Permission, PermissionStatus>{};
+        },
+      );
+
+      log('🔐 Permission results: $statuses');
+
+      if (statuses[Permission.microphone]?.isGranted != true ||
+          statuses[Permission.camera]?.isGranted != true) {
+        throw StateError(
+          'Camera and microphone access are required to join the video consultation.',
+        );
       }
 
       log('✅ Camera and microphone permissions granted');
