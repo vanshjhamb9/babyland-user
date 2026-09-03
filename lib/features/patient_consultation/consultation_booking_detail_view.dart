@@ -32,10 +32,9 @@ class ConsultationBookingDetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     final phase = bookingLifecycleFromBooking(booking);
     final url = booking.doctorId?.profileImageUrl;
-    final spec =
-        booking.doctorId?.specialization?.trim().isNotEmpty == true
-            ? booking.doctorId!.specialization!
-            : 'Specialty';
+    final spec = booking.doctorId?.specialization?.trim().isNotEmpty == true
+        ? booking.doctorId!.specialization!
+        : 'Specialty';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundClr,
@@ -127,9 +126,9 @@ class ConsultationBookingDetailView extends StatelessWidget {
                 borderRadius: 12,
                 height: 50,
                 onTap: () => ConsultationJoinGuard.maybeOpenVideo(
-                      context: context,
-                      booking: booking,
-                    ),
+                  context: context,
+                  booking: booking,
+                ),
                 child: Center(
                   child: Text(
                     'Join consultation',

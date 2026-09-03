@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:babyland/main.dart';
@@ -35,8 +36,14 @@ class VideoCallProvider with ChangeNotifier {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
-  late RtcEngine _engine;
-  RtcEngine get engine => _engine;
+  RtcEngine? _engineOrNull;
+  RtcEngine get engine {
+    final e = _engineOrNull;
+    if (e == null) {
+      throw StateError('Video engine not initialized');
+    }
+    return e;
+  }
 
   int? _remoteUid;
   int? get remoteUid => _remoteUid;
@@ -196,8 +203,8 @@ class VideoCallProvider with ChangeNotifier {
     );
 
     try {
-      await _requestPermissions();
       _activeBackendSession = dto;
+      await _requestPermissions();
       final agoraAppId = _resolveAgoraAppId(dto);
 
       await _prepareEngineForJoin(context, agoraAppId: agoraAppId);
@@ -310,9 +317,9 @@ class VideoCallProvider with ChangeNotifier {
     _activeBackendSession = fresh;
     token = fresh.token;
     try {
-      await _engine.renewToken(_cleanToken(fresh.token));
+      await _engineOrNull!.renewToken(_cleanToken(fresh.token));
     } catch (_) {
-      if (_isJoined) await _engine.leaveChannel();
+      if (_isJoined) await _engineOrNull!.leaveChannel();
       await joinChannel(
         channelName: fresh.channelName,
         uid: fresh.uid.toString(),
@@ -445,11 +452,14 @@ class VideoCallProvider with ChangeNotifier {
 
   Future<void> _requestPermissions() async {
     try {
-      final statuses = await [
+      final permissions = <Permission>[
         Permission.microphone,
         Permission.camera,
-        Permission.bluetoothConnect,
-      ].request();
+      ];
+      if (Platform.isAndroid) {
+        permissions.add(Permission.bluetoothConnect);
+      }
+      final statuses = await permissions.request();
 
       if (statuses[Permission.microphone]?.isGranted != true ||
           statuses[Permission.camera]?.isGranted != true) {
@@ -484,7 +494,7 @@ class VideoCallProvider with ChangeNotifier {
 
     if (_registeredEventHandler != null) {
       try {
-        _engine.unregisterEventHandler(_registeredEventHandler!);
+        _engineOrNull?.unregisterEventHandler(_registeredEventHandler!);
       } catch (e) {
         log('⚠️ unregisterEventHandler: $e');
       }
@@ -493,8 +503,8 @@ class VideoCallProvider with ChangeNotifier {
 
     if (_isInitialized) {
       try {
-        if (_isJoined) await _engine.leaveChannel();
-        await _engine.release();
+        if (_isJoined) await _engineOrNull?.leaveChannel();
+        await _engineOrNull?.release();
       } catch (e) {
         log('⚠️ Engine release: $e');
       }
@@ -563,20 +573,20 @@ class VideoCallProvider with ChangeNotifier {
     try {
       log('🚀 Initializing Agora Engine (appId prefix: ${agoraAppId.substring(0, math.min(8, agoraAppId.length))})');
 
-      _engine = createAgoraRtcEngine();
-      await _engine.initialize(RtcEngineContext(
+      _engineOrNull = createAgoraRtcEngine();
+      await _engineOrNull!.initialize(RtcEngineContext(
         appId: agoraAppId,
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
         audioScenario: AudioScenarioType.audioScenarioDefault,
         areaCode: 4294967295,
       ));
 
-      await _engine.setClientRole(
+      await _engineOrNull!.setClientRole(
         role: ClientRoleType.clientRoleBroadcaster,
       );
 
-      await _engine.enableVideo();
-      await _engine.setVideoEncoderConfiguration(const VideoEncoderConfiguration(
+      await _engineOrNull!.enableVideo();
+      await _engineOrNull!.setVideoEncoderConfiguration(const VideoEncoderConfiguration(
         dimensions: VideoDimensions(width: 640, height: 360),
         frameRate: 15,
         bitrate: 800,
@@ -597,7 +607,7 @@ class VideoCallProvider with ChangeNotifier {
   void _setupEventHandlers(BuildContext context) {
     if (_registeredEventHandler != null) {
       try {
-        _engine.unregisterEventHandler(_registeredEventHandler!);
+        _engineOrNull?.unregisterEventHandler(_registeredEventHandler!);
       } catch (e) {
         log('⚠️ unregisterEventHandler before re-register: $e');
       }
@@ -692,13 +702,13 @@ class VideoCallProvider with ChangeNotifier {
 
       onRtcStats: (connection, stats) {
         _callDurationForAppbar = stats.duration ?? 0;
-        if (stats.duration! % 10 == 0) {
+        if ((stats.duration ?? 0) % 10 == 0) {
           log("📊 Call stats - Duration: ${stats.duration}s, Users: ${stats.userCount}");
         }
         notifyListeners();
       },
     );
-    _engine.registerEventHandler(_registeredEventHandler!);
+    _engineOrNull!.registerEventHandler(_registeredEventHandler!);
   }
 
   Future<void> joinChannel({
@@ -708,7 +718,7 @@ class VideoCallProvider with ChangeNotifier {
     required String token,
   }) async {
     try {
-      await _engine.startPreview();
+      await _engineOrNull!.startPreview();
 
       log("🎬 Joining channel:");
       log("   Channel: $channelName");
@@ -733,7 +743,7 @@ class VideoCallProvider with ChangeNotifier {
         throw Exception('Token is empty after cleaning');
       }
 
-      await _engine.joinChannel(
+      await _engineOrNull!.joinChannel(
         token: cleanToken,
         channelId: channelName,
         uid: numericUid,
@@ -812,21 +822,21 @@ class VideoCallProvider with ChangeNotifier {
 
   Future<void> toggleMicrophone() async {
     _isMicrophoneMuted = !_isMicrophoneMuted;
-    await _engine.muteLocalAudioStream(_isMicrophoneMuted);
+    await _engineOrNull!.muteLocalAudioStream(_isMicrophoneMuted);
     log("🎤 Microphone ${_isMicrophoneMuted ? 'muted' : 'unmuted'}");
     notifyListeners();
   }
 
   Future<void> toggleVideo() async {
     _isVideoMuted = !_isVideoMuted;
-    await _engine.muteLocalVideoStream(_isVideoMuted);
+    await _engineOrNull!.muteLocalVideoStream(_isVideoMuted);
     log("📹 Video ${_isVideoMuted ? 'muted' : 'unmuted'}");
     notifyListeners();
   }
 
   Future<void> switchCamera() async {
     try {
-      await _engine.switchCamera();
+      await _engineOrNull!.switchCamera();
       log("📸 Camera switched");
     } catch (e) {
       log("❌ Error switching camera: $e");
@@ -837,7 +847,7 @@ class VideoCallProvider with ChangeNotifier {
     log("🔄 Reinitializing for remote video...");
     try {
       if (_isJoined) {
-        await _engine.leaveChannel();
+        await _engineOrNull?.leaveChannel();
       }
 
       _remoteUid = null;
@@ -993,17 +1003,17 @@ class VideoCallProvider with ChangeNotifier {
 
       if (_registeredEventHandler != null) {
         try {
-          _engine.unregisterEventHandler(_registeredEventHandler!);
+        _engineOrNull?.unregisterEventHandler(_registeredEventHandler!);
         } catch (_) {}
         _registeredEventHandler = null;
       }
 
       if (_isInitialized) {
         try {
-          _engine.leaveChannel();
+          _engineOrNull?.leaveChannel();
         } catch (_) {}
         try {
-          _engine.release();
+          _engineOrNull?.release();
         } catch (_) {}
       }
 

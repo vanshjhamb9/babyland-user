@@ -243,9 +243,16 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   }
 
   Future<void> _retryConnection(VideoCallProvider videoCallProvider) async {
+    if (_isRetrying) return;
     setState(() => _isRetrying = true);
     try {
-      final fresh = await videoCallProvider.refreshBackendSession();
+      final session = _session ?? widget.backendSession;
+      AgoraRtcSessionDto fresh;
+      try {
+        fresh = await videoCallProvider.refreshBackendSession();
+      } catch (_) {
+        fresh = session;
+      }
       _session = fresh;
       await _initializeVideoCall(session: fresh);
     } catch (e) {

@@ -60,7 +60,7 @@ class _AllDoctorViewState extends State<AllDoctorView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // SEARCH FIELD
-        /*        CustomTextFormField                (
+                /*        CustomTextFormField                (
                   controller: provider.searchController,
                   borderColor: AppColors.borderColor,
                   prefix: Padding(
@@ -78,7 +78,11 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                   borderColor: AppColors.borderColor,
                   prefix: Padding(
                     padding: const EdgeInsets.only(left: 8.0),
-                    child: Icon(Icons.search, color: AppColors.purpleClr, size: 20),
+                    child: Icon(
+                      Icons.search,
+                      color: AppColors.purpleClr,
+                      size: 20,
+                    ),
                   ),
                   hintText: "Search doctors...",
                   onChanged: (value) {
@@ -89,12 +93,12 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                   // Optional: Add clear button
                   suffix: provider.searchController.text.isNotEmpty
                       ? IconButton(
-                    icon: Icon(Icons.clear, size: 20),
-                    onPressed: () {
-                      provider.searchController.clear();
-                      provider.searchDoctors('');
-                    },
-                  )
+                          icon: Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            provider.searchController.clear();
+                            provider.searchDoctors('');
+                          },
+                        )
                       : null,
                 ),
                 const SizedBox(height: 16),
@@ -103,76 +107,89 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: List.generate(
-                      provider.btnList.length,
-                          (index) {
-                        final isSelected = provider.selectedBtn == index;
-                        return GestureDetector(
-                          onTap: () {
-                            provider.setSelectedBtn(index);
-                            if(index == 1) {
-                              provider.doctorDetailApiData(date: DateTime.now());
-                            }else {
-                              provider.doctorDetailApiData();
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: AppContainer(
-                              gradient: isSelected
-                                  ? AppColors.buttonClr
-                                  : LinearGradient(colors: [AppColors.white, AppColors.white]),
-                              radius: 100,
-                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CustomImage(
-                                    path: provider.btnList[index]['image'] ?? "",
-                                    h: 14,
-                                    w: 14,
-                                    color: isSelected ? AppColors.white : AppColors.buttonClr1,
+                    children: List.generate(provider.btnList.length, (index) {
+                      final isSelected = provider.selectedBtn == index;
+                      return GestureDetector(
+                        onTap: () {
+                          provider.setSelectedBtn(index);
+                          if (index == 1) {
+                            provider.doctorDetailApiData(date: DateTime.now());
+                          } else {
+                            provider.doctorDetailApiData();
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: AppContainer(
+                            gradient: isSelected
+                                ? AppColors.buttonClr
+                                : LinearGradient(
+                                    colors: [AppColors.white, AppColors.white],
                                   ),
-                                  const SizedBox(width: 10),
-                                  GradientText(
-                                    provider.btnList[index]['title'] ?? "",
-                                    style: AppFontStyle.text_14_500(
-                                      fontFamily:
-                                      isSelected ? AppFontFamily.gilroyBold : AppFontFamily.gilroySemiBold,
-                                      color: isSelected ? AppColors.white : AppColors.buttonClr1,
-                                    ),
-                                    gradient: !isSelected
-                                        ? AppColors.buttonClr
-                                        : LinearGradient(colors: [AppColors.white, AppColors.white]),
+                            radius: 100,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CustomImage(
+                                  path: provider.btnList[index]['image'] ?? "",
+                                  h: 14,
+                                  w: 14,
+                                  color: isSelected
+                                      ? AppColors.white
+                                      : AppColors.buttonClr1,
+                                ),
+                                const SizedBox(width: 10),
+                                GradientText(
+                                  provider.btnList[index]['title'] ?? "",
+                                  style: AppFontStyle.text_14_500(
+                                    fontFamily: isSelected
+                                        ? AppFontFamily.gilroyBold
+                                        : AppFontFamily.gilroySemiBold,
+                                    color: isSelected
+                                        ? AppColors.white
+                                        : AppColors.buttonClr1,
                                   ),
-                                ],
-                              ),
+                                  gradient: !isSelected
+                                      ? AppColors.buttonClr
+                                      : LinearGradient(
+                                          colors: [
+                                            AppColors.white,
+                                            AppColors.white,
+                                          ],
+                                        ),
+                                ),
+                              ],
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
                 const SizedBox(height: 20),
 
                 // DOCTOR LIST
-// DOCTOR LIST
+                // DOCTOR LIST
                 Expanded(
                   child: Builder(
                     builder: (_) {
                       switch (provider.doctorApiData?.status) {
-                      // LOADING
+                        // LOADING
                         case ApiStatus.LOADING:
                           return _buildShimmerList();
 
-                      // COMPLETED
+                        // COMPLETED
                         case ApiStatus.COMPLETED:
-                        // Get the doctors to display
+                          // Get the doctors to display
                           List<Doctor> doctorsToDisplay = [];
 
                           // Check filtered doctors first
-                          if (provider.filteredDoctors != null && provider.filteredDoctors!.isNotEmpty) {
+                          if (provider.filteredDoctors != null &&
+                              provider.filteredDoctors!.isNotEmpty) {
                             doctorsToDisplay = provider.filteredDoctors!;
                           }
                           // If no filtered doctors, check if search is active
@@ -182,7 +199,11 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.search_off, size: 60, color: AppColors.buttonClr1),
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 60,
+                                    color: AppColors.buttonClr1,
+                                  ),
                                   SizedBox(height: 16),
                                   Text(
                                     "No doctors found",
@@ -205,7 +226,8 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                           }
                           // If no filters and no search, use all doctors
                           else if (provider.doctorApiData?.data?.data != null) {
-                            doctorsToDisplay = provider.doctorApiData!.data!.data!;
+                            doctorsToDisplay =
+                                provider.doctorApiData!.data!.data!;
                           }
 
                           if (doctorsToDisplay.isEmpty) {
@@ -234,16 +256,19 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                     child: Column(
                                       children: [
                                         Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Stack(
                                               clipBehavior: Clip.none,
                                               children: [
                                                 CustomImage(
-                                                  path: ImageConstants.networkImageDemo,
+                                                  path: ImageConstants
+                                                      .networkImageDemo,
                                                   h: 64,
                                                   w: 64,
-                                                  borderRadius: BorderRadius.circular(16),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
                                                 ),
                                                 Positioned(
                                                   right: -8,
@@ -252,12 +277,19 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                                     height: 24,
                                                     width: 24,
                                                     radius: 100,
-                                                    border: Border.all(color: AppColors.white, width: 2),
-                                                    color: doctor.isVerified == false
+                                                    border: Border.all(
+                                                      color: AppColors.white,
+                                                      width: 2,
+                                                    ),
+                                                    color:
+                                                        doctor.isVerified ==
+                                                            false
                                                         ? AppColors.buttonClr1
                                                         : AppColors.greenLight,
                                                     child: Icon(
-                                                      doctor.isVerified == false ? Icons.pause : Icons.done,
+                                                      doctor.isVerified == false
+                                                          ? Icons.pause
+                                                          : Icons.done,
                                                       color: AppColors.white,
                                                       size: 16,
                                                     ),
@@ -267,21 +299,31 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                             ),
                                             SizedBox(width: 15),
                                             Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  capitalizeFirstLetter(doctor.name ?? ""),
-                                                  style: AppFontStyle.text_18_600(
-                                                    fontFamily: AppFontFamily.gilroyMedium,
-                                                    color: AppColors.textClr,
+                                                  capitalizeFirstLetter(
+                                                    doctor.name ?? "",
                                                   ),
+                                                  style:
+                                                      AppFontStyle.text_18_600(
+                                                        fontFamily:
+                                                            AppFontFamily
+                                                                .gilroyMedium,
+                                                        color:
+                                                            AppColors.textClr,
+                                                      ),
                                                 ),
                                                 GradientText(
                                                   "Specialization",
                                                   gradient: AppColors.buttonClr,
-                                                  style: AppFontStyle.text_14_600(
-                                                    fontFamily: AppFontFamily.gilroyMedium,
-                                                  ),
+                                                  style:
+                                                      AppFontStyle.text_14_600(
+                                                        fontFamily:
+                                                            AppFontFamily
+                                                                .gilroyMedium,
+                                                      ),
                                                 ),
                                                 SizedBox(height: 2),
                                                 Row(
@@ -289,9 +331,10 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                                     Row(
                                                       children: List.generate(
                                                         5,
-                                                            (_) => Icon(
+                                                        (_) => Icon(
                                                           Icons.star,
-                                                          color: AppColors.starYellow,
+                                                          color: AppColors
+                                                              .starYellow,
                                                           size: 20,
                                                         ),
                                                       ),
@@ -300,8 +343,11 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                                     Text(
                                                       "${doctor.doctorDetails?.totalAvgRating} (${doctor.doctorDetails?.totalReviewCount} reviews)",
                                                       style: AppFontStyle.text_14_400(
-                                                        fontFamily: AppFontFamily.gilroyRegular,
-                                                        color: AppColors.textClr,
+                                                        fontFamily:
+                                                            AppFontFamily
+                                                                .gilroyRegular,
+                                                        color:
+                                                            AppColors.textClr,
                                                       ),
                                                     ),
                                                   ],
@@ -311,15 +357,19 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                                   children: [
                                                     Icon(
                                                       Icons.access_time_filled,
-                                                      color: AppColors.buttonClr1,
+                                                      color:
+                                                          AppColors.buttonClr1,
                                                       size: 18,
                                                     ),
                                                     SizedBox(width: 6),
                                                     Text(
                                                       "Next available: ${doctor.nextAvailable}",
                                                       style: AppFontStyle.text_14_400(
-                                                        fontFamily: AppFontFamily.gilroyRegular,
-                                                        color: AppColors.textClr,
+                                                        fontFamily:
+                                                            AppFontFamily
+                                                                .gilroyRegular,
+                                                        color:
+                                                            AppColors.textClr,
                                                       ),
                                                     ),
                                                   ],
@@ -332,23 +382,30 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                                         Button(
                                           padding: EdgeInsets.zero,
                                           onTap: () async {
-                                            await UserLocalData.saveDoctorId(doctor.id ?? "");
+                                            await UserLocalData.saveDoctorId(
+                                              doctor.id ?? "",
+                                            );
                                             Navigator.pushNamed(
                                               context,
                                               AppRoutes.doctorProfileView,
                                               arguments: {
-                                                "doctorId": doctor.id
+                                                "doctorId": doctor.id,
                                               },
                                             );
-                                            provider.setSelectedDoctorId(doctor.id ?? "");
+                                            provider.setSelectedDoctorId(
+                                              doctor.id ?? "",
+                                            );
                                           },
                                           borderRadius: 12,
-                                          width: MediaQuery.of(context).size.width,
+                                          width: MediaQuery.of(
+                                            context,
+                                          ).size.width,
                                           height: 46,
                                           child: Text(
                                             "Book Now",
                                             style: AppFontStyle.text_18_400(
-                                              fontFamily: AppFontFamily.gilroySemiBold,
+                                              fontFamily:
+                                                  AppFontFamily.gilroySemiBold,
                                               color: AppColors.white,
                                             ),
                                           ),
@@ -361,7 +418,7 @@ class _AllDoctorViewState extends State<AllDoctorView> {
                             ),
                           );
 
-                      // ERROR
+                        // ERROR
                         case ApiStatus.ERROR:
                           return GeneralExceptionWidget(
                             onPress: () => provider.doctorDetailApiData(),

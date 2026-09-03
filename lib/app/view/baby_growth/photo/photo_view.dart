@@ -38,7 +38,7 @@ class _PhotoViewState extends State<PhotoView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       context.read<PhotoProvider>().getBabyPhotosApis();
-    },);
+    });
   }
 
   @override
@@ -46,20 +46,28 @@ class _PhotoViewState extends State<PhotoView> {
     return Scaffold(
       appBar: CustomAppBar(
         centerTitle: true,
-        title: Text("Photo Journal", style: AppFontStyle.text_20_400(fontFamily: AppFontFamily.gilroySemiBold),),),
-        body: Consumer<PhotoProvider>(
-          builder: (context, provider, _) {
-            final status = provider.babyPhotoDataGet?.status;
-            return switch (status) {
-              ApiStatus.LOADING => photoShimmer(),
-              ApiStatus.ERROR => GeneralExceptionWidget(onPress: () => provider.getBabyPhotosApis(),),
-              ApiStatus.COMPLETED => body(provider),
-              _ => const SizedBox.shrink(),
-            };
-          },
+        title: Text(
+          "Photo Journal",
+          style: AppFontStyle.text_20_400(
+            fontFamily: AppFontFamily.gilroySemiBold,
+          ),
         ),
+      ),
+      body: Consumer<PhotoProvider>(
+        builder: (context, provider, _) {
+          final status = provider.babyPhotoDataGet?.status;
+          return switch (status) {
+            ApiStatus.LOADING => photoShimmer(),
+            ApiStatus.ERROR => GeneralExceptionWidget(
+              onPress: () => provider.getBabyPhotosApis(),
+            ),
+            ApiStatus.COMPLETED => body(provider),
+            _ => const SizedBox.shrink(),
+          };
+        },
+      ),
       bottomNavigationBar: Consumer<PhotoProvider>(
-        builder: (context,provider,_) {
+        builder: (context, provider, _) {
           return AppContainer(
             gradient: AppColors.backGroundColor,
             child: Padding(
@@ -69,7 +77,9 @@ class _PhotoViewState extends State<PhotoView> {
                   showModalBottomSheet(
                     context: context,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
                     ),
                     builder: (context) {
                       return SizedBox(
@@ -88,24 +98,36 @@ class _PhotoViewState extends State<PhotoView> {
                               ),
                               const SizedBox(height: 20),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 50.0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 50.0,
+                                ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     // 📸 Camera
                                     GestureDetector(
                                       onTap: () async {
                                         Navigator.pop(context);
-                                        provider.pickImage(imageSource: ImageSource.camera);
+                                        provider.pickImage(
+                                          imageSource: ImageSource.camera,
+                                        );
                                       },
                                       child: Column(
                                         children: [
-                                          Text("📸" ,style: AppFontStyle.text_40_600(
-                                              color: AppColors.textClr)),
+                                          Text(
+                                            "📸",
+                                            style: AppFontStyle.text_40_600(
+                                              color: AppColors.textClr,
+                                            ),
+                                          ),
                                           const SizedBox(height: 8),
-                                          Text("Camera",
-                                              style: AppFontStyle.text_16_500(
-                                                  color: AppColors.textClr))
+                                          Text(
+                                            "Camera",
+                                            style: AppFontStyle.text_16_500(
+                                              color: AppColors.textClr,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -113,15 +135,24 @@ class _PhotoViewState extends State<PhotoView> {
                                     GestureDetector(
                                       onTap: () async {
                                         Navigator.pop(context);
-                                        provider.pickImage(imageSource: ImageSource.gallery);
+                                        provider.pickImage(
+                                          imageSource: ImageSource.gallery,
+                                        );
                                       },
                                       child: Column(
                                         children: [
-                                          CustomImage(path: ImageConstants.photos,h: 45,w: 45),
+                                          CustomImage(
+                                            path: ImageConstants.photos,
+                                            h: 45,
+                                            w: 45,
+                                          ),
                                           const SizedBox(height: 8),
-                                          Text("Gallery",
-                                              style: AppFontStyle.text_16_500(
-                                                  color: AppColors.textClr))
+                                          Text(
+                                            "Gallery",
+                                            style: AppFontStyle.text_16_500(
+                                              color: AppColors.textClr,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -139,81 +170,100 @@ class _PhotoViewState extends State<PhotoView> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.camera_alt_outlined,color: AppColors.white),
+                    Icon(Icons.camera_alt_outlined, color: AppColors.white),
                     SizedBox(width: 4),
-                    Text("Add New Photo",style:AppFontStyle.text_16_400(fontFamily: AppFontFamily.gilroyBold,color: AppColors.white)),
+                    Text(
+                      "Add New Photo",
+                      style: AppFontStyle.text_16_400(
+                        fontFamily: AppFontFamily.gilroyBold,
+                        color: AppColors.white,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           );
-        }
+        },
       ),
     );
   }
 
   Widget body(PhotoProvider provider) {
-    return  (provider.babyPhotoDataGet?.data?.photos?.isEmpty ?? true) ? CustomNoDataFound() : AppContainer(
-          gradient: AppColors.backGroundColor,
-          padding: EdgeInsets.symmetric(horizontal: 14,vertical: 14),
-          child:  RefreshIndicator(
-            onRefresh: () => provider.getBabyPhotosApis(),
-            child: GridView.builder(
-              itemCount: provider.babyPhotoDataGet?.data?.photos?.length ?? 0,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+    return (provider.babyPhotoDataGet?.data?.photos?.isEmpty ?? true)
+        ? CustomNoDataFound()
+        : AppContainer(
+            gradient: AppColors.backGroundColor,
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: RefreshIndicator(
+              onRefresh: () => provider.getBabyPhotosApis(),
+              child: GridView.builder(
+                itemCount: provider.babyPhotoDataGet?.data?.photos?.length ?? 0,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 1,
                   crossAxisSpacing: 8,
-                  mainAxisSpacing: 12),
-              itemBuilder: (context, index) {
-                final allPhotos = provider.babyPhotoDataGet?.data?.photos?[index];
+                  mainAxisSpacing: 12,
+                ),
+                itemBuilder: (context, index) {
+                  final allPhotos =
+                      provider.babyPhotoDataGet?.data?.photos?[index];
 
-                return InkWell(
-                  onTap: () {
-                    buildShowDialog(context, index, provider);
-                  },
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CustomImage(
-                        path: allPhotos?.photoUrl ?? "",
-                        borderRadius: BorderRadius.circular(8),
-                        fit: BoxFit.cover,
-                      ),
+                  return InkWell(
+                    onTap: () {
+                      buildShowDialog(context, index, provider);
+                    },
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CustomImage(
+                          path: allPhotos?.photoUrl ?? "",
+                          borderRadius: BorderRadius.circular(8),
+                          fit: BoxFit.cover,
+                        ),
 
-                      // DATE TOP RIGHT
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: AppContainer(
-                          radius: 8,
-                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          color: AppColors.white,
-                          child: Text(
-                            formatDate(allPhotos?.date ?? ""),
-                            style: AppFontStyle.text_11_400(
+                        // DATE TOP RIGHT
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: AppContainer(
+                            radius: 8,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            color: AppColors.white,
+                            child: Text(
+                              formatDate(allPhotos?.date ?? ""),
+                              style: AppFontStyle.text_11_400(
                                 fontFamily: AppFontFamily.gilroyMedium,
-                                color: AppColors.textClr),
+                                color: AppColors.textClr,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          )
-        );
+          );
   }
 
-  Future<dynamic> buildShowDialog(BuildContext context, int index, PhotoProvider provider) {
+  Future<dynamic> buildShowDialog(
+    BuildContext context,
+    int index,
+    PhotoProvider provider,
+  ) {
     return showDialog(
       context: context,
       builder: (context) => PopScope(
         canPop: false,
         child: Dialog(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -227,8 +277,17 @@ class _PhotoViewState extends State<PhotoView> {
                     minScale: 0.5,
                     maxScale: 4,
                     child: Center(
-                      child: CustomImage(path: provider.babyPhotoDataGet?.data?.photos?[index].photoUrl ?? "",
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                      child: CustomImage(
+                        path:
+                            provider
+                                .babyPhotoDataGet
+                                ?.data
+                                ?.photos?[index]
+                                .photoUrl ??
+                            "",
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -240,17 +299,31 @@ class _PhotoViewState extends State<PhotoView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          formatDate(provider.babyPhotoDataGet?.data?.photos?[index].date ?? "") ,
+                          formatDate(
+                            provider
+                                    .babyPhotoDataGet
+                                    ?.data
+                                    ?.photos?[index]
+                                    .date ??
+                                "",
+                          ),
                           style: AppFontStyle.text_11_400(
-                              fontFamily: AppFontFamily.gilroyMedium,
-                              color: AppColors.textLightClr),
+                            fontFamily: AppFontFamily.gilroyMedium,
+                            color: AppColors.textLightClr,
+                          ),
                         ),
                         SizedBox(height: 8),
                         Text(
-                          provider.babyPhotoDataGet?.data?.photos?[index].caption ?? "",
+                          provider
+                                  .babyPhotoDataGet
+                                  ?.data
+                                  ?.photos?[index]
+                                  .caption ??
+                              "",
                           style: AppFontStyle.text_16_400(
-                              fontFamily: AppFontFamily.gilroyMedium,
-                              color: AppColors.textClr),
+                            fontFamily: AppFontFamily.gilroyMedium,
+                            color: AppColors.textClr,
+                          ),
                         ),
                       ],
                     ),
@@ -259,17 +332,21 @@ class _PhotoViewState extends State<PhotoView> {
                 ],
               ),
               Positioned(
-                  right: -10,
-                  top: -10,
-                  child: IconButton(onPressed: (){Navigator.pop(context);}, icon: Icon(Icons.cancel,color: AppColors.black,))),
-
+                right: -10,
+                top: -10,
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  icon: Icon(Icons.cancel, color: AppColors.black),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
-
 
   Widget photoShimmer() {
     return AppContainer(
@@ -298,5 +375,4 @@ class _PhotoViewState extends State<PhotoView> {
       ),
     );
   }
-
 }

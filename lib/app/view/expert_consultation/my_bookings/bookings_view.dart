@@ -47,7 +47,8 @@ class _BookingsViewState extends State<BookingsView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       date = args?['appointmentDate'];
       time = args?['appointmentTime'];
       doctorId = args?['doctorId'];
@@ -55,7 +56,9 @@ class _BookingsViewState extends State<BookingsView> {
       final provider = context.read<ExpertConsultationProvider>();
       provider.doctorDetailApiData(doctorId: doctorId ?? "");
 
-      pt("appointmentTime: $time >>> appointmentDate: $date >>> doctorId: $doctorId");
+      pt(
+        "appointmentTime: $time >>> appointmentDate: $date >>> doctorId: $doctorId",
+      );
     });
   }
 
@@ -65,7 +68,7 @@ class _BookingsViewState extends State<BookingsView> {
       AppPopUp.showToast(
         message:
             checkout.lastError ??
-                'Slot hold is invalid. Go back and pick a slot again.',
+            'Slot hold is invalid. Go back and pick a slot again.',
         lineColor: AppColors.red,
       );
       return;
@@ -106,22 +109,33 @@ class _BookingsViewState extends State<BookingsView> {
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
         if (!didPop) return;
-        await context.read<ConsultationCheckoutController>().abandonUnpaidHold();
+        await context
+            .read<ConsultationCheckoutController>()
+            .abandonUnpaidHold();
       },
       child: Scaffold(
         appBar: appbar(),
-        body: Consumer2<ExpertConsultationProvider, ConsultationCheckoutController>(
-          builder: (context, provider, checkout, _) {
-            return switch (provider.doctorApiData?.status) {
-              ApiStatus.LOADING => _buildLoadingShimmer(),
-              ApiStatus.COMPLETED => _buildSuccessUI(context, provider, checkout),
-              ApiStatus.ERROR => GeneralExceptionWidget(
-                onPress: () => provider.doctorDetailApiData(doctorId: doctorId ?? ""),
-              ),
-              _ => _buildLoadingShimmer(),
-            };
-          },
-        ),
+        body:
+            Consumer2<
+              ExpertConsultationProvider,
+              ConsultationCheckoutController
+            >(
+              builder: (context, provider, checkout, _) {
+                return switch (provider.doctorApiData?.status) {
+                  ApiStatus.LOADING => _buildLoadingShimmer(),
+                  ApiStatus.COMPLETED => _buildSuccessUI(
+                    context,
+                    provider,
+                    checkout,
+                  ),
+                  ApiStatus.ERROR => GeneralExceptionWidget(
+                    onPress: () =>
+                        provider.doctorDetailApiData(doctorId: doctorId ?? ""),
+                  ),
+                  _ => _buildLoadingShimmer(),
+                };
+              },
+            ),
       ),
     );
   }
@@ -159,7 +173,7 @@ class _BookingsViewState extends State<BookingsView> {
   /// Invoice lines for the checkout sheet — total always matches
   /// [SlotHold.amountPaise] when an active hold exists (same as PhonePe).
   (double doctor, double platform, double gst, double total, num gstPercent)
-      _resolveCheckoutAmounts({
+  _resolveCheckoutAmounts({
     required ExpertConsultationProvider provider,
     required ConsultationCheckoutController checkout,
   }) {
@@ -176,27 +190,24 @@ class _BookingsViewState extends State<BookingsView> {
       final totalRupees = totalPaise / 100.0;
 
       final platPaise = pricing?.adminFeePaise ?? 1000;
-      var docPaise =
-          pricing?.doctorFeePaise ?? (feeRupees * 100).round();
+      var docPaise = pricing?.doctorFeePaise ?? (feeRupees * 100).round();
       int taxPaise;
 
       final serverTax = pricing?.taxPaise;
-      final linesMatchTotal = serverTax != null &&
-          docPaise + platPaise + serverTax == totalPaise;
+      final linesMatchTotal =
+          serverTax != null && docPaise + platPaise + serverTax == totalPaise;
 
       if (linesMatchTotal) {
         taxPaise = serverTax;
       } else if (serverTax != null) {
         taxPaise = totalPaise - docPaise - platPaise;
         if (taxPaise < 0) {
-          final taxable =
-              _taxableBaseMatchingTotal(totalPaise, gstPercent);
+          final taxable = _taxableBaseMatchingTotal(totalPaise, gstPercent);
           if (taxable != null) {
             docPaise = (taxable - platPaise).clamp(0, taxable);
             taxPaise = totalPaise - taxable;
           } else {
-            taxPaise = ((docPaise + platPaise) * gstPercent / 100.0)
-                .round();
+            taxPaise = ((docPaise + platPaise) * gstPercent / 100.0).round();
             docPaise = totalPaise - platPaise - taxPaise;
             if (docPaise < 0) {
               docPaise = 0;
@@ -207,14 +218,12 @@ class _BookingsViewState extends State<BookingsView> {
       } else {
         taxPaise = totalPaise - docPaise - platPaise;
         if (taxPaise < 0) {
-          final taxable =
-              _taxableBaseMatchingTotal(totalPaise, gstPercent);
+          final taxable = _taxableBaseMatchingTotal(totalPaise, gstPercent);
           if (taxable != null) {
             docPaise = (taxable - platPaise).clamp(0, taxable);
             taxPaise = totalPaise - taxable;
           } else {
-            taxPaise = ((docPaise + platPaise) * gstPercent / 100.0)
-                .round();
+            taxPaise = ((docPaise + platPaise) * gstPercent / 100.0).round();
             docPaise = totalPaise - platPaise - taxPaise;
             if (docPaise < 0) {
               docPaise = 0;
@@ -313,10 +322,15 @@ class _BookingsViewState extends State<BookingsView> {
                             ),
                           ),
                           Spacer(),
-                          Icon(Icons.star, color: AppColors.orangeClr, size: 18),
+                          Icon(
+                            Icons.star,
+                            color: AppColors.orangeClr,
+                            size: 18,
+                          ),
                           SizedBox(width: 2),
                           Text(
-                            data?.doctorDetails?.totalReviewCount?.toString() ?? "0",
+                            data?.doctorDetails?.totalReviewCount?.toString() ??
+                                "0",
                             style: AppFontStyle.text_14_400(
                               fontFamily: AppFontFamily.gilroySemiBold,
                               color: AppColors.white,
@@ -327,7 +341,11 @@ class _BookingsViewState extends State<BookingsView> {
                       SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.access_time, size: 18, color: AppColors.white),
+                          Icon(
+                            Icons.access_time,
+                            size: 18,
+                            color: AppColors.white,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             "1 hour consultation",
@@ -345,7 +363,11 @@ class _BookingsViewState extends State<BookingsView> {
             ),
           ),
           SizedBox(height: 14),
-          _buildSafetyBanner(hasLock: hasLock, holdExpired: holdExpired, checkout: checkout),
+          _buildSafetyBanner(
+            hasLock: hasLock,
+            holdExpired: holdExpired,
+            checkout: checkout,
+          ),
 
           SizedBox(height: 18),
           Row(
@@ -487,7 +509,7 @@ class _BookingsViewState extends State<BookingsView> {
           SizedBox(height: 6),
           Text(
             "We only confirm payment after the server verifies PhonePe. "
-                "Returning from PhonePe does not guarantee success.",
+            "Returning from PhonePe does not guarantee success.",
             style: AppFontStyle.text_12_400(
               fontFamily: AppFontFamily.gilroyMedium,
               color: AppColors.textLightClr,
@@ -500,7 +522,11 @@ class _BookingsViewState extends State<BookingsView> {
             padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             child: Row(
               children: [
-                Icon(Icons.account_balance_wallet, color: AppColors.buttonClr1, size: 28),
+                Icon(
+                  Icons.account_balance_wallet,
+                  color: AppColors.buttonClr1,
+                  size: 28,
+                ),
                 SizedBox(width: 12),
                 Text(
                   "Pay securely with PhonePe",
@@ -523,7 +549,9 @@ class _BookingsViewState extends State<BookingsView> {
                 : () => _onPay(context),
             borderRadius: 8,
             gradient: checkout.isBusy || !hasLock || holdExpired
-                ? LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400])
+                ? LinearGradient(
+                    colors: [Colors.grey.shade300, Colors.grey.shade400],
+                  )
                 : null,
             child: checkout.isBusy
                 ? customLoading()

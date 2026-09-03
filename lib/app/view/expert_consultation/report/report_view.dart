@@ -20,8 +20,8 @@ class ReportView extends StatelessWidget {
         title: Text(
           "Report",
           style: AppFontStyle.text_18_600(
-              fontFamily: AppFontFamily.gilroyMedium,
-              color: AppColors.textClr,
+            fontFamily: AppFontFamily.gilroyMedium,
+            color: AppColors.textClr,
           ),
         ),
       ),
@@ -33,32 +33,41 @@ class ReportView extends StatelessWidget {
             child: Column(
               children: [
                 AppContainer(
-                  padding: const EdgeInsets.symmetric(horizontal: 14.0,vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14.0,
+                    vertical: 14,
+                  ),
                   radius: 16,
                   color: AppColors.white,
                   child: Row(
                     children: [
-                      CustomImage(path: ImageConstants.networkImageDemo,h: 64,w: 64,
-                      borderRadius: BorderRadius.circular(100),
+                      CustomImage(
+                        path: ImageConstants.networkImageDemo,
+                        h: 64,
+                        w: 64,
+                        borderRadius: BorderRadius.circular(100),
                       ),
                       SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          Text("Dr. Sarah Mitchell",
+                          Text(
+                            "Dr. Sarah Mitchell",
                             style: AppFontStyle.text_18_400(
                               fontFamily: AppFontFamily.gilroyMedium,
                               color: AppColors.textClr,
                             ),
                           ),
-                          Text("Pediatrician",
+                          Text(
+                            "Pediatrician",
                             style: AppFontStyle.text_14_400(
                               fontFamily: AppFontFamily.gilroyMedium,
                               color: AppColors.textLightClr,
                             ),
                           ),
-                          Text("License: MD-12345",
+                          Text(
+                            "License: MD-12345",
                             style: AppFontStyle.text_14_400(
                               fontFamily: AppFontFamily.gilroyMedium,
                               color: AppColors.textLightClr.withAlpha(190),
@@ -68,12 +77,13 @@ class ReportView extends StatelessWidget {
                       ),
                       Spacer(),
                       AppContainer(
-                          radius: 100,
-                          color: AppColors.greenLight.withAlpha(40),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: CustomImage(path: ImageConstants.doctorHLogo),
-                          )),
+                        radius: 100,
+                        color: AppColors.greenLight.withAlpha(40),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: CustomImage(path: ImageConstants.doctorHLogo),
+                        ),
+                      ),
                       SizedBox(width: 10),
                     ],
                   ),
@@ -81,7 +91,10 @@ class ReportView extends StatelessWidget {
                 SizedBox(height: 20),
                 AppContainer(
                   radius: 16,
-                  padding: const EdgeInsets.symmetric(horizontal: 16,vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   color: AppColors.buttonClr2.withAlpha(16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -114,7 +127,10 @@ class ReportView extends StatelessWidget {
                 SizedBox(height: 20),
                 AppContainer(
                   radius: 16,
-                  padding: const EdgeInsets.symmetric(horizontal: 16,vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   color: AppColors.buttonClr1.withAlpha(16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -148,7 +164,10 @@ class ReportView extends StatelessWidget {
                 SizedBox(height: 20),
                 AppContainer(
                   radius: 16,
-                  padding: const EdgeInsets.symmetric(horizontal: 16,vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   color: AppColors.lightBlue.withAlpha(100),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -173,70 +192,83 @@ class ReportView extends StatelessWidget {
                         shrinkWrap: true,
                         itemCount: 2,
                         itemBuilder: (context, index) {
-                            return AppContainer(
-                              radius: 12,
-                              padding: EdgeInsets.all(17),
-                              color: AppColors.white,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "Paracetamol Syrup",
-                                        style: AppFontStyle.text_16_400(
-                                          fontFamily: AppFontFamily.gilroyMedium,
-                                          color: AppColors.textClr,
+                          return AppContainer(
+                            radius: 12,
+                            padding: EdgeInsets.all(17),
+                            color: AppColors.white,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "Paracetamol Syrup",
+                                      style: AppFontStyle.text_16_400(
+                                        fontFamily: AppFontFamily.gilroyMedium,
+                                        color: AppColors.textClr,
+                                      ),
+                                    ),
+                                    AppContainer(
+                                      radius: 100,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      color: index == 1
+                                          ? AppColors.greenLight.withAlpha(100)
+                                          : AppColors.lightBlue,
+                                      child: Text(
+                                        index == 0 ? "Fever" : "Cough",
+                                        style: AppFontStyle.text_12_400(
+                                          fontFamily:
+                                              AppFontFamily.gilroyMedium,
+                                          color: index == 0
+                                              ? AppColors.blue
+                                              : AppColors.green,
                                         ),
                                       ),
-                                      AppContainer(
-                                        radius: 100,
-                                        padding: EdgeInsets.symmetric(horizontal: 8,vertical: 2),
-                                        color: index == 1 ? AppColors.greenLight.withAlpha(100) : AppColors.lightBlue,
-                                        child:Text(
-                                        index == 0 ?  "Fever" : "Cough",
-                                          style: AppFontStyle.text_12_400(
-                                            fontFamily: AppFontFamily.gilroyMedium,
-                                            color:  index == 0 ?  AppColors.blue : AppColors.green,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    "Dosage: 5ml (120mg)",
-                                    style: AppFontStyle.text_15_400(
-                                      fontFamily: AppFontFamily.gilroyMedium,
-                                      color: AppColors.textLightClr,
                                     ),
+                                  ],
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  "Dosage: 5ml (120mg)",
+                                  style: AppFontStyle.text_15_400(
+                                    fontFamily: AppFontFamily.gilroyMedium,
+                                    color: AppColors.textLightClr,
                                   ),
-                                  Text(
-                                    "Frequency: Every 6 hours",
-                                    style: AppFontStyle.text_15_400(
-                                      fontFamily: AppFontFamily.gilroyMedium,
-                                      color: AppColors.textLightClr,
-                                    ),
+                                ),
+                                Text(
+                                  "Frequency: Every 6 hours",
+                                  style: AppFontStyle.text_15_400(
+                                    fontFamily: AppFontFamily.gilroyMedium,
+                                    color: AppColors.textLightClr,
                                   ),
-                                  Text(
-                                    "Duration: 3 days",
-                                    style: AppFontStyle.text_15_400(
-                                      fontFamily: AppFontFamily.gilroyMedium,
-                                      color: AppColors.textLightClr,
-                                    ),
+                                ),
+                                Text(
+                                  "Duration: 3 days",
+                                  style: AppFontStyle.text_15_400(
+                                    fontFamily: AppFontFamily.gilroyMedium,
+                                    color: AppColors.textLightClr,
                                   ),
-                                ],
-                              ),
-                            );
-                          },
-                          separatorBuilder: (context, index) => SizedBox(height: 10),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        separatorBuilder: (context, index) =>
+                            SizedBox(height: 10),
                       ),
                       SizedBox(height: 12),
                       AppContainer(
                         radius: 16,
-                        padding: const EdgeInsets.symmetric(horizontal: 16,vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
                         color: AppColors.buttonClr1.withAlpha(16),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
@@ -244,7 +276,10 @@ class ReportView extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.favorite,color: Colors.purpleAccent),
+                                Icon(
+                                  Icons.favorite,
+                                  color: Colors.purpleAccent,
+                                ),
                                 SizedBox(width: 10),
                                 Text(
                                   "Health Advice",
@@ -256,34 +291,43 @@ class ReportView extends StatelessWidget {
                               ],
                             ),
                             SizedBox(height: 10),
-                           ListView.separated(
-                             physics: NeverScrollableScrollPhysics(),
-                             shrinkWrap: true,
-                               itemBuilder:(context, index) {
-                                 return  Row(
-                                   children: [
-                                     Icon(Icons.done,color: AppColors.greenLight,size: 18),
-                                     SizedBox(width: 6),
-                                     Text(
-                                       "Ensure adequate rest and sleep",
-                                       maxLines: 20,
-                                       style: AppFontStyle.text_14_400(
-                                         fontFamily: AppFontFamily.gilroyMedium,
-                                         color: AppColors.textLightClr,
-                                       ),
-                                     ),
-                                   ],
-                                 );
-                               } ,
-                               separatorBuilder: (context, index) => SizedBox(height: 10),
-                               itemCount: 4)
+                            ListView.separated(
+                              physics: NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              itemBuilder: (context, index) {
+                                return Row(
+                                  children: [
+                                    Icon(
+                                      Icons.done,
+                                      color: AppColors.greenLight,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      "Ensure adequate rest and sleep",
+                                      maxLines: 20,
+                                      style: AppFontStyle.text_14_400(
+                                        fontFamily: AppFontFamily.gilroyMedium,
+                                        color: AppColors.textLightClr,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                              separatorBuilder: (context, index) =>
+                                  SizedBox(height: 10),
+                              itemCount: 4,
+                            ),
                           ],
                         ),
                       ),
                       SizedBox(height: 20),
                       AppContainer(
                         radius: 16,
-                        padding: const EdgeInsets.symmetric(horizontal: 16,vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
                         color: AppColors.orangeClr.withAlpha(10),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
@@ -332,7 +376,7 @@ class ReportView extends StatelessWidget {
             children: [
               Button(
                 borderRadius: 12,
-                onTap: (){
+                onTap: () {
                   AppPopUp.showToast(message: "Downloading prescription....");
                 },
                 height: 56,
@@ -341,13 +385,23 @@ class ReportView extends StatelessWidget {
                   children: [
                     CustomImage(path: ImageConstants.download),
                     SizedBox(width: 10),
-                    Text("Download Prescription (PDF)",style: AppFontStyle.text_16_400(fontFamily: AppFontFamily.gilroyBold,color: AppColors.white),
+                    Text(
+                      "Download Prescription (PDF)",
+                      style: AppFontStyle.text_16_400(
+                        fontFamily: AppFontFamily.gilroyBold,
+                        color: AppColors.white,
+                      ),
                     ),
                   ],
                 ),
               ),
               SizedBox(height: 10),
-              Text("Prescription ID: RX-2024-0115-001",style: AppFontStyle.text_12_400(fontFamily: AppFontFamily.gilroyBold,color: AppColors.grey),
+              Text(
+                "Prescription ID: RX-2024-0115-001",
+                style: AppFontStyle.text_12_400(
+                  fontFamily: AppFontFamily.gilroyBold,
+                  color: AppColors.grey,
+                ),
               ),
             ],
           ),

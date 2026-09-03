@@ -84,95 +84,110 @@ class _MyBookingsViewState extends State<MyBookingsView> {
         }
       },
       child: Scaffold(
-      backgroundColor: AppColors.backgroundClr,
-      appBar: CustomAppBar(
-        leadingOnTap: () => Navigator.pop(context),
-        isIosBackBtn: true,
-        title: Text(
-          "My Bookings",
-          style: AppFontStyle.text_18_600(
-            fontFamily: AppFontFamily.gilroyMedium,
-            color: AppColors.textClr,
+        backgroundColor: AppColors.backgroundClr,
+        appBar: CustomAppBar(
+          leadingOnTap: () => Navigator.pop(context),
+          isIosBackBtn: true,
+          title: Text(
+            "My Bookings",
+            style: AppFontStyle.text_18_600(
+              fontFamily: AppFontFamily.gilroyMedium,
+              color: AppColors.textClr,
+            ),
           ),
         ),
-      ),
-      body: AppContainer(
-        gradient: AppColors.backGroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Consumer2<AppStateReconciliationCoordinator, SubscriptionProvider>(
-              builder: (context, coord, sub, _) {
-                final show =
-                    coord.isReconciling || sub.isEntitlementSnapshotStale;
-                if (!show) return const SizedBox.shrink();
-                return Column(
-                  children: [
-                    const StaleSyncBanner(),
-                    const SizedBox(height: 10),
-                  ],
-                );
-              },
-            ),
-            // Tabs
-            AppContainer(
-              gradient: AppColors.backGroundColor,
-              radius: 12,
-              color: AppColors.lightWhite,
-              child: Row(
-                children: List.generate(3, (index) {
-                  final titles = ["Upcoming", "Past", "Cancelled"];
-                  final isSelected = provider.selectedTabIndex == index;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => provider.setSelectedTab(index),
-                      child: AppContainer(
-                        gradient: AppColors.backGroundColor,
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        radius: 12,
-                        color: isSelected ? AppColors.white : AppColors.lightWhite,
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        child: Center(
-                          child: Text(
-                            titles[index],
-                            style: AppFontStyle.text_16_600(
-                              fontFamily: isSelected ? AppFontFamily.gilroyMedium : AppFontFamily.gilroyRegular,
-                              color: AppColors.textClr,
+        body: AppContainer(
+          gradient: AppColors.backGroundColor,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Consumer2<
+                AppStateReconciliationCoordinator,
+                SubscriptionProvider
+              >(
+                builder: (context, coord, sub, _) {
+                  final show =
+                      coord.isReconciling || sub.isEntitlementSnapshotStale;
+                  if (!show) return const SizedBox.shrink();
+                  return Column(
+                    children: [
+                      const StaleSyncBanner(),
+                      const SizedBox(height: 10),
+                    ],
+                  );
+                },
+              ),
+              // Tabs
+              AppContainer(
+                gradient: AppColors.backGroundColor,
+                radius: 12,
+                color: AppColors.lightWhite,
+                child: Row(
+                  children: List.generate(3, (index) {
+                    final titles = ["Upcoming", "Past", "Cancelled"];
+                    final isSelected = provider.selectedTabIndex == index;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => provider.setSelectedTab(index),
+                        child: AppContainer(
+                          gradient: AppColors.backGroundColor,
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          radius: 12,
+                          color: isSelected
+                              ? AppColors.white
+                              : AppColors.lightWhite,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 12,
+                          ),
+                          child: Center(
+                            child: Text(
+                              titles[index],
+                              style: AppFontStyle.text_16_600(
+                                fontFamily: isSelected
+                                    ? AppFontFamily.gilroyMedium
+                                    : AppFontFamily.gilroyRegular,
+                                color: AppColors.textClr,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            Expanded(
-              child: switch (provider.bookingApiData?.status) {
-                ApiStatus.LOADING => Center(
-                  child: _buildShimmerList() ,
-                ),
+              Expanded(
+                child: switch (provider.bookingApiData?.status) {
+                  ApiStatus.LOADING => Center(child: _buildShimmerList()),
 
-                ApiStatus.COMPLETED => _buildBookingsList(apiData?.data?.bookings ?? [], provider.selectedTabIndex),
-
-                ApiStatus.ERROR => Center(
-                  child: Text(
-                    provider.bookingApiData?.message ?? "Something went wrong",
-                    style: const TextStyle(color: Colors.red),
+                  ApiStatus.COMPLETED => _buildBookingsList(
+                    apiData?.data?.bookings ?? [],
+                    provider.selectedTabIndex,
                   ),
-                ),
 
-                _ => const SizedBox(), // null / default
-              },
-            )
-          ],
+                  ApiStatus.ERROR => Center(
+                    child: Text(
+                      provider.bookingApiData?.message ??
+                          "Something went wrong",
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+
+                  _ => const SizedBox(), // null / default
+                },
+              ),
+            ],
+          ),
         ),
-      ),
-    ),   // closes WillPopScope child: Scaffold
-    );   // closes WillPopScope
+      ), // closes WillPopScope child: Scaffold
+    ); // closes WillPopScope
   }
 
   Widget _buildBookingsList(List<Booking> bookings, int selectedTabIndex) {
@@ -226,7 +241,7 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                 const SizedBox(height: 8),
                 ConsultationCountdownRow(booking: booking),
                 const SizedBox(height: 10),
-                
+
                 // Doctor Info Row
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +269,8 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                               const Spacer(),
                               if (phase == BookingLifecyclePhase.readyToJoin)
                                 TextButton(
-                                  onPressed: () => ConsultationJoinGuard.maybeOpenVideo(
+                                  onPressed: () =>
+                                      ConsultationJoinGuard.maybeOpenVideo(
                                         context: context,
                                         booking: booking,
                                       ),
@@ -270,7 +286,10 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            booking.doctorId?.specialization?.trim().isNotEmpty == true
+                            booking.doctorId?.specialization
+                                        ?.trim()
+                                        .isNotEmpty ==
+                                    true
                                 ? booking.doctorId!.specialization!
                                 : 'Specialty',
                             style: AppFontStyle.text_13_400(
@@ -281,7 +300,11 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(Icons.location_on_outlined, size: 16, color: AppColors.black),
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 16,
+                                color: AppColors.black,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 "1.0 km away",
@@ -291,7 +314,11 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                                 ),
                               ),
                               const Spacer(),
-                              const Icon(Icons.star, color: AppColors.orangeClr, size: 16),
+                              const Icon(
+                                Icons.star,
+                                color: AppColors.orangeClr,
+                                size: 16,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 "4.8",
@@ -315,9 +342,9 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                       borderRadius: 12,
                       height: 46,
                       onTap: () => ConsultationJoinGuard.maybeOpenVideo(
-                            context: context,
-                            booking: booking,
-                          ),
+                        context: context,
+                        booking: booking,
+                      ),
                       child: Center(
                         child: Text(
                           'Join consultation',
@@ -341,42 +368,51 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                       Expanded(
                         child: AppContainer(
                           onTap: () async {
-                              await context.read<ExpertConsultationProvider>().cancelBookingApi(id: booking.sId ?? "");
-                              if (context.mounted) {
-                                context.read<BookingController>().getBookingApi();
-                              }
+                            await context
+                                .read<ExpertConsultationProvider>()
+                                .cancelBookingApi(id: booking.sId ?? "");
+                            if (context.mounted) {
+                              context.read<BookingController>().getBookingApi();
+                            }
                           },
                           radius: 12,
                           color: AppColors.greyLight,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
-                            child: context.watch<ExpertConsultationProvider>().cancelBooking?.status == ApiStatus.LOADING 
-                                && context.read<ExpertConsultationProvider>().selectedBookingId == booking.sId 
-                                ? customLoading(color: AppColors.primary) 
+                            child:
+                                context
+                                            .watch<ExpertConsultationProvider>()
+                                            .cancelBooking
+                                            ?.status ==
+                                        ApiStatus.LOADING &&
+                                    context
+                                            .read<ExpertConsultationProvider>()
+                                            .selectedBookingId ==
+                                        booking.sId
+                                ? customLoading(color: AppColors.primary)
                                 : Text(
-                              "Cancel",
-                              style: AppFontStyle.text_16_500(
-                                fontFamily: AppFontFamily.gilroySemiBold,
-                                color: AppColors.textClr,
-                              ),
-                            ),
+                                    "Cancel",
+                                    style: AppFontStyle.text_16_500(
+                                      fontFamily: AppFontFamily.gilroySemiBold,
+                                      color: AppColors.textClr,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
                     ] else ...[
                       // Past/Cancelled: Write Review (Only for Past) OR just placeholder
-                      // For Cancelled, maybe we don't show "Write Review". 
+                      // For Cancelled, maybe we don't show "Write Review".
                       // Let's hide it for Cancelled, show for Past.
-                      if (selectedTabIndex == 1) ...[ // Past
+                      if (selectedTabIndex == 1) ...[
+                        // Past
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
                               Navigator.pushNamed(
                                 context,
                                 AppRoutes.recordsView,
-                                arguments: {
-                                  'doctorId': booking.doctorId ?? "",
-                                },
+                                arguments: {'doctorId': booking.doctorId ?? ""},
                               );
                             },
                             child: AppContainer(
@@ -399,8 +435,8 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                         // Cancelled (Tab 2) -> Maybe nothing? Or empty expanded to keep alignment?
                         // Or just show View Details full width on right?
                         // Let's just put an empty container or "Book Again"
-                         const Spacer(), // Placeholder for left side
-                      ]
+                        const Spacer(), // Placeholder for left side
+                      ],
                     ],
 
                     const SizedBox(width: 12),
@@ -415,8 +451,9 @@ class _MyBookingsViewState extends State<MyBookingsView> {
                           if (selectedTabIndex == 0) {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    ConsultationBookingDetailView(booking: booking),
+                                builder: (_) => ConsultationBookingDetailView(
+                                  booking: booking,
+                                ),
                               ),
                             );
                             return;

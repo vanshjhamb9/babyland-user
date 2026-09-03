@@ -2,7 +2,7 @@ class ImageConstants {
   static String imagePath = "assets/images";
 
   static String splash = '$imagePath/splash.svg';
-    static String loadingBabyDear = '$imagePath/loading_baby_dear.png';
+  static String loadingBabyDear = '$imagePath/loading_baby_dear.png';
   static String onboarding_1 = '$imagePath/onboarding_1.svg';
   static String onboarding_3 = '$imagePath/onboarding_2.svg';
   static String onboarding_2 = '$imagePath/untitled-0 1.svg';
@@ -18,8 +18,10 @@ class ImageConstants {
   static String calendar = '$imagePath/calendar.svg';
   static String allSet = '$imagePath/allset.svg';
   static String prePregnancy = '$imagePath/prepregency.png';
-  static String pregnancy = '$imagePath/169501812_0045e221-d92c-426a-82d5-adff9f4afa63 (1) 1.svg';
-  static String postPregnancy = '$imagePath/246866902_e1977a29-803c-49b3-9a29-c8c8fd901b0b 1.svg';
+  static String pregnancy =
+      '$imagePath/169501812_0045e221-d92c-426a-82d5-adff9f4afa63 (1) 1.svg';
+  static String postPregnancy =
+      '$imagePath/246866902_e1977a29-803c-49b3-9a29-c8c8fd901b0b 1.svg';
   static String colorCommunity = '$imagePath/color_community.svg';
   static String colorInstight = '$imagePath/color_instight.svg';
   static String community = '$imagePath/communnity.svg';
@@ -98,8 +100,6 @@ class ImageConstants {
   static String iraAvatar = '$imagePath/IRA.jpeg';
   static String prePregnancy1 = '$imagePath/prePregnancy.png';
 
-
-
-  static String networkImageDemo = 'https://images.pexels.com/photos/3968151/pexels-photo-3968151.jpeg?_gl=1*1tbrfro*_ga*MTEwMzcyMzI4Ny4xNzYwMDMyNjEx*_ga_8JE65Q40S6*czE3NjAwMzI2MTAkbzEkZzEkdDE3NjAwMzI2MTckajUzJGwwJGgw';
-
+  static String networkImageDemo =
+      'https://images.pexels.com/photos/3968151/pexels-photo-3968151.jpeg?_gl=1*1tbrfro*_ga*MTEwMzcyMzI4Ny4xNzYwMDMyNjEx*_ga_8JE65Q40S6*czE3NjAwMzI2MTAkbzEkZzEkdDE3NjAwMzI2MTckajUzJGwwJGgw';
 }
