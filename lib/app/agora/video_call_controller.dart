@@ -598,6 +598,10 @@ class VideoCallProvider with ChangeNotifier {
       _isInitialized = true;
       log("✅ Agora engine initialized successfully");
 
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
     } catch (e) {
       log("❌ Error initializing Agora engine: $e");
       rethrow;
@@ -718,14 +722,20 @@ class VideoCallProvider with ChangeNotifier {
     required String token,
   }) async {
     try {
-      await _engineOrNull!.startPreview();
-
       log("🎬 Joining channel:");
       log("   Channel: $channelName");
       log("   Numeric UID: $numericUid");
       log("   Token length: ${token.length}");
 
-      // Clean token if it contains JSON structure
+      try {
+        await _engineOrNull!.startPreview().timeout(
+          const Duration(seconds: 8),
+          onTimeout: () => log('⚠️ startPreview timed out on iOS, continuing'),
+        );
+      } catch (e) {
+        log('⚠️ startPreview failed (non-fatal): $e');
+      }
+
       String cleanToken = _cleanToken(token);
       log("   Clean token length: ${cleanToken.length}");
       log("   Clean token preview: ${cleanToken.substring(0, min(cleanToken.length, 50))}...");
@@ -748,6 +758,11 @@ class VideoCallProvider with ChangeNotifier {
         channelId: channelName,
         uid: numericUid,
         options: options,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw StateError(
+          'Agora joinChannel call timed out. Check your network and try again.',
+        ),
       );
 
       await _awaitJoinChannelConfirmation();
@@ -874,6 +889,8 @@ class VideoCallProvider with ChangeNotifier {
       _stopCallTimer();
       await _releaseEngine();
 
+      _channelBusy = false;
+      _sessionJoinInFlight = false;
       _isInCall = false;
       _callState = CallState.ended;
       _isMicrophoneMuted = false;
@@ -966,6 +983,8 @@ class VideoCallProvider with ChangeNotifier {
   void _resetCallState() {
     log("🔄 Resetting call state...");
 
+    _channelBusy = false;
+    _sessionJoinInFlight = false;
     _remoteUid = null;
     _isJoined = false;
     _isInCall = false;
