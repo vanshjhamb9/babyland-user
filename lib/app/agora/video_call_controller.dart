@@ -608,19 +608,27 @@ class VideoCallProvider with ChangeNotifier {
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
         audioScenario: AudioScenarioType.audioScenarioDefault,
         areaCode: 4294967295,
-      ));
+      )).timeout(const Duration(seconds: 10), onTimeout: () {
+        throw StateError('Agora engine initialize() timed out on iOS');
+      });
 
       await _engineOrNull!.setClientRole(
         role: ClientRoleType.clientRoleBroadcaster,
-      );
+      ).timeout(const Duration(seconds: 5), onTimeout: () {
+        throw StateError('Agora setClientRole() timed out');
+      });
 
-      await _engineOrNull!.enableVideo();
+      await _engineOrNull!.enableVideo().timeout(const Duration(seconds: 5), onTimeout: () {
+        throw StateError('Agora enableVideo() timed out');
+      });
       await _engineOrNull!.setVideoEncoderConfiguration(const VideoEncoderConfiguration(
         dimensions: VideoDimensions(width: 640, height: 360),
         frameRate: 15,
         bitrate: 800,
         orientationMode: OrientationMode.orientationModeAdaptive,
-      ));
+      )).timeout(const Duration(seconds: 5), onTimeout: () {
+        throw StateError('Agora setVideoEncoderConfiguration() timed out');
+      });
 
       _setupEventHandlers(context);
 
