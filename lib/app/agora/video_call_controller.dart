@@ -178,13 +178,10 @@ class VideoCallProvider with ChangeNotifier {
     required BuildContext context,
     required AgoraRtcSessionDto dto,
   }) async {
-    if (_channelBusy && !_sessionJoinInFlight) {
-      log('⚠️ _channelBusy stuck true (stale from previous attempt), resetting');
-      _channelBusy = false;
-    }
     if (_channelBusy) {
-      log('⚠️ joinConsultationWithBackendRtc blocked: _channelBusy=true');
-      throw StateError('Video call is already being established. Please wait.');
+      log('⚠️ _channelBusy was true — resetting stale flag from previous attempt');
+      _channelBusy = false;
+      _sessionJoinInFlight = false;
     }
     if (dto.isExpired || dto.expiresTooSoon) {
       AppAuditLog.instance.log(
