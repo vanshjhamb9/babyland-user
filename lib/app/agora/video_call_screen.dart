@@ -53,7 +53,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to start video call: $e'),
+            content: Text(_patientFacingError(e)),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -62,6 +62,28 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     } finally {
       if (mounted) setState(() => _isInitialized = true);
     }
+  }
+
+  /// Prefer calm patient copy; keep raw errors in logs only.
+  static String _patientFacingError(Object e) {
+    final raw = e.toString();
+    if (raw.contains('Camera and microphone')) {
+      return 'Camera and microphone access are required for video consultations.';
+    }
+    if (raw.contains('taking too long') ||
+        raw.contains('timed out') ||
+        raw.contains('stalled')) {
+      return 'Video setup took too long. Please check your connection and try again.';
+    }
+    if (raw.contains('expired') || raw.contains('Refresh')) {
+      return 'Your video session expired. Please go back and join again.';
+    }
+    return 'Could not start the video consultation. Please try again.';
+  }
+
+  static String _patientFacingProviderError(String error) {
+    if (error.isEmpty) return '';
+    return _patientFacingError(error);
   }
 
   @override
@@ -81,18 +103,32 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         builder: (context, videoCallProvider, child) {
           if (!_isInitialized || videoCallProvider.isLoading) {
             return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Connecting to your consultation…'),
-                ],
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text(
+                      'Connecting to your consultation…',
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'First connection on iPhone can take up to a minute. Please keep the app open.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                  ],
+                ),
               ),
             );
           }
 
           if (!videoCallProvider.isJoined) {
+            final friendly =
+                _patientFacingProviderError(videoCallProvider.error);
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -120,16 +156,17 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Go back'),
                   ),
-                  const SizedBox(height: 16),
-                  if (videoCallProvider.error.isNotEmpty)
+                  if (friendly.isNotEmpty) ...[
+                    const SizedBox(height: 16),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Text(
-                        videoCallProvider.error,
+                        friendly,
                         style: const TextStyle(color: Colors.red),
                         textAlign: TextAlign.center,
                       ),
                     ),
+                  ],
                 ],
               ),
             );
@@ -246,6 +283,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     if (_isRetrying) return;
     setState(() => _isRetrying = true);
     try {
+      // Drop any orphaned half-init engine before trying again.
+      await videoCallProvider.resetEngineForRetry();
+
       final session = _session ?? widget.backendSession;
       AgoraRtcSessionDto fresh;
       try {
@@ -260,7 +300,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Retry failed: $e'),
+            content: Text(_patientFacingError(e)),
             backgroundColor: Colors.red,
           ),
         );
@@ -300,9 +340,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (videoCallProvider.isInCall || videoCallProvider.isJoined) {
           videoCallProvider.endCall(null);
-        } else {
+        } else if (!videoCallProvider.isInitialized) {
+          // Only full-clean when there is no reusable engine (e.g. failed init).
           videoCallProvider.cleanup();
         }
+        // Otherwise leave the engine warm for a faster next iOS join.
       });
     } catch (e) {
       log('Error in dispose cleanup: $e');

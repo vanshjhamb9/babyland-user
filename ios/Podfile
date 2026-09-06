@@ -51,4 +51,47 @@ post_install do |installer|
       ]
     end
   end
+
+  # Prevent Agora Iris / RtcKit symbols from being stripped in release/TestFlight
+  # builds (known agora_rtc_engine 6.5.x issue: Iris_InitDartApiDL not found).
+  agora_slice = Dir.glob(
+    File.join(
+      installer.sandbox.root,
+      'AgoraRtcEngine_iOS',
+      'AgoraRtcKit.xcframework',
+      'ios-arm64*',
+    ),
+  ).find { |p| File.directory?(p) }
+
+  agora_force_load = nil
+  if agora_slice
+    slice_name = File.basename(agora_slice)
+    candidate = File.join(
+      agora_slice,
+      'AgoraRtcKit.framework',
+      'AgoraRtcKit',
+    )
+    if File.file?(candidate)
+      agora_force_load =
+        "$(PODS_ROOT)/AgoraRtcEngine_iOS/AgoraRtcKit.xcframework/#{slice_name}/AgoraRtcKit.framework/AgoraRtcKit"
+    end
+  end
+
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_project.targets.each do |target|
+      next unless target.name == 'Runner'
+      target.build_configurations.each do |config|
+        flags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
+        flags = [flags] unless flags.is_a?(Array)
+        flags << '-ObjC' unless flags.any? { |f| f.to_s.include?('-ObjC') }
+        flags << '-lc++' unless flags.any? { |f| f.to_s.include?('-lc++') }
+        if agora_force_load
+          force = "-force_load #{agora_force_load}"
+          flags << force unless flags.any? { |f| f.to_s.include?('AgoraRtcKit') && f.to_s.include?('force_load') }
+        end
+        config.build_settings['OTHER_LDFLAGS'] = flags
+      end
+    end
+    aggregate_target.user_project.save
+  end
 end

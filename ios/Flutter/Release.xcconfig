@@ -1,1 +1,4 @@
 #include "Generated.xcconfig"
+
+// Keep Agora Iris bridge symbols from being stripped in App Store / TestFlight builds.
+OTHER_LDFLAGS=$(inherited) -ObjC -lc++

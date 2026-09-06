@@ -88,6 +88,12 @@ class VideoCallProvider with ChangeNotifier {
   Completer<void>? _joinChannelCompleter;
   RtcEngineEventHandler? _registeredEventHandler;
 
+  /// App ID used for the currently created/initialized engine (for reuse).
+  String? _initializedAppId;
+
+  /// Single-flight init so concurrent join/retry/pre-warm share one native init.
+  Future<void>? _engineInitFuture;
+
   ApiResponse<TokenGeneratorModel>? _apiData = ApiResponse.completed(null);
   ApiResponse<TokenGeneratorModel>? get apiData => _apiData;
 
@@ -411,7 +417,6 @@ class VideoCallProvider with ChangeNotifier {
 
       if (!_isInitialized) {
         await initializeAgoraEngine(
-          context,
           agoraAppId: _resolveAgoraAppId(
             AgoraRtcSessionDto(
               token: token!,
@@ -423,6 +428,7 @@ class VideoCallProvider with ChangeNotifier {
             ),
           ),
         );
+        _setupEventHandlers(context);
       }
 
       await joinChannel(
@@ -504,13 +510,58 @@ class VideoCallProvider with ChangeNotifier {
     }
   }
 
-  /// Ensures a clean RTC engine for each join attempt (provider is app-wide).
+  /// Pre-warms the Agora RTC engine (iOS cold start can take 45–60s).
+  ///
+  /// Call during join prep so initialize completes before [VideoCallScreen].
+  Future<void> ensureEngineReady({required String agoraAppId}) async {
+    await _ensureEngineInitialized(agoraAppId: agoraAppId);
+  }
+
+  /// Ensures the RTC engine is ready for a join (reuse when possible).
   Future<void> _prepareEngineForJoin(
     BuildContext context, {
     required String agoraAppId,
   }) async {
-    await _releaseEngine();
-    await initializeAgoraEngine(context, agoraAppId: agoraAppId);
+    await _ensureEngineInitialized(agoraAppId: agoraAppId);
+    _setupEventHandlers(context);
+  }
+
+  /// Creates/initializes once per App ID; concurrent callers await the same future.
+  Future<void> _ensureEngineInitialized({required String agoraAppId}) async {
+    if (_isInitialized &&
+        _engineOrNull != null &&
+        _initializedAppId == agoraAppId) {
+      log('♻️ Reusing initialized Agora engine');
+      return;
+    }
+
+    if (_engineInitFuture != null) {
+      log('⏳ Awaiting in-flight Agora engine initialize…');
+      await _engineInitFuture;
+      if (_isInitialized &&
+          _engineOrNull != null &&
+          _initializedAppId == agoraAppId) {
+        return;
+      }
+    }
+
+    final future = _initializeEngineInternal(agoraAppId: agoraAppId);
+    _engineInitFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_engineInitFuture, future)) {
+        _engineInitFuture = null;
+      }
+    }
+  }
+
+  Future<void> _initializeEngineInternal({required String agoraAppId}) async {
+    // Drop any orphaned / wrong-appId engine before creating a new one.
+    if (_engineOrNull != null || _isInitialized) {
+      await _releaseEngine();
+    }
+    await initializeAgoraEngine(agoraAppId: agoraAppId);
   }
 
   Future<void> _releaseEngine() async {
@@ -520,6 +571,8 @@ class VideoCallProvider with ChangeNotifier {
     _joinChannelCompleter = null;
     _tokenExpiryTimer?.cancel();
     _tokenExpiryTimer = null;
+    // Do not clear _engineInitFuture here — concurrent callers rely on it
+    // while _initializeEngineInternal may call release before create.
 
     if (_registeredEventHandler != null) {
       try {
@@ -530,7 +583,9 @@ class VideoCallProvider with ChangeNotifier {
       _registeredEventHandler = null;
     }
 
-    if (_isInitialized) {
+    // Always release when an engine instance exists — including half-init
+    // after a timed-out initialize() (Dart timeout does not cancel native work).
+    if (_engineOrNull != null) {
       try {
         if (_isJoined) await _engineOrNull?.leaveChannel();
         await _engineOrNull?.release();
@@ -539,6 +594,8 @@ class VideoCallProvider with ChangeNotifier {
       }
     }
 
+    _engineOrNull = null;
+    _initializedAppId = null;
     _isInitialized = false;
     _isJoined = false;
     _remoteUid = null;
@@ -595,52 +652,80 @@ class VideoCallProvider with ChangeNotifier {
     return numericUid == 0 ? 1 : numericUid;
   }
 
-  Future<void> initializeAgoraEngine(
-    BuildContext context, {
+  /// iOS first-init (esp. iOS 18) can take 45–60s; Android is typically fast.
+  static Duration get _engineInitTimeout =>
+      Platform.isIOS ? const Duration(seconds: 90) : const Duration(seconds: 30);
+
+  Future<void> initializeAgoraEngine({
     required String agoraAppId,
   }) async {
     try {
-      log('🚀 Initializing Agora Engine (appId prefix: ${agoraAppId.substring(0, math.min(8, agoraAppId.length))})');
+      log(
+        '🚀 Initializing Agora Engine '
+        '(appId prefix: ${agoraAppId.substring(0, math.min(8, agoraAppId.length))}, '
+        'timeout: ${_engineInitTimeout.inSeconds}s, '
+        'platform: ${Platform.isIOS ? "iOS" : "Android"})',
+      );
 
+      final sw = Stopwatch()..start();
       _engineOrNull = createAgoraRtcEngine();
-      await _engineOrNull!.initialize(RtcEngineContext(
-        appId: agoraAppId,
-        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
-        audioScenario: AudioScenarioType.audioScenarioDefault,
-        areaCode: 4294967295,
-      )).timeout(const Duration(seconds: 10), onTimeout: () {
-        throw StateError('Agora engine initialize() timed out on iOS');
+      await _engineOrNull!
+          .initialize(
+            RtcEngineContext(
+              appId: agoraAppId,
+              channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+              audioScenario: AudioScenarioType.audioScenarioDefault,
+              areaCode: AreaCode.areaCodeGlob.value(),
+            ),
+          )
+          .timeout(_engineInitTimeout, onTimeout: () {
+        throw StateError(
+          'Video setup is taking too long. Check your connection and try again.',
+        );
+      });
+      log('⏱️ Agora initialize() completed in ${sw.elapsedMilliseconds}ms');
+
+      await _engineOrNull!
+          .setClientRole(role: ClientRoleType.clientRoleBroadcaster)
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw StateError('Video setup stalled while configuring the call role.');
       });
 
-      await _engineOrNull!.setClientRole(
-        role: ClientRoleType.clientRoleBroadcaster,
-      ).timeout(const Duration(seconds: 5), onTimeout: () {
-        throw StateError('Agora setClientRole() timed out');
+      await _engineOrNull!.enableVideo().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw StateError('Video setup stalled while enabling the camera.');
+        },
+      );
+      await _engineOrNull!
+          .setVideoEncoderConfiguration(
+            const VideoEncoderConfiguration(
+              dimensions: VideoDimensions(width: 640, height: 360),
+              frameRate: 15,
+              bitrate: 800,
+              orientationMode: OrientationMode.orientationModeAdaptive,
+            ),
+          )
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw StateError('Video setup stalled while configuring video quality.');
       });
 
-      await _engineOrNull!.enableVideo().timeout(const Duration(seconds: 5), onTimeout: () {
-        throw StateError('Agora enableVideo() timed out');
-      });
-      await _engineOrNull!.setVideoEncoderConfiguration(const VideoEncoderConfiguration(
-        dimensions: VideoDimensions(width: 640, height: 360),
-        frameRate: 15,
-        bitrate: 800,
-        orientationMode: OrientationMode.orientationModeAdaptive,
-      )).timeout(const Duration(seconds: 5), onTimeout: () {
-        throw StateError('Agora setVideoEncoderConfiguration() timed out');
-      });
-
-      _setupEventHandlers(context);
-
+      _initializedAppId = agoraAppId;
       _isInitialized = true;
-      log("✅ Agora engine initialized successfully");
+      log('✅ Agora engine initialized successfully');
 
       if (Platform.isIOS) {
         await Future.delayed(const Duration(milliseconds: 500));
       }
-
     } catch (e) {
-      log("❌ Error initializing Agora engine: $e");
+      log('❌ Error initializing Agora engine: $e');
+      // Leave no orphaned half-init engine for the next retry.
+      try {
+        await _engineOrNull?.release();
+      } catch (_) {}
+      _engineOrNull = null;
+      _initializedAppId = null;
+      _isInitialized = false;
       rethrow;
     }
   }
@@ -924,6 +1009,8 @@ class VideoCallProvider with ChangeNotifier {
     try {
       log('🧹 Cleaning up video call...');
       _stopCallTimer();
+      // Abandon any in-flight init so a later ensureEngineReady starts fresh.
+      _engineInitFuture = null;
       await _releaseEngine();
 
       _channelBusy = false;
@@ -941,6 +1028,17 @@ class VideoCallProvider with ChangeNotifier {
     } catch (e) {
       log('❌ Error during cleanup: $e');
     }
+  }
+
+  /// Hard reset for Retry — drops orphaned engines and in-flight init.
+  Future<void> resetEngineForRetry() async {
+    _engineInitFuture = null;
+    await _releaseEngine();
+    _error = '';
+    _isJoined = false;
+    _isInCall = false;
+    _callState = CallState.connecting;
+    notifyListeners();
   }
 
   /// Fetches a fresh RTC session from the backend (for retry after failure).
@@ -975,14 +1073,31 @@ class VideoCallProvider with ChangeNotifier {
       // Call state update
       _callState = CallState.ended;
       _isInCall = false;
-      _isJoined = false;
 
       // Stop timer
       _stopCallTimer();
 
-      await _releaseEngine();
+      // Leave the channel but keep the engine warm for a faster rejoin on iOS.
+      try {
+        if (_isJoined || _engineOrNull != null) {
+          await _engineOrNull?.leaveChannel();
+        }
+      } catch (e) {
+        log('⚠️ leaveChannel on endCall: $e');
+      }
+      _isJoined = false;
+      _remoteUid = null;
 
-      // Reset all states
+      if (_registeredEventHandler != null) {
+        try {
+          _engineOrNull?.unregisterEventHandler(_registeredEventHandler!);
+        } catch (e) {
+          log('⚠️ unregisterEventHandler on endCall: $e');
+        }
+        _registeredEventHandler = null;
+      }
+
+      // Reset call UI state; engine stays initialized when possible.
       _resetCallState();
 
       log("✅ Call ended and cleaned up successfully");
@@ -1054,17 +1169,18 @@ class VideoCallProvider with ChangeNotifier {
     try {
       _joinChannelCompleter?.completeError(StateError('Force cleanup'));
       _joinChannelCompleter = null;
+      _engineInitFuture = null;
       _callTimer?.cancel();
       _callTimer = null;
 
       if (_registeredEventHandler != null) {
         try {
-        _engineOrNull?.unregisterEventHandler(_registeredEventHandler!);
+          _engineOrNull?.unregisterEventHandler(_registeredEventHandler!);
         } catch (_) {}
         _registeredEventHandler = null;
       }
 
-      if (_isInitialized) {
+      if (_engineOrNull != null) {
         try {
           _engineOrNull?.leaveChannel();
         } catch (_) {}
@@ -1073,6 +1189,8 @@ class VideoCallProvider with ChangeNotifier {
         } catch (_) {}
       }
 
+      _engineOrNull = null;
+      _initializedAppId = null;
       _resetCallState();
       _isInitialized = false;
 

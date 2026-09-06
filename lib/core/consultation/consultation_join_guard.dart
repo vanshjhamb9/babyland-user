@@ -1,3 +1,4 @@
+import 'package:babyland/app/agora/video_call_controller.dart';
 import 'package:babyland/app/agora/video_call_screen.dart';
 import 'package:babyland/app/controller/experts_consultation/model/booking_data_model.dart';
 import 'package:babyland/app/data/network/network_api_services.dart';
@@ -5,11 +6,13 @@ import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/core/consultation/agora_rtc_session_dto.dart';
 import 'package:babyland/core/consultation/booking_lifecycle.dart';
 import 'package:babyland/core/consultation/patient_session_join_guard.dart';
+import 'package:babyland/core/environment/app_environment.dart';
 import 'package:babyland/core/observability/app_audit_log.dart';
 import 'package:babyland/core/observability/app_runtime_audit_trail.dart';
 import 'package:babyland/features/patient_consultation/consultation_checkout_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 /// Only allow Agora entry when server-derived lifecycle is **ready to join**
 /// and RTC credentials are acquired from `POST /agoras/rtc` (backend-only).
@@ -79,6 +82,12 @@ class ConsultationJoinGuard {
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
                     Text('Preparing your video session…'),
+                    SizedBox(height: 8),
+                    Text(
+                      'First connection on iPhone can take a minute.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
                   ],
                 ),
               ),
@@ -93,6 +102,27 @@ class ConsultationJoinGuard {
           booking: booking,
           projectionRepo: projectionRepo,
         );
+
+        // Pre-warm Agora on iOS during this dialog — first initialize() can
+        // take 45–60s; doing it here avoids the connect-screen false timeout.
+        final appId = dto.appId?.trim().isNotEmpty == true
+            ? dto.appId!.trim()
+            : AppEnvironment.agoraAppIdFromEnv;
+        if (appId != null && appId.isNotEmpty && context.mounted) {
+          try {
+            await context.read<VideoCallProvider>().ensureEngineReady(
+                  agoraAppId: appId,
+                );
+          } catch (e) {
+            // Still open the call screen — join/retry will re-attempt init.
+            AppAuditLog.instance.log(
+              'join_failure',
+              component: 'ConsultationJoinGuard',
+              consultationId: consultationId,
+              outcome: 'prewarm_failed:$e',
+            );
+          }
+        }
       } finally {
         if (context.mounted) {
           Navigator.of(context, rootNavigator: true).pop();
