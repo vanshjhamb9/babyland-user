@@ -54,6 +54,13 @@ workflows:
         script: |
           cd ios
           pod install
+          echo "=== Agora / linker hardening check ==="
+          grep -n "linkage => :static" Podfile
+          grep -n "STRIP_STYLE\|OTHER_LDFLAGS\|force_load\|AgoraRtcKit" Podfile Flutter/Release.xcconfig
+          grep -q "linkage => :static" Podfile
+          grep -q "STRIP_STYLE=non-global" Flutter/Release.xcconfig
+          grep -q "\-ObjC" Flutter/Release.xcconfig
+          echo "Linker hardening files OK"
           cd ..
       - name: Build IPA
         script: |

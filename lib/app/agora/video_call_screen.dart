@@ -102,23 +102,29 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       body: Consumer<VideoCallProvider>(
         builder: (context, videoCallProvider, child) {
           if (!_isInitialized || videoCallProvider.isLoading) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text(
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    const Text(
                       'Connecting to your consultation…',
                       textAlign: TextAlign.center,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'First connection on iPhone can take up to a minute. Please keep the app open.',
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Setting up video can take up to 45 seconds on iPhone. You can go back anytime.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () =>
+                          videoCallProvider.onBackPressed(context),
+                      child: const Text('Cancel'),
                     ),
                   ],
                 ),

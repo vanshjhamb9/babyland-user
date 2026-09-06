@@ -26,7 +26,8 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  # Static linkage preserves Agora Iris symbols in TestFlight/App Store builds.
+  use_frameworks! :linkage => :static
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -81,6 +82,11 @@ post_install do |installer|
     aggregate_target.user_project.targets.each do |target|
       next unless target.name == 'Runner'
       target.build_configurations.each do |config|
+        # Non-global strip keeps Iris/Agora dynamic symbols needed at runtime.
+        if config.name == 'Release' || config.name == 'Profile'
+          config.build_settings['STRIP_STYLE'] = 'non-global'
+        end
+
         flags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
         flags = [flags] unless flags.is_a?(Array)
         flags << '-ObjC' unless flags.any? { |f| f.to_s.include?('-ObjC') }
@@ -93,5 +99,11 @@ post_install do |installer|
       end
     end
     aggregate_target.user_project.save
+  end
+
+  if agora_force_load
+    puts "[Babyland] AgoraRtcKit force_load configured: #{agora_force_load}"
+  else
+    puts "[Babyland] WARNING: AgoraRtcKit binary not found — force_load not applied"
   end
 end

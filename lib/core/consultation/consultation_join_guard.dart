@@ -1,4 +1,5 @@
-import 'package:babyland/app/agora/video_call_controller.dart';
+import 'dart:async';
+
 import 'package:babyland/app/agora/video_call_screen.dart';
 import 'package:babyland/app/controller/experts_consultation/model/booking_data_model.dart';
 import 'package:babyland/app/data/network/network_api_services.dart';
@@ -6,18 +7,21 @@ import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/core/consultation/agora_rtc_session_dto.dart';
 import 'package:babyland/core/consultation/booking_lifecycle.dart';
 import 'package:babyland/core/consultation/patient_session_join_guard.dart';
-import 'package:babyland/core/environment/app_environment.dart';
 import 'package:babyland/core/observability/app_audit_log.dart';
 import 'package:babyland/core/observability/app_runtime_audit_trail.dart';
 import 'package:babyland/features/patient_consultation/consultation_checkout_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 /// Only allow Agora entry when server-derived lifecycle is **ready to join**
 /// and RTC credentials are acquired from `POST /agoras/rtc` (backend-only).
+///
+/// This dialog must never await Agora native `initialize()` — that happens on
+/// [VideoCallScreen] so a slow/hung SDK cannot trap the user on My Bookings.
 class ConsultationJoinGuard {
   ConsultationJoinGuard._();
+
+  static const Duration _prepTimeout = Duration(seconds: 20);
 
   static Future<void> maybeOpenVideo({
     required BuildContext context,
@@ -61,32 +65,48 @@ class ConsultationJoinGuard {
       return;
     }
 
+    var userAborted = false;
+    var tokenAcquired = false;
+    var dialogVisible = false;
+
     try {
       final projectionRepo = ConsultationCheckoutRepository(
         api: NetworkApiServices(),
       );
 
       if (!context.mounted) return;
+      dialogVisible = true;
       showDialog<void>(
         context: context,
-        barrierDismissible: false,
-        builder: (ctx) => const PopScope(
-          canPop: false,
+        barrierDismissible: true,
+        builder: (ctx) => PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop && !tokenAcquired) userAborted = true;
+          },
           child: Center(
             child: Card(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Preparing your video session…'),
-                    SizedBox(height: 8),
-                    Text(
-                      'First connection on iPhone can take a minute.',
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    const Text('Preparing your video session…'),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Fetching secure call credentials…',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () {
+                        userAborted = true;
+                        Navigator.of(ctx).pop();
+                      },
+                      child: const Text('Cancel'),
                     ),
                   ],
                 ),
@@ -94,42 +114,38 @@ class ConsultationJoinGuard {
             ),
           ),
         ),
-      );
+      ).whenComplete(() {
+        dialogVisible = false;
+      });
 
-      AgoraRtcSessionDto dto;
+      final AgoraRtcSessionDto dto;
       try {
-        dto = await PatientSessionJoinGuard.instance.acquireRtcOrThrow(
-          booking: booking,
-          projectionRepo: projectionRepo,
+        dto = await PatientSessionJoinGuard.instance
+            .acquireRtcOrThrow(
+              booking: booking,
+              projectionRepo: projectionRepo,
+            )
+            .timeout(_prepTimeout);
+        tokenAcquired = true;
+      } on TimeoutException {
+        PatientSessionJoinGuard.instance.clearRtcFlight();
+        throw PatientJoinNotAllowedException(
+          'Video setup timed out. Check your connection and try again.',
         );
-
-        // Pre-warm Agora on iOS during this dialog — first initialize() can
-        // take 45–60s; doing it here avoids the connect-screen false timeout.
-        final appId = dto.appId?.trim().isNotEmpty == true
-            ? dto.appId!.trim()
-            : AppEnvironment.agoraAppIdFromEnv;
-        if (appId != null && appId.isNotEmpty && context.mounted) {
-          try {
-            await context.read<VideoCallProvider>().ensureEngineReady(
-                  agoraAppId: appId,
-                );
-          } catch (e) {
-            // Still open the call screen — join/retry will re-attempt init.
-            AppAuditLog.instance.log(
-              'join_failure',
-              component: 'ConsultationJoinGuard',
-              consultationId: consultationId,
-              outcome: 'prewarm_failed:$e',
-            );
-          }
-        }
       } finally {
-        if (context.mounted) {
+        if (context.mounted && dialogVisible) {
           Navigator.of(context, rootNavigator: true).pop();
+          dialogVisible = false;
         }
       }
 
-      if (!context.mounted) return;
+      if (userAborted || !context.mounted) {
+        if (userAborted) {
+          AppPopUp.showToast(message: 'Video join cancelled.');
+        }
+        return;
+      }
+
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => VideoCallScreen(backendSession: dto),

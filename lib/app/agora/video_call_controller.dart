@@ -587,8 +587,16 @@ class VideoCallProvider with ChangeNotifier {
     // after a timed-out initialize() (Dart timeout does not cancel native work).
     if (_engineOrNull != null) {
       try {
-        if (_isJoined) await _engineOrNull?.leaveChannel();
-        await _engineOrNull?.release();
+        if (_isJoined) {
+          await _engineOrNull!
+              .leaveChannel()
+              .timeout(const Duration(seconds: 5));
+        }
+      } catch (e) {
+        log('⚠️ leaveChannel: $e');
+      }
+      try {
+        await _engineOrNull!.release().timeout(const Duration(seconds: 8));
       } catch (e) {
         log('⚠️ Engine release: $e');
       }
@@ -652,9 +660,9 @@ class VideoCallProvider with ChangeNotifier {
     return numericUid == 0 ? 1 : numericUid;
   }
 
-  /// iOS first-init (esp. iOS 18) can take 45–60s; Android is typically fast.
+  /// Cap call-screen wait; never block My Bookings on native init.
   static Duration get _engineInitTimeout =>
-      Platform.isIOS ? const Duration(seconds: 90) : const Duration(seconds: 30);
+      Platform.isIOS ? const Duration(seconds: 45) : const Duration(seconds: 30);
 
   Future<void> initializeAgoraEngine({
     required String agoraAppId,
@@ -721,7 +729,7 @@ class VideoCallProvider with ChangeNotifier {
       log('❌ Error initializing Agora engine: $e');
       // Leave no orphaned half-init engine for the next retry.
       try {
-        await _engineOrNull?.release();
+        await _engineOrNull?.release().timeout(const Duration(seconds: 8));
       } catch (_) {}
       _engineOrNull = null;
       _initializedAppId = null;
@@ -1080,7 +1088,9 @@ class VideoCallProvider with ChangeNotifier {
       // Leave the channel but keep the engine warm for a faster rejoin on iOS.
       try {
         if (_isJoined || _engineOrNull != null) {
-          await _engineOrNull?.leaveChannel();
+          await _engineOrNull
+              ?.leaveChannel()
+              .timeout(const Duration(seconds: 5));
         }
       } catch (e) {
         log('⚠️ leaveChannel on endCall: $e');

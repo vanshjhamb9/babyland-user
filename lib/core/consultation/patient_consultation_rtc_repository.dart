@@ -1,5 +1,7 @@
 // ignore_for_file: public_member_api_docs
 
+import 'dart:async';
+
 import 'package:babyland/app/data/network/end_points.dart';
 import 'package:babyland/app/data/network/network_api_services.dart';
 import 'package:babyland/core/consultation/agora_rtc_session_dto.dart';
@@ -13,7 +15,9 @@ class PatientConsultationRtcRepository {
 
   final NetworkApiServices _api;
 
-  static const int _maxAttempts = 3;
+  /// Keep total budget inside the join-prep 20s window.
+  static const int _maxAttempts = 2;
+  static const Duration _perAttemptTimeout = Duration(seconds: 8);
 
   Future<AgoraRtcSessionDto> fetchPatientRtcToken({
     required String consultationId,
@@ -21,13 +25,15 @@ class PatientConsultationRtcRepository {
     Object? lastError;
     for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
       try {
-        final response = await _api.post(
-          EndPoints.agoraRtcTokenApi,
-          data: {
-            'consultationId': consultationId,
-            'role': 'patient',
-          },
-        );
+        final response = await _api
+            .post(
+              EndPoints.agoraRtcTokenApi,
+              data: {
+                'consultationId': consultationId,
+                'role': 'patient',
+              },
+            )
+            .timeout(_perAttemptTimeout);
 
         if (_isTransientServerFailure(response)) {
           lastError = StateError(_serverMessage(response));
@@ -39,7 +45,7 @@ class PatientConsultationRtcRepository {
             outcome: 'attempt_$attempt',
           );
           if (attempt < _maxAttempts) {
-            await Future<void>.delayed(Duration(milliseconds: 600 * attempt));
+            await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
             continue;
           }
           throw StateError(
@@ -52,7 +58,7 @@ class PatientConsultationRtcRepository {
       } catch (e) {
         if (attempt < _maxAttempts && _isTransientTransport(e)) {
           lastError = e;
-          await Future<void>.delayed(Duration(milliseconds: 600 * attempt));
+          await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
           continue;
         }
         AppAuditLog.instance.log(
@@ -91,6 +97,9 @@ class PatientConsultationRtcRepository {
   }
 
   bool _isTransientTransport(Object e) {
+    if (e is TimeoutException || e.toString().contains('TimeoutException')) {
+      return true;
+    }
     if (e is DioException) {
       switch (e.type) {
         case DioExceptionType.connectionTimeout:

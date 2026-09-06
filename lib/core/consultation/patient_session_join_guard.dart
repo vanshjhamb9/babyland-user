@@ -1,5 +1,7 @@
 // ignore_for_file: public_member_api_docs
 
+import 'dart:async';
+
 import 'package:babyland/app/controller/experts_consultation/model/booking_data_model.dart';
 import 'package:babyland/core/consultation/agora_rtc_session_dto.dart';
 import 'package:babyland/core/consultation/booking_lifecycle.dart';
@@ -26,6 +28,8 @@ class PatientSessionJoinGuard {
   Future<AgoraRtcSessionDto>? _rtcFlight;
   String? _rtcFlightConsultationId;
 
+  static const Duration acquireTimeout = Duration(seconds: 20);
+
   static bool lifecycleAllowsJoin(Booking booking) {
     final phase = bookingLifecycleFromBooking(booking);
     if (phase != BookingLifecyclePhase.readyToJoin &&
@@ -33,6 +37,12 @@ class PatientSessionJoinGuard {
       return false;
     }
     return booking.joinAllowed == true;
+  }
+
+  /// Clears a stuck in-flight token request so the next Join tap can proceed.
+  void clearRtcFlight() {
+    _rtcFlight = null;
+    _rtcFlightConsultationId = null;
   }
 
   Future<AgoraRtcSessionDto> acquireRtcOrThrow({
@@ -52,7 +62,14 @@ class PatientSessionJoinGuard {
           'RTC token issuance already running for another consultation',
         );
       }
-      return pending;
+      try {
+        return await pending.timeout(acquireTimeout);
+      } on TimeoutException {
+        clearRtcFlight();
+        throw PatientJoinNotAllowedException(
+          'Video setup timed out. Check your connection and try again.',
+        );
+      }
     }
 
     AppAuditLog.instance.log(
@@ -67,8 +84,9 @@ class PatientSessionJoinGuard {
       Booking fresh = booking;
       if (projectionRepo != null) {
         try {
-          final projection =
-              await projectionRepo.fetchConsultationProjection(consultationId);
+          final projection = await projectionRepo
+              .fetchConsultationProjection(consultationId)
+              .timeout(const Duration(seconds: 8));
           final updated = _mergeProjectionIntoBooking(booking, projection);
           if (updated != null) fresh = updated;
         } catch (_) {
@@ -126,7 +144,14 @@ class PatientSessionJoinGuard {
     });
 
     _rtcFlight = fut;
-    return fut;
+    try {
+      return await fut.timeout(acquireTimeout);
+    } on TimeoutException {
+      clearRtcFlight();
+      throw PatientJoinNotAllowedException(
+        'Video setup timed out. Check your connection and try again.',
+      );
+    }
   }
 
   Booking? _mergeProjectionIntoBooking(
