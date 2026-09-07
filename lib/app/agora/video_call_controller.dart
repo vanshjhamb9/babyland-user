@@ -217,6 +217,11 @@ class VideoCallProvider with ChangeNotifier {
       _activeBackendSession = dto;
       log('📡 Step 1: Requesting permissions...');
       await _requestPermissions();
+      // iOS: avoid racing Agora FFI init with permission-sheet / lifecycle resume.
+      if (Platform.isIOS) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await Future<void>.delayed(Duration.zero);
+      }
       log('📡 Step 2: Resolving Agora App ID...');
       final agoraAppId = _resolveAgoraAppId(dto);
       log('📡 Step 3: Preparing engine (App ID: ${agoraAppId.substring(0, math.min(8, agoraAppId.length))})...');
@@ -691,6 +696,11 @@ class VideoCallProvider with ChangeNotifier {
           'appIdPrefix=${agoraAppId.substring(0, math.min(8, agoraAppId.length))}',
         );
       } catch (_) {}
+
+      if (Platform.isIOS) {
+        // One more yield so Flutter/engine settle after any prior permission UI.
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
 
       _engineOrNull = createAgoraRtcEngine();
       await _engineOrNull!

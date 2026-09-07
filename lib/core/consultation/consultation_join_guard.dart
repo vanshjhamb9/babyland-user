@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:babyland/app/agora/video_call_screen.dart';
 import 'package:babyland/app/controller/experts_consultation/model/booking_data_model.dart';
@@ -12,6 +13,7 @@ import 'package:babyland/core/observability/app_runtime_audit_trail.dart';
 import 'package:babyland/features/patient_consultation/consultation_checkout_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Only allow Agora entry when server-derived lifecycle is **ready to join**
 /// and RTC credentials are acquired from `POST /agoras/rtc` (backend-only).
@@ -146,6 +148,11 @@ class ConsultationJoinGuard {
         return;
       }
 
+      // Request camera/mic BEFORE VideoCallScreen so Agora initialize does not
+      // race the iOS permission-sheet resume (TestFlight hard crash pattern).
+      await _ensureAvPermissions();
+      if (!context.mounted) return;
+
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => VideoCallScreen(backendSession: dto),
@@ -189,6 +196,43 @@ class ConsultationJoinGuard {
       AppPopUp.showToast(
         message: 'Could not start the video visit. Please try again.',
       );
+    }
+  }
+
+  /// Camera + mic must be granted before pushing the call screen.
+  static Future<void> _ensureAvPermissions() async {
+    final cam = await Permission.camera.status;
+    final mic = await Permission.microphone.status;
+    if (cam.isGranted && mic.isGranted) return;
+
+    final permissions = <Permission>[
+      Permission.microphone,
+      Permission.camera,
+    ];
+    if (Platform.isAndroid) {
+      permissions.add(Permission.bluetoothConnect);
+    }
+
+    final statuses = await permissions.request().timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => <Permission, PermissionStatus>{},
+    );
+
+    if (statuses[Permission.microphone]?.isGranted != true ||
+        statuses[Permission.camera]?.isGranted != true) {
+      // Re-check status in case the map was empty but grants succeeded.
+      final cam2 = await Permission.camera.status;
+      final mic2 = await Permission.microphone.status;
+      if (!(cam2.isGranted && mic2.isGranted)) {
+        throw PatientJoinNotAllowedException(
+          'Camera and microphone access are required for video consultations.',
+        );
+      }
+    }
+
+    // Let iOS finish resuming from the system permission UI before we navigate.
+    if (Platform.isIOS) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
     }
   }
 

@@ -3,3 +3,5 @@
 // Keep Agora Iris bridge symbols from being stripped in App Store / TestFlight builds.
 OTHER_LDFLAGS=$(inherited) -ObjC -lc++
 STRIP_STYLE=non-global
+DEAD_CODE_STRIPPING=NO
+DEPLOYMENT_POSTPROCESSING=YES

@@ -57,7 +57,48 @@ target 'Runner' do
   end
 end
 
+def babyland_nm_tool
+  %w[llvm-nm nm].find { |t| system("command -v #{t} >/dev/null 2>&1") }
+end
+
+# Returns absolute paths of Mach-O binaries under Pods that export Iris_InitDartApiDL.
+def babyland_find_iris_symbol_binaries(pods_root)
+  nm = babyland_nm_tool
+  raise '[Babyland] ERROR: nm/llvm-nm not found — cannot verify Iris_InitDartApiDL' if nm.nil?
+
+  hits = []
+  globs = [
+    File.join(pods_root, '**', '*.framework', '*'),
+    File.join(pods_root, '**', '*.a'),
+    File.join(pods_root, '**', '*.dylib'),
+  ]
+  candidates = globs.flat_map { |g| Dir.glob(g) }.select do |p|
+    next false unless File.file?(p)
+    next false if p.include?('/Headers/')
+    next false if p.include?('.swiftmodule')
+    base = File.basename(p)
+    p.end_with?('.a', '.dylib') ||
+      (File.extname(base).empty? && p.include?('.framework/') &&
+        base == File.basename(File.dirname(p), '.framework'))
+  end
+
+  # Prefer device arm64 slices over simulator.
+  device = candidates.reject { |p| p.include?('simulator') || p.include?('x86_64') }
+  scan_list = device.empty? ? candidates : device
+
+  scan_list.uniq.each do |bin|
+    out = `#{nm} -gU #{Shellwords.escape(bin)} 2>/dev/null`
+    if out.include?('Iris_InitDartApiDL') || out.match?(/\bInitDartApiDL\b/)
+      hits << bin
+      puts "[Babyland] Iris symbol found in: #{bin}"
+    end
+  end
+  hits.uniq
+end
+
 post_install do |installer|
+  require 'shellwords'
+
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
@@ -73,28 +114,36 @@ post_install do |installer|
     end
   end
 
-  # Prevent Agora Iris / RtcKit symbols from being stripped in release/TestFlight.
-  agora_slice = Dir.glob(
-    File.join(
-      installer.sandbox.root,
-      'AgoraRtcEngine_iOS',
-      'AgoraRtcKit.xcframework',
-      'ios-arm64*',
-    ),
-  ).find { |p| File.directory?(p) }
+  pods_root = installer.sandbox.root.to_s
+  iris_bins = babyland_find_iris_symbol_binaries(pods_root)
 
-  agora_force_load = nil
-  if agora_slice
-    slice_name = File.basename(agora_slice)
-    candidate = File.join(
-      agora_slice,
-      'AgoraRtcKit.framework',
-      'AgoraRtcKit',
-    )
-    if File.file?(candidate)
-      agora_force_load =
-        "$(PODS_ROOT)/AgoraRtcEngine_iOS/AgoraRtcKit.xcframework/#{slice_name}/AgoraRtcKit.framework/AgoraRtcKit"
-    end
+  # Always try classic AgoraRtcKit paths as fallback candidates for force_load.
+  Dir.glob(File.join(pods_root, 'AgoraRtcEngine_iOS', 'AgoraRtcKit.xcframework', 'ios-arm64*', 'AgoraRtcKit.framework', 'AgoraRtcKit')).each do |p|
+    iris_bins << p if File.file?(p)
+  end
+  Dir.glob(File.join(pods_root, 'AgoraIrisRTC_iOS', '**', 'AgoraRtcWrapper')).each do |p|
+    iris_bins << p if File.file?(p)
+  end
+  iris_bins.uniq!
+
+  # Fail closed: if we cannot locate any Iris-bearing binary, TestFlight will crash.
+  verified = iris_bins.select do |bin|
+    nm = babyland_nm_tool
+    out = `#{nm} -gU #{Shellwords.escape(bin)} 2>/dev/null`
+    out.include?('Iris_InitDartApiDL') || out.include?(' InitDartApiDL')
+  end
+
+  if verified.empty?
+    raise <<~MSG
+      [Babyland] ERROR: No Pods binary exports Iris_InitDartApiDL.
+      Agora TestFlight builds will crash on RtcEngine.initialize().
+      Check that agora_rtc_engine / AgoraIrisRTC pods installed correctly.
+    MSG
+  end
+
+  force_load_flags = verified.map do |abs|
+    rel = abs.sub(%r{^#{Regexp.escape(pods_root)}/?}, '')
+    "-force_load $(PODS_ROOT)/#{rel}"
   end
 
   installer.aggregate_targets.each do |aggregate_target|
@@ -103,15 +152,16 @@ post_install do |installer|
       target.build_configurations.each do |config|
         if config.name == 'Release' || config.name == 'Profile'
           config.build_settings['STRIP_STYLE'] = 'non-global'
+          config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'YES'
+          config.build_settings['DEAD_CODE_STRIPPING'] = 'NO'
         end
 
         flags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
         flags = [flags] unless flags.is_a?(Array)
         flags << '-ObjC' unless flags.any? { |f| f.to_s.include?('-ObjC') }
         flags << '-lc++' unless flags.any? { |f| f.to_s.include?('-lc++') }
-        if agora_force_load
-          force = "-force_load #{agora_force_load}"
-          flags << force unless flags.any? { |f| f.to_s.include?('AgoraRtcKit') && f.to_s.include?('force_load') }
+        force_load_flags.each do |force|
+          flags << force unless flags.any? { |f| f.to_s == force }
         end
         config.build_settings['OTHER_LDFLAGS'] = flags
       end
@@ -119,9 +169,6 @@ post_install do |installer|
     aggregate_target.user_project.save
   end
 
-  if agora_force_load
-    puts "[Babyland] AgoraRtcKit force_load configured: #{agora_force_load}"
-  else
-    puts "[Babyland] WARNING: AgoraRtcKit binary not found — force_load not applied"
-  end
+  puts "[Babyland] Iris force_load binaries (#{verified.length}):"
+  verified.each { |b| puts "  - #{b}" }
 end
