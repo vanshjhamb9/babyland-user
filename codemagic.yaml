@@ -55,11 +55,18 @@ workflows:
           cd ios
           pod install
           echo "=== Agora / linker hardening check ==="
-          grep -n "linkage => :static" Podfile
+          # Must NOT use static linkage — that strips Iris FFI and crashes on initialize().
+          if grep -q "linkage => :static" Podfile; then
+            echo "ERROR: Podfile must not use use_frameworks! :linkage => :static"
+            exit 1
+          fi
+          grep -n "use_frameworks!" Podfile
+          grep -n "dynamic_framework\|iris_method_channel\|agora_rtc_engine" Podfile
           grep -n "STRIP_STYLE\|OTHER_LDFLAGS\|force_load\|AgoraRtcKit" Podfile Flutter/Release.xcconfig
-          grep -q "linkage => :static" Podfile
+          grep -q "iris_method_channel" Podfile
           grep -q "STRIP_STYLE=non-global" Flutter/Release.xcconfig
           grep -q "\-ObjC" Flutter/Release.xcconfig
+          grep -q "STRIP_STYLE = non-global" Runner.xcodeproj/project.pbxproj
           echo "Linker hardening files OK"
           cd ..
       - name: Build IPA

@@ -10,6 +10,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:babyland/main.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
  
 import '../data/response/api_response.dart';
@@ -676,6 +677,21 @@ class VideoCallProvider with ChangeNotifier {
       );
 
       final sw = Stopwatch()..start();
+      // Breadcrumb before Iris FFI — if TestFlight crashes here, Crashlytics
+      // will show this as the last log (Iris_InitDartApiDL / strip issues).
+      AppAuditLog.instance.log(
+        'agora_engine_init_start',
+        component: 'VideoCallProvider',
+        reason: Platform.isIOS ? 'ios' : 'android',
+        outcome: agoraAppId.substring(0, math.min(8, agoraAppId.length)),
+      );
+      try {
+        FirebaseCrashlytics.instance.log(
+          'agora_engine_init_start platform=${Platform.isIOS ? "ios" : "android"} '
+          'appIdPrefix=${agoraAppId.substring(0, math.min(8, agoraAppId.length))}',
+        );
+      } catch (_) {}
+
       _engineOrNull = createAgoraRtcEngine();
       await _engineOrNull!
           .initialize(

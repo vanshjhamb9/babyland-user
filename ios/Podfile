@@ -25,9 +25,29 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
+# Agora Iris FFI requires dynamic frameworks in TestFlight/App Store builds.
+# Static linkage strips Iris_InitDartApiDL and crashes on RtcEngine.initialize().
+# See: https://github.com/AgoraIO-Extensions/Agora-Flutter-SDK/issues/2255
+dynamic_frameworks = ['agora_rtc_engine', 'iris_method_channel']
+
+pre_install do |installer|
+  Pod::Installer::Xcode::TargetValidator.send(
+    :define_method,
+    :verify_no_static_framework_transitive_dependencies,
+  ) {}
+
+  installer.pod_targets.each do |target|
+    next unless dynamic_frameworks.include?(target.name)
+
+    puts "[Babyland] Forcing dynamic framework: #{target.name}"
+    def target.build_type
+      Pod::BuildType.dynamic_framework
+    end
+  end
+end
+
 target 'Runner' do
-  # Static linkage preserves Agora Iris symbols in TestFlight/App Store builds.
-  use_frameworks! :linkage => :static
+  use_frameworks!
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -53,8 +73,7 @@ post_install do |installer|
     end
   end
 
-  # Prevent Agora Iris / RtcKit symbols from being stripped in release/TestFlight
-  # builds (known agora_rtc_engine 6.5.x issue: Iris_InitDartApiDL not found).
+  # Prevent Agora Iris / RtcKit symbols from being stripped in release/TestFlight.
   agora_slice = Dir.glob(
     File.join(
       installer.sandbox.root,
@@ -82,7 +101,6 @@ post_install do |installer|
     aggregate_target.user_project.targets.each do |target|
       next unless target.name == 'Runner'
       target.build_configurations.each do |config|
-        # Non-global strip keeps Iris/Agora dynamic symbols needed at runtime.
         if config.name == 'Release' || config.name == 'Profile'
           config.build_settings['STRIP_STYLE'] = 'non-global'
         end
