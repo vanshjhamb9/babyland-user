@@ -128,8 +128,46 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/**/*.ipa
+      - build/ios/archive/**/*.dSYM
+      - build/ios/archive/**/*.dSYM.zip
       - /tmp/xcodebuild_logs/*.log
     publishing:
+      scripts:
+        - name: Upload dSYMs to Firebase Crashlytics
+          script: |
+            set -e
+            echo "=== Upload dSYMs to Firebase Crashlytics ==="
+            UPLOAD_BIN=""
+            if [[ -x "$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols" ]]; then
+              UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols"
+            elif [[ -x "$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols.sh" ]]; then
+              UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols.sh"
+            else
+              UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f 2>/dev/null | head -1)
+            fi
+            if [[ -z "$UPLOAD_BIN" ]]; then
+              echo "ERROR: FirebaseCrashlytics upload-symbols not found under ios/Pods"
+              exit 1
+            fi
+            echo "Using: $UPLOAD_BIN"
+            GSP="$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
+            test -f "$GSP" || (echo "ERROR: missing GoogleService-Info.plist" && exit 1)
+
+            DSYM_ROOT="$CM_BUILD_DIR/build/ios/archive/Runner.xcarchive/dSYMs"
+            if [[ ! -d "$DSYM_ROOT" ]]; then
+              DSYM_ROOT=$(find "$CM_BUILD_DIR/build/ios" -type d -name "dSYMs" 2>/dev/null | head -1)
+            fi
+            if [[ -z "$DSYM_ROOT" || ! -d "$DSYM_ROOT" ]]; then
+              echo "ERROR: No dSYMs directory found — Crashlytics will show Missing dSYM"
+              find "$CM_BUILD_DIR/build/ios" -name "*.dSYM" -type d 2>/dev/null | head -50
+              exit 1
+            fi
+            echo "dSYM root: $DSYM_ROOT"
+            ls -la "$DSYM_ROOT"
+
+            # Upload the whole dSYMs folder (Runner + frameworks) so required UUIDs match.
+            "$UPLOAD_BIN" -gsp "$GSP" -p ios "$DSYM_ROOT"
+            echo "Crashlytics dSYM upload finished"
       app_store_connect:
         auth: integration
         # Upload IPA only. Do not assign Internal Testing groups via API —
@@ -180,7 +218,18 @@ workflows:
             || (echo "ERROR: No .ipa after flutter build ipa" && exit 1)
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/archive/**/*.dSYM
     publishing:
+      scripts:
+        - name: Upload dSYMs to Firebase Crashlytics
+          script: |
+            set -e
+            UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols"
+            test -x "$UPLOAD_BIN" || UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f | head -1)
+            test -n "$UPLOAD_BIN" || (echo "ERROR: upload-symbols missing" && exit 1)
+            DSYM_ROOT=$(find "$CM_BUILD_DIR/build/ios" -type d -name "dSYMs" | head -1)
+            test -n "$DSYM_ROOT" || (echo "ERROR: dSYMs missing" && exit 1)
+            "$UPLOAD_BIN" -gsp "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist" -p ios "$DSYM_ROOT"
       app_store_connect:
         auth: integration
         submit_to_testflight: false
