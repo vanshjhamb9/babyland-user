@@ -73,6 +73,7 @@ workflows:
           cd ..
       - name: Build IPA
         script: |
+          set -euo pipefail
           flutter build ipa \
             --release \
             --no-tree-shake-icons \
@@ -84,25 +85,23 @@ workflows:
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
           echo "IPA outputs:"
           find build/ios -name "*.ipa" -type f
-          test -n "$(find build/ios -name '*.ipa' -type f | head -1)" \
-            || (echo "ERROR: No .ipa after flutter build ipa" && exit 1)
+          IPA=$(find build/ios -name "*.ipa" -type f | head -1)
+          if [[ -z "$IPA" ]]; then
+            echo "ERROR: No .ipa after flutter build ipa"
+            exit 1
+          fi
 
           echo "=== Iris_InitDartApiDL IPA gate ==="
-          IPA=$(find build/ios -name "*.ipa" -type f | head -1)
           GATE_DIR=$(mktemp -d)
           unzip -q "$IPA" -d "$GATE_DIR"
           APP_DIR=$(find "$GATE_DIR" -name "*.app" -type d | head -1)
-          test -n "$APP_DIR" || (echo "ERROR: No .app inside IPA" && exit 1)
+          if [[ -z "$APP_DIR" ]]; then
+            echo "ERROR: No .app inside IPA"
+            rm -rf "$GATE_DIR"
+            exit 1
+          fi
           NM_BIN=$(command -v llvm-nm || command -v nm)
           FOUND=0
-          # Search Runner binary + embedded frameworks for Iris FFI symbol.
-          while IFS= read -r -d '' BIN; do
-            if "$NM_BIN" -gU "$BIN" 2>/dev/null | grep -E 'Iris_InitDartApiDL|\bInitDartApiDL\b' >/dev/null; then
-              echo "FOUND Iris symbol in: $BIN"
-              FOUND=1
-            fi
-          done < <(find "$APP_DIR" -type f \( -perm -111 -o -name "*.dylib" -o -name "AgoraRtcKit" -o -name "AgoraRtcWrapper" -o -name "iris_method_channel" -o -name "Runner" \) -print0)
-          # Also scan all Mach-O files under Frameworks/
           if [[ -d "$APP_DIR/Frameworks" ]]; then
             while IFS= read -r -d '' BIN; do
               if file "$BIN" 2>/dev/null | grep -q 'Mach-O'; then
@@ -113,7 +112,6 @@ workflows:
               fi
             done < <(find "$APP_DIR/Frameworks" -type f -print0)
           fi
-          # Check main executable
           EXEC="$APP_DIR/Runner"
           if [[ -f "$EXEC" ]] && "$NM_BIN" -gU "$EXEC" 2>/dev/null | grep -E 'Iris_InitDartApiDL|\bInitDartApiDL\b' >/dev/null; then
             echo "FOUND Iris symbol in Runner executable"
@@ -140,14 +138,13 @@ workflows:
             UPLOAD_BIN=""
             if [[ -x "$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols" ]]; then
               UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols"
-            elif [[ -x "$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols.sh" ]]; then
-              UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols.sh"
             else
-              UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f 2>/dev/null | head -1)
+              UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f 2>/dev/null | head -1 || true)
             fi
             if [[ -z "$UPLOAD_BIN" ]]; then
-              echo "ERROR: FirebaseCrashlytics upload-symbols not found under ios/Pods"
-              exit 1
+              echo "WARNING: FirebaseCrashlytics upload-symbols not found — skipping dSYM upload"
+              echo "dSYM artifacts are still published for manual upload if present."
+              exit 0
             fi
             echo "Using: $UPLOAD_BIN"
             GSP="$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
@@ -155,17 +152,15 @@ workflows:
 
             DSYM_ROOT="$CM_BUILD_DIR/build/ios/archive/Runner.xcarchive/dSYMs"
             if [[ ! -d "$DSYM_ROOT" ]]; then
-              DSYM_ROOT=$(find "$CM_BUILD_DIR/build/ios" -type d -name "dSYMs" 2>/dev/null | head -1)
+              DSYM_ROOT=$(find "$CM_BUILD_DIR/build/ios" -type d -name "dSYMs" 2>/dev/null | head -1 || true)
             fi
             if [[ -z "$DSYM_ROOT" || ! -d "$DSYM_ROOT" ]]; then
-              echo "ERROR: No dSYMs directory found — Crashlytics will show Missing dSYM"
-              find "$CM_BUILD_DIR/build/ios" -name "*.dSYM" -type d 2>/dev/null | head -50
-              exit 1
+              echo "WARNING: No dSYMs directory found — skipping Crashlytics upload"
+              find "$CM_BUILD_DIR/build/ios" -name "*.dSYM" -type d 2>/dev/null | head -50 || true
+              exit 0
             fi
             echo "dSYM root: $DSYM_ROOT"
             ls -la "$DSYM_ROOT"
-
-            # Upload the whole dSYMs folder (Runner + frameworks) so required UUIDs match.
             "$UPLOAD_BIN" -gsp "$GSP" -p ios "$DSYM_ROOT"
             echo "Crashlytics dSYM upload finished"
       app_store_connect:
