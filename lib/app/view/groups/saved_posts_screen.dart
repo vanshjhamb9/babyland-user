@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
+import 'package:babyland/core/moderation/blocked_users_store.dart';
 import '../../controller/group_controller/group_controller.dart';
 import '../../common_profile_header/get_user_controller.dart';
 import '../../widgets/community_post_card_widget.dart';
@@ -19,8 +20,12 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await BlockedUsersStore.loadLocal();
+      await BlockedUsersStore.syncFromServer();
+      if (!mounted) return;
       context.read<GroupController>().fetchSavedPosts();
+      setState(() {});
     });
   }
 
@@ -116,7 +121,10 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
             return Center(child: CircularProgressIndicator(color: AppColors.buttonClr1));
           }
 
-          final posts = provider.savedPosts;
+          final posts = provider.savedPosts
+              .where((post) =>
+                  !BlockedUsersStore.isBlocked(post.userId?.sId?.toString()))
+              .toList();
 
           if (posts.isEmpty) {
             return Center(
@@ -166,6 +174,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
                   onSaveTap: () {
                     provider.toggleSave(post.sId!, isSavedScreen: true);
                   },
+                  onUserBlocked: () => setState(() {}),
                 );
               },
             ),

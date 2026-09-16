@@ -4,6 +4,7 @@ import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/controller/create_account/model/request_verification_model.dart';
 import 'package:babyland/app/data/repository/repository.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
 import 'package:babyland/app/services/social_login/social_login.dart';
 import 'package:babyland/core/auth/jwt_utils.dart';
@@ -208,13 +209,17 @@ class CreateAccountProvider extends ChangeNotifier {
         defaultCountryCallingCode: _countryCallingCode,
       );
 
+  bool get _hasPhoneEntered => phoneController.text.trim().isNotEmpty;
+
   /// Display form for OTP screen (full E.164 when valid).
   String get phoneDisplayE164 {
     final err = PhoneNormalize.validationError(
       phoneController.text.trim(),
       dialCode: _countryCallingCode,
+      required: false,
     );
     if (err != null) return phoneController.text.trim();
+    if (!_hasPhoneEntered) return '';
     return _phoneE164;
   }
 
@@ -240,13 +245,15 @@ class CreateAccountProvider extends ChangeNotifier {
         (m.contains('not found') && m.contains('phone'));
   }
 
-  /// Backend verifies against the Firebase token phone claim — must exist in DB.
-  Future<CommonResponseModel> _ensureBackendUser(String phone) async {
+  /// Backend may create user with or without phone (Guideline 5.1.1 — phone optional).
+  Future<CommonResponseModel> _ensureBackendUser({String? phone}) async {
     final signupData = <String, String>{
       'email': emailController.text.trim(),
-      'phone': phone,
       'password': passwordController.text.trim(),
     };
+    if (phone != null && phone.trim().isNotEmpty) {
+      signupData['phone'] = phone.trim();
+    }
     pt(name: 'Backend signup payload', '$signupData');
     print('Backend signup payload: $signupData');
     print('Signup API URL: will post to auth/signup');
@@ -333,8 +340,9 @@ class CreateAccountProvider extends ChangeNotifier {
     return raw;
   }
 
-  /// Step 1 of signup: validate phone and send Firebase OTP only.
-  /// Backend `/auth/signup` runs **after** OTP succeeds in [verifyOtpSignup].
+  /// Step 1 of signup: phone optional.
+  /// - With phone: Firebase OTP, then backend create in [verifyOtpSignup].
+  /// - Without phone: email/password `/auth/signup` then login (Guideline 5.1.1).
   Future<void> signup() async {
     if (_signupInFlight) return;
     _signupInFlight = true;
@@ -346,12 +354,19 @@ class CreateAccountProvider extends ChangeNotifier {
     final phoneErr = PhoneNormalize.validationError(
       phoneController.text.trim(),
       dialCode: _countryCallingCode,
+      required: false,
     );
     if (phoneErr != null) {
       _signupApiData = ApiResponse.error(phoneErr);
       AppPopUp.showToast(message: phoneErr, duration: const Duration(seconds: 5));
       _signupInFlight = false;
       _safeNotify();
+      return;
+    }
+
+    if (!_hasPhoneEntered) {
+      await _signupWithEmailPasswordOnly();
+      _signupInFlight = false;
       return;
     }
 
@@ -400,6 +415,75 @@ class CreateAccountProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _signupWithEmailPasswordOnly() async {
+    try {
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
+      if (email.isEmpty || password.length < 6) {
+        const msg = 'Enter a valid email and password (min 6 characters).';
+        _signupApiData = ApiResponse.error(msg);
+        AppPopUp.showToast(message: msg);
+        _safeNotify();
+        return;
+      }
+
+      pt(name: 'Signup email-only', 'email=$email');
+      final created = await _ensureBackendUser();
+      if (created.success != true && !_isBenignSignupConflict(created.message)) {
+        _signupApiData = ApiResponse.error(created.message);
+        AppPopUp.showToast(
+          message: created.message ?? 'Signup failed',
+          duration: const Duration(seconds: 8),
+        );
+        _safeNotify();
+        return;
+      }
+
+      final login = await repository.login({
+        'email': email,
+        'password': password,
+      });
+      if (login.success != true) {
+        final msg = login.message ??
+            'Account created. Please sign in with your email and password.';
+        _signupApiData = ApiResponse.error(msg);
+        AppPopUp.showToast(message: msg, duration: const Duration(seconds: 8));
+        _safeNotify();
+        return;
+      }
+
+      final token = login.authToken ?? '';
+      final refreshToken = login.refreshToken ?? '';
+      if (token.isNotEmpty) {
+        await SecureStorage.saveToken(token);
+        await sl.authService.saveToken(token);
+        final uid = login.user?.id ?? extractUserIdFromAccessJwt(token);
+        if (uid != null && uid.toString().isNotEmpty) {
+          await SecureStorage.saveUserId(uid.toString());
+          await sl.authService.saveUserId(uid.toString());
+        }
+      }
+      if (refreshToken.isNotEmpty) {
+        await SecureStorage.saveRefreshToken(refreshToken);
+        await sl.authService.saveRefreshToken(refreshToken);
+      }
+
+      await UserLocalData.clearNeedsPhoneProfile();
+      _signupApiData = ApiResponse.completed(
+        CommonResponseModel(success: true, message: login.message ?? 'Signed up'),
+      );
+      AppPopUp.showToast(message: 'Account created.');
+      _safeNotify();
+      await SocialLoginService().routeAfterAuthSession();
+    } catch (e, s) {
+      pt('Error email-only signup $e $s');
+      final msg = _signupErrorMessage(e);
+      _signupApiData = ApiResponse.error(msg);
+      AppPopUp.showToast(message: msg, duration: const Duration(seconds: 8));
+      _safeNotify();
+    }
+  }
+
   //-------------------------- NEW AUTH FLOW: verify otp
   ApiResponse<CommonResponseModel>? _verifyOtpSignupData = ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get verifyOtpSignupData => _verifyOtpSignupData;
@@ -436,7 +520,7 @@ class CreateAccountProvider extends ChangeNotifier {
       print('Post-OTP: creating backend account for phone=$phone');
 
       // 2. Create account once with Firebase canonical E.164 (avoid multi-format orphans).
-      final created = await _ensureBackendUser(phone);
+      final created = await _ensureBackendUser(phone: phone);
       pt(
         name: 'Post-OTP signup result',
         'success=${created.success} message=${created.message}',

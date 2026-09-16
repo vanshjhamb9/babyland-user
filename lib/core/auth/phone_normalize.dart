@@ -90,12 +90,16 @@ class PhoneNormalize {
   }
 
   /// Returns a user-facing error if [raw] cannot form a valid number for [dialCode].
+  /// When [required] is false, empty input is allowed (returns null).
   static String? validationError(
     String raw, {
     String dialCode = '91',
+    bool required = true,
   }) {
     final trimmed = raw.trim();
-    if (trimmed.isEmpty) return 'Please enter your phone number';
+    if (trimmed.isEmpty) {
+      return required ? 'Please enter your phone number' : null;
+    }
 
     final cc = dialCode.replaceAll('+', '');
     final nationalLen = expectedNationalLength(cc);

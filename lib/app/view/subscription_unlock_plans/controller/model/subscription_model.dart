@@ -13,7 +13,9 @@ class Subscription_Data_Model {
   Subscription_Data_Model.fromJson(Map<String, dynamic> json) {
     success = json['success'];
     message = json['message']?.toString();
-    data = json['data'];
+    // Live API returns `{ subscriptions: [...] }` at top level (no `data` wrapper).
+    data = json['data'] ??
+        (json.containsKey('subscriptions') ? json : json['data']);
   }
 
   Map<String, dynamic> toJson() {
@@ -27,6 +29,48 @@ class Subscription_Data_Model {
   /// Strict tier from API (prefer over string heuristics for new code).
   SubscriptionEntitlement get resolvedEntitlement =>
       subscriptionEntitlementFromPayload(data);
+
+  /// Optional expiry from `/subscriptions/me` (`expiresAt` / `endDate` / `validUntil`).
+  DateTime? get expiresAtUtc {
+    final map = activeSubscriptionMapFromPayload(data) ?? _subscriptionMap(data);
+    if (map == null) return null;
+    for (final key in const [
+      'expiresAt',
+      'expires_at',
+      'endDate',
+      'end_date',
+      'validUntil',
+      'valid_until',
+      'expiryDate',
+      'subscriptionEndsAt',
+    ]) {
+      final raw = map[key];
+      if (raw == null) continue;
+      final parsed = DateTime.tryParse(raw.toString());
+      if (parsed != null) return parsed.toUtc();
+    }
+    return null;
+  }
+
+  static Map<String, dynamic>? _subscriptionMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      if (value['data'] is Map) {
+        return Map<String, dynamic>.from(value['data'] as Map);
+      }
+      return value;
+    }
+    if (value is Map) {
+      final map = Map<String, dynamic>.from(value);
+      if (map['data'] is Map) {
+        return Map<String, dynamic>.from(map['data'] as Map);
+      }
+      return map;
+    }
+    if (value is List && value.isNotEmpty && value.first is Map) {
+      return Map<String, dynamic>.from(value.first as Map);
+    }
+    return null;
+  }
 
   bool get hasActiveSubscription {
     final tier = resolvedEntitlement;

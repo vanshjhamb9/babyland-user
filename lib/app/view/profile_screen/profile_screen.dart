@@ -193,6 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       "Privacy Policy",
       "Refund Policy",
       "Shipping Policy",
+      "Delete Account",
       "Log Out",
     ];
 
@@ -208,6 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Icons.privacy_tip_rounded,
       Icons.receipt_long_rounded,
       Icons.local_shipping_rounded,
+      Icons.delete_forever_rounded,
       Icons.logout_rounded,
     ];
 
@@ -294,6 +296,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               } else if (index == 10) {
                 Navigator.pushNamed(context, AppRoutes.shippingPolicyScreen);
               } else if (index == 11) {
+                showDeleteAccountDialog();
+              } else if (index == 12) {
                 showLogoutDialog();
               }
             },
@@ -301,6 +305,156 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
     );
+  }
+
+  // ---------------- DELETE ACCOUNT ----------------
+  void showDeleteAccountDialog() {
+    final confirmController = TextEditingController();
+    var deleting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return PopScope(
+            canPop: !deleting,
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: AppContainer(
+                        padding: const EdgeInsets.all(16),
+                        shape: BoxShape.circle,
+                        gradient: AppColors.buttonClr,
+                        child: const Icon(
+                          Icons.delete_forever,
+                          size: 26,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Delete Account",
+                      style: AppFontStyle.text_20_500(
+                        color: AppColors.black,
+                        fontFamily: AppFontFamily.gilroyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "This permanently deletes your account and associated personal data. This cannot be undone.\n\nType DELETE to confirm.",
+                      textAlign: TextAlign.center,
+                      style: AppFontStyle.text_14_400(
+                        color: AppColors.textLightClr,
+                        fontFamily: AppFontFamily.gilroyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: confirmController,
+                      enabled: !deleting,
+                      decoration: const InputDecoration(
+                        hintText: 'DELETE',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Button(
+                            text: "Cancel",
+                            onTap: deleting
+                                ? null
+                                : () => Navigator.pop(dialogContext),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Button(
+                            text: deleting ? "…" : "Delete",
+                            onTap: deleting
+                                ? null
+                                : () async {
+                                    if (confirmController.text.trim() !=
+                                        'DELETE') {
+                                      ScaffoldMessenger.of(dialogContext)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Type DELETE to confirm',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    setDialogState(() => deleting = true);
+                                    try {
+                                      final res =
+                                          await repository.deleteAccount();
+                                      if (res.success == false) {
+                                        setDialogState(() => deleting = false);
+                                        if (!dialogContext.mounted) return;
+                                        ScaffoldMessenger.of(dialogContext)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              res.message ??
+                                                  'Could not delete account',
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                    } catch (e) {
+                                      setDialogState(() => deleting = false);
+                                      if (!dialogContext.mounted) return;
+                                      ScaffoldMessenger.of(dialogContext)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Could not delete account: $e',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    await SecureStorage.clearAll();
+                                    await UserLocalData.clearAllLocalData();
+                                    await UserPreference
+                                        .saveSavedCommunityPostIds([]);
+                                    try {
+                                      await AppGoogleSignIn.signOut();
+                                    } catch (_) {}
+                                    await sl.authService.logout();
+                                    if (!dialogContext.mounted) return;
+                                    Navigator.pushNamedAndRemoveUntil(
+                                      navigatorKey.currentContext!,
+                                      AppRoutes.signInView,
+                                      (route) => false,
+                                    );
+                                  },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(confirmController.dispose);
   }
 
   // ---------------- LOGOUT POPUP ----------------

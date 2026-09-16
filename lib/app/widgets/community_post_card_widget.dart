@@ -7,6 +7,7 @@ import '../theme/font_style.dart';
 import 'container.dart';
 import 'user_avatar.dart';
 import 'package:intl/intl.dart';
+import 'package:babyland/core/moderation/ugc_moderation_actions.dart';
 
 class CommunityPostCardWidget extends StatelessWidget {
   final dynamic post;
@@ -16,6 +17,8 @@ class CommunityPostCardWidget extends StatelessWidget {
   final VoidCallback onLikeTap;
   final VoidCallback onCommentTap;
   final VoidCallback onSaveTap;
+  /// Called after a successful local block so parents can refresh/filter.
+  final VoidCallback? onUserBlocked;
 
   const CommunityPostCardWidget({
     super.key,
@@ -26,6 +29,7 @@ class CommunityPostCardWidget extends StatelessWidget {
     required this.onLikeTap,
     required this.onCommentTap,
     required this.onSaveTap,
+    this.onUserBlocked,
   });
 
   String formatDate(String dateStr) {
@@ -40,6 +44,13 @@ class CommunityPostCardWidget extends StatelessWidget {
       return dateStr;
     }
   }
+
+  String? get _authorId => post?.userId?.sId?.toString();
+  String? get _postId => post?.sId?.toString();
+  bool get _isOwnPost =>
+      myUserId != null &&
+      _authorId != null &&
+      myUserId == _authorId;
 
   @override
   Widget build(BuildContext context) {
@@ -69,24 +80,60 @@ class CommunityPostCardWidget extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      post?.userId?.name ?? "",
-                      style: AppFontStyle.text_18_400(
-                        fontFamily: AppFontFamily.gilroySemiBold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        post?.userId?.name ?? "",
+                        style: AppFontStyle.text_18_400(
+                          fontFamily: AppFontFamily.gilroySemiBold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "@${post?.userId?.name ?? ""}",
-                      style: AppFontStyle.text_16_400(
-                        fontFamily: AppFontFamily.gilroyRegular,
-                        color: AppColors.textLightClr,
+                      Text(
+                        "@${post?.userId?.name ?? ""}",
+                        style: AppFontStyle.text_16_400(
+                          fontFamily: AppFontFamily.gilroyRegular,
+                          color: AppColors.textLightClr,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                if (!_isOwnPost)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) async {
+                      if (value == 'report') {
+                        final postId = _postId;
+                        if (postId == null || postId.isEmpty) return;
+                        await showReportContentSheet(
+                          context,
+                          targetType: 'post',
+                          targetId: postId,
+                        );
+                      } else if (value == 'block') {
+                        final authorId = _authorId;
+                        if (authorId == null || authorId.isEmpty) return;
+                        final blocked = await confirmAndBlockUser(
+                          context,
+                          userId: authorId,
+                          userName: post?.userId?.name?.toString(),
+                        );
+                        if (blocked) onUserBlocked?.call();
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'report',
+                        child: Text('Report'),
+                      ),
+                      PopupMenuItem(
+                        value: 'block',
+                        child: Text('Block user'),
+                      ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 12),

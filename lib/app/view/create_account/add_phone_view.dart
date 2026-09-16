@@ -1,4 +1,6 @@
+import 'package:babyland/app/data/storage/user_local_data.dart';
 import 'package:babyland/app/routes/app_routes.dart';
+import 'package:babyland/app/services/social_login/social_login.dart';
 import 'package:babyland/app/theme/app_colors.dart';
 import 'package:babyland/app/theme/font_family.dart';
 import 'package:babyland/app/theme/font_style.dart';
@@ -23,6 +25,7 @@ class AddPhoneView extends StatefulWidget {
 class _AddPhoneViewState extends State<AddPhoneView> {
   final TextEditingController phoneController = TextEditingController();
   String _countryCallingCode = '91';
+  bool _skipping = false;
 
   @override
   void initState() {
@@ -53,8 +56,6 @@ class _AddPhoneViewState extends State<AddPhoneView> {
         );
         return;
       }
-      // Instant Play Store auto-verify still goes to OTP so that screen can
-      // attach the phone to the Google user via /auth/verify-otp.
       await Navigator.pushNamed(context, AppRoutes.phoneOtpVerifyView);
     } catch (e) {
       if (!mounted) return;
@@ -62,6 +63,23 @@ class _AddPhoneViewState extends State<AddPhoneView> {
         message: phoneAuth.userFacingMessage ??
             'Failed to send verification SMS. Check network and Firebase setup.',
         duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  Future<void> _skipPhone() async {
+    if (_skipping) return;
+    setState(() => _skipping = true);
+    await UserLocalData.clearNeedsPhoneProfile();
+    if (!mounted) return;
+    try {
+      await SocialLoginService().routeAfterAuthSession();
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.splashView,
+        (_) => false,
       );
     }
   }
@@ -99,7 +117,7 @@ class _AddPhoneViewState extends State<AddPhoneView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "We'll send a verification code to your number.",
+                        "Phone number is optional. You can add it now or skip.",
                         style: AppFontStyle.text_14_400(
                           color: AppColors.textLightClr,
                           fontFamily: AppFontFamily.gilroyRegular,
@@ -116,7 +134,7 @@ class _AddPhoneViewState extends State<AddPhoneView> {
                         ),
                       ],
                       const SizedBox(height: 20),
-                      textFieldTitle(title: 'Phone Number'),
+                      textFieldTitle(title: 'Phone Number (optional)'),
                       const SizedBox(height: 6),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +188,7 @@ class _AddPhoneViewState extends State<AddPhoneView> {
                       ),
                       const SizedBox(height: 30),
                       Button(
-                        onTap: sending ? null : _sendOtpAndContinue,
+                        onTap: sending || _skipping ? null : _sendOtpAndContinue,
                         child: sending
                             ? const SizedBox(
                                 height: 22,
@@ -187,6 +205,19 @@ class _AddPhoneViewState extends State<AddPhoneView> {
                                   color: AppColors.white,
                                 ),
                               ),
+                      ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: TextButton(
+                          onPressed: sending || _skipping ? null : _skipPhone,
+                          child: Text(
+                            _skipping ? 'Continuing…' : 'Skip for now',
+                            style: AppFontStyle.text_14_400(
+                              color: AppColors.buttonClr1,
+                              fontFamily: AppFontFamily.gilroyMedium,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

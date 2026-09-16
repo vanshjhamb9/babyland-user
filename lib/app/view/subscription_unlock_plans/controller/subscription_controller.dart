@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:babyland/app/common_model/common_model.dart';
 import 'package:babyland/app/data/response/api_response.dart';
 import 'package:babyland/app/data/storage/secure_storage.dart';
 import 'package:babyland/core/entitlement/subscription_entitlement.dart';
 import 'package:babyland/core/observability/app_audit_log.dart';
+import 'package:babyland/core/subscription/apple_iap_service.dart';
 import 'package:babyland/core/subscription/subscription_payment_coordinator.dart';
 import 'package:babyland/core/subscription/subscription_payment_parse.dart';
 import 'package:babyland/main.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../widgets/app_popup.dart';
@@ -20,7 +23,104 @@ class SubscriptionProvider extends ChangeNotifier {
     setSelectedPlanIndex(0);
     touchActivity();
     onForeground();
+    if (Platform.isIOS) {
+      unawaited(_initAppleIap());
+    }
   }
+
+  final AppleIapService appleIap = AppleIapService();
+  bool _appleIapBusy = false;
+  bool get appleIapBusy => _appleIapBusy || appleIap.purchaseInFlight;
+  String? get appleStorePriceLabel => appleIap.storePriceLabel;
+
+  Future<void> _initAppleIap() async {
+    await appleIap.init(
+      onPurchaseVerified: _verifyApplePurchase,
+      onError: (message) {
+        AppPopUp.showToast(message: message);
+        _appleIapBusy = false;
+        notifyListeners();
+      },
+      onPurchaseUiSettled: () {
+        _appleIapBusy = false;
+        notifyListeners();
+      },
+    );
+    notifyListeners();
+  }
+
+  Future<bool> _verifyApplePurchase(PurchaseDetails purchase) async {
+    final receipt = purchase.verificationData.serverVerificationData;
+    final local = purchase.verificationData.localVerificationData;
+    final payload = <String, dynamic>{
+      'platform': 'ios',
+      'productId': purchase.productID,
+      'transactionId': purchase.purchaseID,
+      'receiptData': receipt.isNotEmpty ? receipt : local,
+      'localVerificationData': local,
+      'source': purchase.verificationData.source,
+    };
+    pt('[APPLE_IAP] verifying with backend product=${purchase.productID}');
+    final result = await repository.verifyAppleSubscription(payload);
+    if (result.success != true) {
+      AppPopUp.showToast(
+        message: result.message ?? 'Could not activate subscription.',
+      );
+      return false;
+    }
+    await refreshEntitlements(reason: 'apple_iap_verified', silent: true);
+    if (canUsePremiumFeature) {
+      AppPopUp.showToast(message: 'Subscription activated.');
+    }
+    return canUsePremiumFeature || result.success == true;
+  }
+
+  /// iOS: native StoreKit sheet. Android: PhonePe checkout.
+  Future<bool> startUpgradeCheckout(
+    SubscriptionPaymentCoordinator coordinator,
+  ) async {
+    if (Platform.isIOS) {
+      return startAppleIapCheckout();
+    }
+    return startPhonePeSubscriptionCheckout(coordinator);
+  }
+
+  Future<bool> startAppleIapCheckout() async {
+    if (!Platform.isIOS) return false;
+    if (canUsePremiumFeature) return true;
+    _appleIapBusy = true;
+    notifyListeners();
+    final started = await appleIap.buyProMonthly();
+    if (!started) {
+      _appleIapBusy = false;
+      notifyListeners();
+      AppPopUp.showToast(
+        message: appleIap.lastError ??
+            'Unable to open App Store purchase. Please try again.',
+      );
+      return false;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> restoreApplePurchases() async {
+    if (!Platform.isIOS) return;
+    _appleIapBusy = true;
+    notifyListeners();
+    await appleIap.restorePurchases();
+    await refreshEntitlements(reason: 'apple_iap_restore', silent: true);
+    _appleIapBusy = false;
+    notifyListeners();
+    if (canUsePremiumFeature) {
+      AppPopUp.showToast(message: 'Subscription restored.');
+    } else {
+      AppPopUp.showToast(message: 'No active subscription to restore.');
+    }
+  }
+
+  DateTime? get subscriptionExpiresAtUtc =>
+      _mySubscription?.data?.expiresAtUtc;
 
   /// Healthcare-grade: premium gates use [canUsePremiumFeature], not raw API alone.
   static const Duration entitlementStaleAfter = Duration(minutes: 3);
@@ -70,11 +170,10 @@ class SubscriptionProvider extends ChangeNotifier {
   String _planName = "";
   String get planName => _planName;
 
-  /// Parsed from last successful `subscriptions/add` response (rupees, matches PhonePe when present).
+  /// Parsed from last successful `subscriptions/add` response (rupees).
   num? _lastSubscriptionCheckoutRupees;
   num? get lastSubscriptionCheckoutRupees => _lastSubscriptionCheckoutRupees;
 
-  /// Typed view of the most recent `subscriptions/add` response (Section A §2.3).
   SubscriptionAddResponse? _lastSubscriptionAddResponse;
   SubscriptionAddResponse? get lastSubscriptionAddResponse =>
       _lastSubscriptionAddResponse;
@@ -95,7 +194,9 @@ class SubscriptionProvider extends ChangeNotifier {
     final plans = allSubscription?.data?.plans ?? <Plans>[];
     return plans.where((plan) {
       final price = plan.price ?? 0;
-      return plan.isActive != false && price > 0 && (plan.sId?.isNotEmpty ?? false);
+      return plan.isActive != false &&
+          price > 0 &&
+          (plan.sId?.isNotEmpty ?? false);
     }).toList();
   }
 
@@ -122,20 +223,19 @@ class SubscriptionProvider extends ChangeNotifier {
         AppPopUp.showToast(message: value.message ?? "");
       }
       notifyListeners();
-    },).onError((error, stackTrace) {
+    }).onError((error, stackTrace) {
       pt("Error in pregnancyInfo: $error\n$stackTrace");
       setAllSubscription(ApiResponse.error(error.toString()));
       notifyListeners();
       AppPopUp.showToast(message: "Something went wrong. Please try again.");
       notifyListeners();
-    },);
+    });
   }
 
   ApiResponse<Subscription_Data_Model>? _mySubscription =
       ApiResponse.completed(null);
   ApiResponse<Subscription_Data_Model>? get mySubscription => _mySubscription;
 
-  /// Last payload heuristic "active" — may be stale; prefer [canUsePremiumFeature] for paywalls.
   bool get hasActiveSubscription =>
       _mySubscription?.data?.hasActiveSubscription == true;
 
@@ -219,7 +319,6 @@ class SubscriptionProvider extends ChangeNotifier {
   Future<void> getMySubscriptionApi({bool silent = false}) =>
       refreshEntitlements(reason: 'legacy_get_my_subscription', silent: silent);
 
-  //add subscription
   ApiResponse<CommonResponseModel>? _addSubscription =
       ApiResponse.completed(null);
   ApiResponse<CommonResponseModel>? get addSubscription => _addSubscription;
@@ -244,9 +343,8 @@ class SubscriptionProvider extends ChangeNotifier {
     notifyListeners();
     setAddSubscription(ApiResponse.loading());
     notifyListeners();
-    final effectivePlanId = planId?.isNotEmpty == true
-        ? planId!
-        : selectedOrFirstPlanId;
+    final effectivePlanId =
+        planId?.isNotEmpty == true ? planId! : selectedOrFirstPlanId;
     if (effectivePlanId.isEmpty) {
       const message = "Please select a subscription plan.";
       setAddSubscription(ApiResponse.error(message));
@@ -310,10 +408,14 @@ class SubscriptionProvider extends ChangeNotifier {
       );
     }
 
-    final launchUrlValue = typed.effectiveRedirectUrl ?? _extractPaymentUrl(value);
+    final launchUrlValue =
+        typed.effectiveRedirectUrl ?? _extractPaymentUrl(value);
     final merchant = typed.merchantTransactionId;
     if (launchUrlValue == null || launchUrlValue.isEmpty) {
-      await refreshEntitlements(reason: 'subscription_no_redirect', silent: true);
+      await refreshEntitlements(
+        reason: 'subscription_no_redirect',
+        silent: true,
+      );
       await coordinator.syncAfterRefresh(
         canUsePremiumFeature: () => canUsePremiumFeature,
       );
@@ -399,5 +501,11 @@ class SubscriptionProvider extends ChangeNotifier {
 
     final instrument = map['instrumentResponse'] ?? map['instrument_response'];
     return _extractPaymentUrlFromDynamic(instrument);
+  }
+
+  @override
+  void dispose() {
+    unawaited(appleIap.dispose());
+    super.dispose();
   }
 }

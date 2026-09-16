@@ -1300,6 +1300,73 @@ class Repository extends ChangeNotifier {
     return Subscription_Data_Model.fromJson(response);
   }
 
+  /// Verify Apple IAP purchase and activate monthly Pro on the server.
+  Future<CommonResponseModel> verifyAppleSubscription(
+    Map<String, dynamic> data,
+  ) async {
+    final response = await apiService.post(
+      EndPoints.subscriptionsAppleVerify,
+      data: data,
+    );
+    return CommonResponseModel.fromJson(response);
+  }
+
+  Future<CommonResponseModel> reportContent(Map<String, dynamic> data) async {
+    final response = await apiService.post(
+      EndPoints.moderationReports,
+      data: data,
+    );
+    return CommonResponseModel.fromJson(response);
+  }
+
+  Future<CommonResponseModel> blockUser(String userId) async {
+    final response = await apiService.post(EndPoints.blockUser(userId));
+    return CommonResponseModel.fromJson(response);
+  }
+
+  Future<CommonResponseModel> unblockUser(String userId) async {
+    final response = await apiService.delete(EndPoints.blockUser(userId));
+    return CommonResponseModel.fromJson(response);
+  }
+
+  Future<List<String>> getBlockedUserIds() async {
+    final response = await apiService.get(EndPoints.blockedUsers);
+    final ids = <String>[];
+    dynamic root = response;
+    if (response is Map) {
+      root = response['data'] ?? response['blocked'] ?? response['users'];
+    }
+    if (root is List) {
+      for (final item in root) {
+        if (item is String && item.isNotEmpty) {
+          ids.add(item);
+        } else if (item is Map) {
+          final id = (item['_id'] ?? item['id'] ?? item['userId'])?.toString();
+          if (id != null && id.isNotEmpty) ids.add(id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  Future<CommonResponseModel> deleteAccount() async {
+    final response = await apiService.delete(EndPoints.deleteAccount);
+    if (response is Map<String, dynamic>) {
+      if (response.isEmpty) {
+        return CommonResponseModel(success: true, message: 'Account deleted');
+      }
+      return CommonResponseModel.fromJson(response);
+    }
+    if (response is Map) {
+      final map = Map<String, dynamic>.from(response);
+      if (map.isEmpty) {
+        return CommonResponseModel(success: true, message: 'Account deleted');
+      }
+      return CommonResponseModel.fromJson(map);
+    }
+    return CommonResponseModel(success: true, message: 'Account deleted');
+  }
+
   Future<GetAllPlansModel> getPublicPlans() async {
     final response = await apiService.get(EndPoints.getPublicPlans);
     return GetAllPlansModel.fromJson(response);

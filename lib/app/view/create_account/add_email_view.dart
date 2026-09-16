@@ -179,7 +179,7 @@ class AddEmailView extends StatelessWidget {
               },
             ),
             SizedBox(height: 20),
-            textFieldTitle(title: "Phone Number"),
+            textFieldTitle(title: "Phone Number (optional)"),
             SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,6 +229,7 @@ class AddEmailView extends StatelessWidget {
                       return PhoneNormalize.validationError(
                         value ?? '',
                         dialCode: provider.countryCallingCode,
+                        required: false,
                       );
                     },
                   ),

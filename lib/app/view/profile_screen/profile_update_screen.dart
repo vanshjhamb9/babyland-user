@@ -214,11 +214,13 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     }
 
     final phone = phoneController.text.trim();
-    if (phone.isEmpty || !isValidPhone(phone, isRequired: true)) {
-      AppPopUp.showToast(
-        message: "Please enter a valid phone number (8–15 digits).",
-      );
-      return;
+    if (phone.isEmpty || !isValidPhone(phone, isRequired: false)) {
+      if (phone.isNotEmpty) {
+        AppPopUp.showToast(
+          message: "Please enter a valid phone number (8–15 digits).",
+        );
+        return;
+      }
     }
 
     final email = emailController.text.trim();

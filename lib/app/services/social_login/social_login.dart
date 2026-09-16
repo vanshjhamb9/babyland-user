@@ -112,15 +112,19 @@ class SocialLoginService {
       if (_requiresPhone(response)) {
         await ReleaseLogger.log(
           'GOOGLE-FILE',
-          'requirePhone=true. Token present=${response.token != null && response.token!.isNotEmpty}',
+          'requirePhone=true (soft). Token present=${response.token != null && response.token!.isNotEmpty}',
         );
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
         final routedExisting = await _tryRouteExistingGoogleUser(response);
         if (routedExisting) {
           return response;
         }
-        // Incomplete Google signup: no full session until /auth/verify-otp.
-        await UserLocalData.setNeedsPhoneProfile(true);
+        // Soft prompt only — phone is optional; continue session when token exists.
+        await UserLocalData.clearNeedsPhoneProfile();
+        if (response.token != null && response.token!.isNotEmpty) {
+          await _persistSessionAndNavigate(response);
+          return response;
+        }
         if (navigatorKey.currentContext != null) {
           Navigator.pushReplacementNamed(
             navigatorKey.currentContext!,
@@ -159,10 +163,14 @@ class SocialLoginService {
           }
         }
 
-        // New user (no existing phone) — redirect to AddPhoneView
-        await ReleaseLogger.log('GOOGLE-FILE', 'No existing user/phone found. Navigating to AddPhoneView...');
+        // New user (no existing phone) — soft optional phone screen with Skip.
+        await ReleaseLogger.log('GOOGLE-FILE', 'No existing user/phone found. Navigating to AddPhoneView (skippable)...');
         await SecureStorage.saveGoogleIdToken(googleAuth.idToken!);
-        await UserLocalData.setNeedsPhoneProfile(true);
+        await UserLocalData.clearNeedsPhoneProfile();
+        if (response.token != null && response.token!.isNotEmpty) {
+          await _persistSessionAndNavigate(response);
+          return response;
+        }
         if (navigatorKey.currentContext != null) {
           await ReleaseLogger.log('GOOGLE-FILE', 'Navigator context available, pushing AddPhoneView');
           Navigator.pushReplacementNamed(
@@ -453,7 +461,7 @@ class SocialLoginService {
     );
 
     if (!hasPhone) {
-      await UserLocalData.setNeedsPhoneProfile(true);
+      await UserLocalData.clearNeedsPhoneProfile();
     } else {
       await UserLocalData.clearNeedsPhoneProfile();
     }
@@ -466,13 +474,7 @@ class SocialLoginService {
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
 
-    if (!hasPhone) {
-      await UserLocalData.setNeedsBasicProfile(true);
-      print('[AUTH-ROUTE] → addPhoneView (no phone)');
-      Navigator.pushReplacementNamed(ctx, AppRoutes.addPhoneView);
-      return;
-    }
-
+    // Phone is optional — do not force Add Phone (Guideline 5.1.1).
     if (hasCompletedOnboarding) {
       await UserLocalData.setNeedsBasicProfile(false);
       print('[AUTH-ROUTE] → splashView (existing account, stage=$backendStage)');

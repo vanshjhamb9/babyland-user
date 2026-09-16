@@ -194,6 +194,11 @@ Add a **1024×1024 PNG** to `ios/Runner/Assets.xcassets/AppIcon.appiconset/` and
 
 In App Store Connect → your app → **App Store** tab → add screenshots, description, privacy policy URL → **Submit for Review**.
 
+For the latest App Store rejection remediation (IAP, UGC, privacy, account deletion), see:
+
+- [`docs/APP_STORE_RESUBMISSION_CHECKLIST.md`](../docs/APP_STORE_RESUBMISSION_CHECKLIST.md)
+- [`docs/APP_STORE_BACKEND_CONTRACTS.md`](../docs/APP_STORE_BACKEND_CONTRACTS.md)
+
 ---
 
 ## Quick checklist

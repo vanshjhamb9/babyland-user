@@ -27,6 +27,19 @@ class UserPreference {
     return [];
   }
 
+  /// User ids blocked for UGC feed filtering (Guideline 1.2).
+  static Future<void> saveBlockedUserIds(List<String> ids) async {
+    await _box.put('blockedUserIds', ids);
+  }
+
+  static List<String> getBlockedUserIds() {
+    final raw = _box.get('blockedUserIds');
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    return [];
+  }
+
   /// Post-pregnancy mental health logs are charted locally because the legacy
   /// codebase doesn't expose a "GET logs" endpoint for postpartum mood.
   static const String _postMentalHealthLogsKey = 'postMentalHealthLogs';

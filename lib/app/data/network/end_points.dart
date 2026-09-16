@@ -138,7 +138,18 @@ class EndPoints {
   static String get getAllSubscriptionPlan => '${baseUrl}/plans/get-all';
   static String get subscriptionsAdd => '${baseUrl}/subscriptions/add';
   static String get getMySubscription => '${baseUrl}/subscriptions/me';
+  /// iOS StoreKit receipt / transaction verification → activates 1-month Pro.
+  static String get subscriptionsAppleVerify =>
+      '${baseUrl}/subscriptions/apple/verify';
   static String get getPublicPlans => '${baseUrl}/plans/public';
+
+  /// UGC moderation (Guideline 1.2).
+  static String get moderationReports => '${baseUrl}/moderation/reports';
+  static String blockUser(String userId) => '${baseUrl}/users/$userId/block';
+  static String get blockedUsers => '${baseUrl}/users/blocked';
+
+  /// Permanent account deletion (Guideline 5.1.1(v)).
+  static String get deleteAccount => '${baseUrl}/users/me';
 
   static String get aiChatCreateRoom => '${baseUrl}/aichats/create-chat';
   static String get aiChatAllMessages => '${baseUrl}/aichats/all-messages';

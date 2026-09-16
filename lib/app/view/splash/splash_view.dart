@@ -143,29 +143,17 @@ class _SplashViewState extends State<SplashView> {
 
             final needsPhone = await UserLocalData.needsPhoneProfile();
             final needsBasic = await UserLocalData.needsBasicProfile();
-            pt('[SPLASH-AUDIT] needsPhoneProfile: $needsPhone');
+            pt('[SPLASH-AUDIT] needsPhoneProfile: $needsPhone (optional — not blocking)');
             pt('[SPLASH-AUDIT] needsBasicProfile: $needsBasic');
 
-            // Any authenticated session without a phone must finish Add Phone /
-            // OTP — never open the dashboard (Google requirePhone session leak).
+            // Phone is optional (Guideline 5.1.1) — never force Add Phone.
             final phoneMissing = userPhone == null || userPhone.isEmpty;
-            if (phoneMissing) {
-              await UserLocalData.setNeedsPhoneProfile(true);
-              pt('[SPLASH-AUDIT] → phone missing → addPhoneView');
-              final target = navigatorKey.currentContext;
-              if (target != null && target.mounted) {
-                if (!mounted) return;
-                setState(() => _checkingAuth = false);
-                Navigator.pushNamedAndRemoveUntil(
-                  target,
-                  AppRoutes.addPhoneView,
-                  (route) => false,
-                );
-                return;
-              }
-            } else if (needsPhone) {
+            if (!phoneMissing && needsPhone) {
               await UserLocalData.clearNeedsPhoneProfile();
               pt('[SPLASH-AUDIT] phone present — cleared stale needsPhoneProfile');
+            } else if (phoneMissing && needsPhone) {
+              await UserLocalData.clearNeedsPhoneProfile();
+              pt('[SPLASH-AUDIT] phone missing but optional — continuing');
             }
 
             if (needsBasic) {

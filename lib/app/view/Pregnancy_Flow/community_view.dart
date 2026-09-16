@@ -421,6 +421,7 @@ import 'package:babyland/app/common_profile_header/get_user_controller.dart';
 import 'package:babyland/app/controller/pregnancy_flow/pregnancy_controller.dart';
 import 'package:babyland/app/data/response/status.dart';
 import 'package:babyland/app/services/user_preference/user_preference.dart';
+import 'package:babyland/core/moderation/blocked_users_store.dart';
 import 'package:flutter/material.dart';
 import 'package:babyland/app/widgets/app_popup.dart';
 import 'package:babyland/app/widgets/custom_appbar.dart';
@@ -456,11 +457,21 @@ class _CommunityViewState extends State<CommunityView> {
   void initState() {
     super.initState();
     _savedPostIds = UserPreference.getSavedCommunityPostIds().toSet();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await BlockedUsersStore.loadLocal();
+      await BlockedUsersStore.syncFromServer();
+      if (!mounted) return;
       final provider = context.read<PregnancyController>();
       provider.getCommunitiesData();
+      setState(() {});
     });
     _searchController.addListener(_onSearchChanged);
+  }
+
+  List<dynamic> _withoutBlocked(List<dynamic> posts) {
+    return posts
+        .where((post) => !BlockedUsersStore.isBlocked(post?.userId?.sId?.toString()))
+        .toList();
   }
 
   @override
@@ -575,7 +586,7 @@ class _CommunityViewState extends State<CommunityView> {
     }
 
     final data = provider.communitiesApiData?.data;
-    _allPosts = data?.data?.posts ?? [];
+    _allPosts = _withoutBlocked(data?.data?.posts ?? []);
 
     if (_allPosts.isEmpty) {
       return Scaffold(
@@ -587,7 +598,8 @@ class _CommunityViewState extends State<CommunityView> {
       );
     }
 
-    final displayPosts = _isSearching ? _filteredPosts : _allPosts;
+    final displayPosts =
+        _isSearching ? _withoutBlocked(_filteredPosts) : _allPosts;
 
     return Scaffold(
       appBar: CustomAppBar(
@@ -713,6 +725,7 @@ class _CommunityViewState extends State<CommunityView> {
                                     onSaveTap: () {
                                       _toggleSave(post?.sId);
                                     },
+                                    onUserBlocked: () => setState(() {}),
                                   );
                                 },
                               ),
