@@ -4,7 +4,7 @@
 # One-time Codemagic setup (web UI):
 # 1. Sign up at https://codemagic.io and connect this Git repository.
 # 2. Team settings -> Integrations -> Developer Portal -> add App Store Connect API key (.p8).
-#    The "API key name" you type there MUST match integrations.app_store_connect below (Babyland).
+#    The "API key name" configured there is "babyland".
 # 3. Select workflow "babyland-ios-testflight" and start a build.
 
 workflows:
@@ -12,8 +12,10 @@ workflows:
     name: Babyland iOS TestFlight
     max_build_duration: 120
     instance_type: mac_mini_m2
+
     integrations:
-    app_store_connect: "babyland"
+      app_store_connect: "babyland"
+
     environment:
       ios_signing:
         distribution_type: app_store
@@ -24,6 +26,7 @@ workflows:
       vars:
         # Xcode 26 altool cannot map bundle ID → Apple ID. Pass ASC Apple ID explicitly.
         APP_STORE_CONNECT_ALTOOL_ADDITIONAL_ARGUMENTS: "--use-old-altool"
+
     triggering:
       events:
         - push
@@ -33,6 +36,7 @@ workflows:
         - pattern: master
           include: true
       cancel_previous_builds: true
+
     scripts:
       - name: Verify Firebase iOS config
         script: |
@@ -40,26 +44,33 @@ workflows:
             echo "Missing ios/Runner/GoogleService-Info.plist"
             exit 1
           )
+
       - name: Set up code signing
         script: |
           # Codemagic injects App Store cert/profile from ios_signing + Developer Portal.
           # Do NOT run fetch-signing-files --create without CERTIFICATE_PRIVATE_KEY.
           xcode-project use-profiles \
             --custom-export-options '{"method":"app-store","destination":"export","signingStyle":"manual"}'
+
           echo "Generated export options:"
           cat "$HOME/export_options.plist"
+
       - name: Flutter packages
         script: flutter pub get
+
       - name: CocoaPods
         script: |
           cd ios
           pod install
+
           echo "=== Agora / linker hardening check ==="
+
           # Must NOT use static linkage — that strips Iris FFI and crashes on initialize().
           if grep -q "linkage => :static" Podfile; then
             echo "ERROR: Podfile must not use use_frameworks! :linkage => :static"
             exit 1
           fi
+
           grep -n "use_frameworks!" Podfile
           grep -n "dynamic_framework\|iris_method_channel\|agora_rtc_engine" Podfile
           grep -n "STRIP_STYLE\|OTHER_LDFLAGS\|force_load\|AgoraRtcKit" Podfile Flutter/Release.xcconfig
@@ -69,11 +80,14 @@ workflows:
           grep -q "STRIP_STYLE = non-global" Runner.xcodeproj/project.pbxproj
           grep -q "DEPLOYMENT_POSTPROCESSING = YES" Runner.xcodeproj/project.pbxproj
           grep -q "DEAD_CODE_STRIPPING = NO" Runner.xcodeproj/project.pbxproj
+
           echo "Linker hardening files OK"
           cd ..
+
       - name: Build IPA
         script: |
           set -euo pipefail
+
           flutter build ipa \
             --release \
             --no-tree-shake-icons \
@@ -83,25 +97,35 @@ workflows:
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
             --dart-define=APP_BUILD_TAG=appstore-v3 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
+
           echo "IPA outputs:"
           find build/ios -name "*.ipa" -type f
+
           IPA=$(find build/ios -name "*.ipa" -type f | head -1)
+
           if [[ -z "$IPA" ]]; then
             echo "ERROR: No .ipa after flutter build ipa"
             exit 1
           fi
 
           echo "=== Iris_InitDartApiDL IPA gate ==="
+
           GATE_DIR=$(mktemp -d)
+
           unzip -q "$IPA" -d "$GATE_DIR"
+
           APP_DIR=$(find "$GATE_DIR" -name "*.app" -type d | head -1)
+
           if [[ -z "$APP_DIR" ]]; then
             echo "ERROR: No .app inside IPA"
             rm -rf "$GATE_DIR"
             exit 1
           fi
+
           NM_BIN=$(command -v llvm-nm || command -v nm)
+
           FOUND=0
+
           if [[ -d "$APP_DIR/Frameworks" ]]; then
             while IFS= read -r -d '' BIN; do
               if file "$BIN" 2>/dev/null | grep -q 'Mach-O'; then
@@ -112,57 +136,80 @@ workflows:
               fi
             done < <(find "$APP_DIR/Frameworks" -type f -print0)
           fi
+
           EXEC="$APP_DIR/Runner"
+
           if [[ -f "$EXEC" ]] && "$NM_BIN" -gU "$EXEC" 2>/dev/null | grep -E 'Iris_InitDartApiDL|\bInitDartApiDL\b' >/dev/null; then
             echo "FOUND Iris symbol in Runner executable"
             FOUND=1
           fi
+
           rm -rf "$GATE_DIR"
+
           if [[ "$FOUND" -ne 1 ]]; then
             echo "ERROR: Iris_InitDartApiDL not found in IPA — TestFlight will crash on video init"
             exit 1
           fi
+
           echo "Iris IPA gate PASSED"
+
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/**/*.ipa
       - build/ios/archive/**/*.dSYM
       - build/ios/archive/**/*.dSYM.zip
       - /tmp/xcodebuild_logs/*.log
+
     publishing:
       scripts:
         - name: Upload dSYMs to Firebase Crashlytics
           script: |
             set -e
+
             echo "=== Upload dSYMs to Firebase Crashlytics ==="
+
             UPLOAD_BIN=""
+
             if [[ -x "$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols" ]]; then
               UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols"
             else
               UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f 2>/dev/null | head -1 || true)
             fi
+
             if [[ -z "$UPLOAD_BIN" ]]; then
               echo "WARNING: FirebaseCrashlytics upload-symbols not found — skipping dSYM upload"
               echo "dSYM artifacts are still published for manual upload if present."
               exit 0
             fi
+
             echo "Using: $UPLOAD_BIN"
+
             GSP="$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
-            test -f "$GSP" || (echo "ERROR: missing GoogleService-Info.plist" && exit 1)
+
+            test -f "$GSP" || (
+              echo "ERROR: missing GoogleService-Info.plist"
+              exit 1
+            )
 
             DSYM_ROOT="$CM_BUILD_DIR/build/ios/archive/Runner.xcarchive/dSYMs"
+
             if [[ ! -d "$DSYM_ROOT" ]]; then
               DSYM_ROOT=$(find "$CM_BUILD_DIR/build/ios" -type d -name "dSYMs" 2>/dev/null | head -1 || true)
             fi
+
             if [[ -z "$DSYM_ROOT" || ! -d "$DSYM_ROOT" ]]; then
               echo "WARNING: No dSYMs directory found — skipping Crashlytics upload"
               find "$CM_BUILD_DIR/build/ios" -name "*.dSYM" -type d 2>/dev/null | head -50 || true
               exit 0
             fi
+
             echo "dSYM root: $DSYM_ROOT"
             ls -la "$DSYM_ROOT"
+
             "$UPLOAD_BIN" -gsp "$GSP" -p ios "$DSYM_ROOT"
+
             echo "Crashlytics dSYM upload finished"
+
       app_store_connect:
         auth: integration
         # Upload IPA only. Do not assign Internal Testing groups via API —
@@ -170,12 +217,15 @@ workflows:
         # Add the build manually in TestFlight → babyland tester → Builds.
         submit_to_testflight: false
 
+
   ios-testflight-manual:
     name: Babyland iOS TestFlight (manual only)
     max_build_duration: 120
     instance_type: mac_mini_m2
+
     integrations:
-      app_store_connect: "Babyland"
+      app_store_connect: "babyland"
+
     environment:
       ios_signing:
         distribution_type: app_store
@@ -185,18 +235,27 @@ workflows:
       cocoapods: default
       vars:
         APP_STORE_CONNECT_ALTOOL_ADDITIONAL_ARGUMENTS: "--use-old-altool"
+
     scripts:
       - name: Verify Firebase iOS config
-        script: test -f ios/Runner/GoogleService-Info.plist
+        script: |
+          test -f ios/Runner/GoogleService-Info.plist
+
       - name: Set up code signing
         script: |
           xcode-project use-profiles \
             --custom-export-options '{"method":"app-store","destination":"export","signingStyle":"manual"}'
+
           cat "$HOME/export_options.plist"
+
       - name: Flutter packages
         script: flutter pub get
+
       - name: CocoaPods
-        script: cd ios && pod install
+        script: |
+          cd ios
+          pod install
+
       - name: Build IPA
         script: |
           flutter build ipa \
@@ -208,47 +267,78 @@ workflows:
             --dart-define=FIREBASE_FORCE_RECAPTCHA=false \
             --dart-define=APP_BUILD_TAG=appstore-v3 \
             --dart-define=FIREBASE_APP_CHECK_ENABLED=false
+
           find build/ios -name "*.ipa" -type f
+
           test -n "$(find build/ios -name '*.ipa' -type f | head -1)" \
-            || (echo "ERROR: No .ipa after flutter build ipa" && exit 1)
+            || (
+              echo "ERROR: No .ipa after flutter build ipa"
+              exit 1
+            )
+
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/archive/**/*.dSYM
+
     publishing:
       scripts:
         - name: Upload dSYMs to Firebase Crashlytics
           script: |
             set -e
+
             UPLOAD_BIN="$CM_BUILD_DIR/ios/Pods/FirebaseCrashlytics/upload-symbols"
-            test -x "$UPLOAD_BIN" || UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f | head -1)
-            test -n "$UPLOAD_BIN" || (echo "ERROR: upload-symbols missing" && exit 1)
+
+            test -x "$UPLOAD_BIN" || \
+              UPLOAD_BIN=$(find "$CM_BUILD_DIR/ios/Pods" -name "upload-symbols" -type f | head -1)
+
+            test -n "$UPLOAD_BIN" || (
+              echo "ERROR: upload-symbols missing"
+              exit 1
+            )
+
             DSYM_ROOT=$(find "$CM_BUILD_DIR/build/ios" -type d -name "dSYMs" | head -1)
-            test -n "$DSYM_ROOT" || (echo "ERROR: dSYMs missing" && exit 1)
-            "$UPLOAD_BIN" -gsp "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist" -p ios "$DSYM_ROOT"
+
+            test -n "$DSYM_ROOT" || (
+              echo "ERROR: dSYMs missing"
+              exit 1
+            )
+
+            "$UPLOAD_BIN" \
+              -gsp "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist" \
+              -p ios \
+              "$DSYM_ROOT"
+
       app_store_connect:
         auth: integration
         submit_to_testflight: false
+
 
   qa-full:
     name: Babyland Full QA
     max_build_duration: 120
     instance_type: mac_mini_m2
+
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+
     scripts:
       - name: Flutter packages
         script: flutter pub get
+
       - name: Flutter analyze
         # Infos are legacy/style noise; warnings and errors still fail QA.
         script: flutter analyze --no-fatal-infos
+
       - name: Flutter tests (unit/widget)
         script: flutter test
+
       - name: Integration test suite
         script: |
           # Device/token gated: tests skip cleanly when E2E_AUTH_TOKEN is unset.
           flutter test integration_test
+
       - name: Doctor API contract tests (optional env-gated)
         script: |
           if [[ -n "$TEST_PATIENT_EMAIL" && -n "$TEST_PATIENT_PASSWORD" ]]; then
