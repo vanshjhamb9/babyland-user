@@ -94,9 +94,10 @@ class SubscriptionProvider extends ChangeNotifier {
     if (!started) {
       _appleIapBusy = false;
       notifyListeners();
+      // lastError is already mapped (product missing vs StoreKit platform vs start).
       AppPopUp.showToast(
         message: appleIap.lastError ??
-            'Unable to open App Store purchase. Please try again.',
+            'Could not start App Store purchase. Please try again.',
       );
       return false;
     }

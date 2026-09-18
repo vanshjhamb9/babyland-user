@@ -62,6 +62,8 @@
 	<string>Babyland needs camera access for doctor video consultations and profile photos.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Babyland needs microphone access for doctor video consultations and voice features.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Babyland may use your location while you use the app to personalize regional health guidance and support location-aware services in consultations and related features.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Babyland uses speech recognition for voice input in the AI assistant.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
